@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gestão Financeira</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">TI · Netdata / Único<strong>Gestão Financeira</strong></div>
+    <div id="sidebar-menu"></div>
+    <div style="padding: 15px; display:flex; flex-direction:column; gap:8px;">
+      <button id="btn-add-account" class="ghost" style="width: 100%; border: 1px dashed var(--paper-line); padding: 8px; font-size: 13px;">+ Nova Conta</button>
+      <button id="btn-add-unit" class="ghost" style="width: 100%; border: 1px dashed var(--paper-line); padding: 8px; font-size: 13px;">+ Nova Unidade</button>
+    </div>
+  </nav>
+
+  <main>
+    <header class="top">
+      <div>
+        <h1 id="view-title">Selecione uma opção</h1>
+        <div class="sub" id="view-sub"></div>
+      </div>
+      <div class="sub" id="storage-note">salvo neste navegador</div>
+    </header>
+
+    <!-- VIEW: LEDGER (Para Bancos, Unidades, Movimentações) -->
+    <div id="view-ledger" style="display:none;">
+      <section class="panel">
+        <h2>Importar da planilha</h2>
+        <p class="hint" style="margin:0 0 12px">
+          Importa os lançamentos já existentes na aba desta conta a partir de um arquivo <strong>.xlsx</strong> ou <strong>.xlsm</strong>.
+        </p>
+        <div class="form-actions" style="margin-top:0">
+          <label class="ghost" for="file-import-ledger" style="display:inline-flex;align-items:center;cursor:pointer;padding:10px 16px;border:1px solid var(--paper-line);border-radius:var(--radius);font-size:13.5px;margin:0">
+            Escolher arquivo…
+          </label>
+          <input type="file" id="file-import-ledger" accept=".xlsx,.xlsm,.xls" style="display:none">
+          <span class="hint" id="import-filename-ledger">nenhum arquivo escolhido</span>
+          
+          <button type="button" class="danger" id="clear-acct-top" style="margin-left:auto; font-size:12px; padding:6px 12px;">Limpar Lançamentos</button>
+          <button type="button" class="danger" id="delete-acct" style="margin-left:10px; font-size:12px; padding:6px 12px; border-color:red; color:red;">Excluir Conta</button>
+        </div>
+        <div id="import-status-ledger" class="hint" style="margin-top:10px"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Novo lançamento</h2>
+        <form id="entry-form">
+          <div class="grid">
+            <div>
+              <label for="f-data">Data</label>
+              <input type="date" id="f-data" required>
+            </div>
+            <div id="f-datamov-wrap" style="display:none">
+              <label for="f-datamov">Data Movimento</label>
+              <input type="date" id="f-datamov">
+            </div>
+            <div class="span2">
+              <label for="f-desc">Descrição/Histórico</label>
+              <input type="text" id="f-desc" placeholder="ex.: APLICACAO FINANCEIRA" required>
+            </div>
+            <div>
+              <label for="f-doc">Doc.</label>
+              <input type="text" id="f-doc" placeholder="opcional">
+            </div>
+
+            <div class="span2">
+              <label for="f-valor">Valor</label>
+              <div class="valor-row">
+                <div>
+                  <input type="text" id="f-valor" inputmode="decimal" placeholder="0,00" required>
+                </div>
+                <div class="toggle" role="group" aria-label="Crédito ou débito">
+                  <button type="button" id="btn-c" class="on-c active">C</button>
+                  <button type="button" id="btn-d" class="on-d">D</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label for="f-categoria">Categoria</label>
+              <select id="f-categoria" required></select>
+            </div>
+            <div>
+              <label for="f-unidade">Unidade</label>
+              <select id="f-unidade" required></select>
+            </div>
+
+            <div class="span2">
+              <label for="f-nome">Nome do Fornecedor/Cliente</label>
+              <input type="text" id="f-nome" list="dl-nomes" placeholder="não usar nome de fantasia — opcional" autocomplete="off">
+              <datalist id="dl-nomes"></datalist>
+            </div>
+            <div class="span2">
+              <label for="f-cpf">CPF/CNPJ</label>
+              <input type="text" id="f-cpf" placeholder="opcional">
+            </div>
+          </div>
+          <div class="error-msg" id="form-error">Preencha data, descrição, valor, categoria e unidade.</div>
+          <div class="form-actions">
+            <button type="submit" class="primary" id="submit-btn">Adicionar lançamento</button>
+            <button type="button" class="ghost" id="cancel-edit" style="display:none">Cancelar edição</button>
+            <span class="hint">Valor formata sozinho no padrão X,XXC/D ao sair do campo.</span>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Lançamentos nesta conta</h2>
+        <div class="ledger-wrap">
+          <table class="ledger" id="ledger-table">
+            <thead><tr id="ledger-head"></tr></thead>
+            <tbody id="ledger-body"></tbody>
+          </table>
+          <div class="empty" id="ledger-empty" style="display:none">Nenhum lançamento adicionado ainda para esta conta.</div>
+        </div>
+        <div class="totals" id="totals"></div>
+        <footer class="actions">
+          <button class="ghost" id="export-csv">Exportar CSV</button>
+          <button class="ghost" id="export-clip">Copiar (colar no Excel)</button>
+          <button class="ghost" id="clear-acct">Limpar lançamentos desta conta</button>
+        </footer>
+      </section>
+    </div>
+
+    <!-- VIEW: CADASTRO -->
+    <div id="view-cadastro" style="display:none;">
+      <section class="panel">
+        <h2>Importar Cadastro da Planilha</h2>
+        <div class="form-actions" style="margin-top:0">
+          <label class="ghost" for="file-import-cadastro" style="display:inline-flex;align-items:center;cursor:pointer;padding:10px 16px;border:1px solid var(--paper-line);border-radius:var(--radius);font-size:13.5px;margin:0">
+            Escolher arquivo…
+          </label>
+          <input type="file" id="file-import-cadastro" accept=".xlsx,.xlsm,.xls" style="display:none">
+          <span class="hint" id="import-filename-cadastro">nenhum arquivo escolhido</span>
+        </div>
+        <div id="import-status-cadastro" class="hint" style="margin-top:10px"></div>
+      </section>
+      <section class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2>Itens Cadastrados</h2>
+          <button type="button" class="danger" id="clear-cadastro" style="font-size: 12px; padding: 6px 12px;">Limpar Cadastros desta Aba</button>
+        </div>
+        <div class="ledger-wrap" style="margin-top:12px;">
+          <table class="ledger" id="cadastro-table">
+            <thead><tr id="cadastro-head"><th>Nome/Descrição</th><th>Ações</th></tr></thead>
+            <tbody id="cadastro-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: MASTER/DASHBOARD -->
+    <div id="view-master" style="display:none;">
+      <section class="panel">
+        <h2>Visão Geral do Mês (Consolidado)</h2>
+        <div class="grid" id="master-cards" style="margin-bottom: 20px;">
+          <!-- Cards injetados via JS -->
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Saldo por Banco/Unidade</h2>
+        <div class="ledger-wrap">
+          <table class="ledger">
+            <thead><tr><th>Conta / Filial</th><th>Créditos</th><th>Débitos</th><th>Saldo Final</th></tr></thead>
+            <tbody id="master-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW: CONCILIACAO -->
+    <div id="view-conciliacao" style="display:none;">
+      <section class="panel">
+        <h2>Conciliação Bancária</h2>
+        <p class="hint">Escolha a conta e importe o arquivo de extrato (.xlsx) para cruzar com os lançamentos do sistema.</p>
+        <div class="grid" style="margin-bottom: 16px;">
+          <div class="span2">
+            <label for="conc-acct">Conta para Conciliar</label>
+            <select id="conc-acct"></select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <label class="primary" for="file-import-conc" style="display:inline-flex;align-items:center;cursor:pointer;padding:10px 16px;border-radius:var(--radius);font-size:13.5px;margin:0">
+            Importar Extrato do Banco (.xlsx, .csv, .txt)
+          </label>
+          <input type="file" id="file-import-conc" accept=".xlsx,.xlsm,.xls,.csv,.txt,.ofx" style="display:none">
+          <span class="hint" id="import-filename-conc">nenhum arquivo escolhido</span>
+          
+          <input type="text" id="conc-filter" placeholder="Filtrar Extrato por CNPJ ou Palavra..." style="margin-left:auto; width:280px; padding:8px; border:1px solid var(--paper-line); border-radius:var(--radius);">
+        </div>
+        <div id="import-status-conc" class="hint" style="margin-top:10px"></div>
+      </section>
+
+      <section class="panel" id="conc-results-panel" style="display:none;">
+        <h2>Resultado da Conciliação</h2>
+        <div class="totals" id="conc-totals" style="margin-bottom: 12px;"></div>
+        <div class="ledger-wrap">
+          <table class="ledger">
+            <thead>
+              <tr>
+                <th colspan="2" style="text-align:center; border-right:1px solid var(--paper-line); background: rgba(0,0,0,0.02);">EXTRATO DO BANCO</th>
+                <th colspan="3" style="text-align:center; background: rgba(0,0,0,0.02);">SISTEMA (LANÇAMENTOS)</th>
+              </tr>
+              <tr>
+                <th>Data</th><th style="border-right:1px solid var(--paper-line);">Valor no Banco</th>
+                <th>Status</th><th>Valor no Sistema</th><th>Descrição no Sistema</th>
+              </tr>
+            </thead>
+            <tbody id="conc-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Modal Adicionar Conta -->
+<div id="modal-add-account" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:var(--panel); padding:24px; border-radius:var(--radius); width:420px; max-width:90%; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+    <h3 style="margin-top:0;">Nova Conta Bancária</h3>
+    
+    <label style="display:block; margin-top:15px; font-weight:600; font-size:12px;">Selecione o Banco</label>
+    <select id="modal-bank-select" style="width:100%; margin-top:5px;">
+      <option value="Sicoob">Sicoob</option>
+      <option value="Sicredi">Sicredi</option>
+      <option value="Caixa Econômica">Caixa Econômica Federal</option>
+      <option value="Banco do Brasil">Banco do Brasil</option>
+      <option value="Itaú">Itaú</option>
+      <option value="Bradesco">Bradesco</option>
+      <option value="Santander">Santander</option>
+      <option value="Banrisul">Banrisul</option>
+      <option value="Nubank">Nubank</option>
+      <option value="Inter">Inter</option>
+      <option value="Outro">Outro...</option>
+    </select>
+
+    <div style="display:flex; gap:15px; margin-top:15px;">
+      <div style="flex:1;">
+        <label style="display:block; font-weight:600; font-size:12px;">Agência</label>
+        <input type="text" id="modal-bank-ag" placeholder="Ex: 1234" style="width:100%; margin-top:5px;">
+      </div>
+      <div style="flex:1;">
+        <label style="display:block; font-weight:600; font-size:12px;">Conta</label>
+        <input type="text" id="modal-bank-cc" placeholder="Ex: 5678-9" style="width:100%; margin-top:5px;">
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button type="button" class="ghost" id="modal-bank-cancel" style="padding:8px 16px;">Cancelar</button>
+      <button type="button" class="primary" id="modal-bank-save" style="padding:8px 16px; border-radius:var(--radius);">Adicionar Conta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Adicionar Unidade -->
+<div id="modal-add-unit" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:var(--panel); padding:24px; border-radius:var(--radius); width:420px; max-width:90%; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+    <h3 style="margin-top:0;">Nova Unidade</h3>
+    
+    <label style="display:block; margin-top:15px; font-weight:600; font-size:12px;">Nome da Unidade</label>
+    <input type="text" id="modal-unit-name" placeholder="Ex: Filial Centro" style="width:100%; margin-top:5px;">
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button type="button" class="ghost" id="modal-unit-cancel" style="padding:8px 16px;">Cancelar</button>
+      <button type="button" class="primary" id="modal-unit-save" style="padding:8px 16px; border-radius:var(--radius);">Adicionar Unidade</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
