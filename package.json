@@ -1,0 +1,9 @@
+{
+  "name": "gestao-financeira",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Lançamentos e conciliação bancária mensal",
+  "scripts": {
+    "test": "node --test"
+  }
+}

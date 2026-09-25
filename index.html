@@ -179,7 +179,7 @@
     <div id="view-conciliacao" style="display:none;">
       <section class="panel">
         <h2>Conciliação Bancária</h2>
-        <p class="hint">Escolha a conta e importe o arquivo de extrato (.xlsx) para cruzar com os lançamentos do sistema.</p>
+        <p class="hint">Escolha a conta e importe o extrato do banco (.xlsx, .csv ou o .txt do Sicoob). O sistema cruza cada movimentação com os lançamentos da conta pelo valor, sinal (C/D) e data.</p>
         <div class="grid" style="margin-bottom: 16px;">
           <div class="span2">
             <label for="conc-acct">Conta para Conciliar</label>
@@ -193,7 +193,9 @@
           <input type="file" id="file-import-conc" accept=".xlsx,.xlsm,.xls,.csv,.txt,.ofx" style="display:none">
           <span class="hint" id="import-filename-conc">nenhum arquivo escolhido</span>
           
-          <input type="text" id="conc-filter" placeholder="Filtrar Extrato por CNPJ ou Palavra..." style="margin-left:auto; width:280px; padding:8px; border:1px solid var(--paper-line); border-radius:var(--radius);">
+          <label for="conc-tolerancia" class="hint" style="margin:0 0 0 auto;">Tolerância de data (dias)</label>
+          <input type="number" id="conc-tolerancia" value="3" min="0" max="15" style="width:70px; padding:8px; border:1px solid var(--paper-line); border-radius:var(--radius);">
+          <input type="text" id="conc-filter" placeholder="Filtrar por CNPJ, nome ou palavra..." style="width:280px; padding:8px; border:1px solid var(--paper-line); border-radius:var(--radius);">
         </div>
         <div id="import-status-conc" class="hint" style="margin-top:10px"></div>
       </section>
@@ -205,12 +207,13 @@
           <table class="ledger">
             <thead>
               <tr>
-                <th colspan="2" style="text-align:center; border-right:1px solid var(--paper-line); background: rgba(0,0,0,0.02);">EXTRATO DO BANCO</th>
+                <th colspan="3" style="text-align:center; border-right:1px solid var(--paper-line); background: rgba(0,0,0,0.02);">EXTRATO DO BANCO</th>
+                <th rowspan="2" style="vertical-align:bottom;">Status</th>
                 <th colspan="3" style="text-align:center; background: rgba(0,0,0,0.02);">SISTEMA (LANÇAMENTOS)</th>
               </tr>
               <tr>
-                <th>Data</th><th style="border-right:1px solid var(--paper-line);">Valor no Banco</th>
-                <th>Status</th><th>Valor no Sistema</th><th>Descrição no Sistema</th>
+                <th>Data</th><th>Histórico</th><th style="border-right:1px solid var(--paper-line);">Valor</th>
+                <th>Data</th><th>Valor</th><th>Descrição</th>
               </tr>
             </thead>
             <tbody id="conc-body"></tbody>
@@ -276,6 +279,7 @@
   </div>
 </div>
 
+<script src="js/core.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

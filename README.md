@@ -1,33 +1,49 @@
-# Lançamentos — Agosto
+# Gestão Financeira — lançamentos e conciliação bancária
 
-Ferramenta web para lançar, editar e importar os lançamentos bancários mensais
-(Sicredi, Banrisul, CAIXA, SICOOB, SANTANDER), no mesmo padrão da planilha
-`.xlsm` usada no projeto Celesp / TI - Netdata.
+Substitui a planilha mensal `.xlsm` de lançamentos usada no atendimento ao
+cliente (uma aba por conta bancária, por filial e por tipo de movimento).
 
-- Lançamento manual por conta, com os mesmos dropdowns de Categoria e Unidade
-  da planilha.
-- Importação direta de um arquivo `.xlsx`/`.xlsm` (lida no navegador, nada é
-  enviado para nenhum servidor).
-- Exportação em CSV ou cópia formatada para colar direto no Excel.
-- Os lançamentos ficam salvos no `localStorage` do navegador — por conta, por
-  dispositivo. Não há sincronização entre dispositivos nesta versão.
+## O problema que resolve
 
-## Publicar no GitHub Pages
+Todo mês, cada movimentação de cada conta bancária do cliente precisa ser
+**classificada** (categoria, unidade/filial, fornecedor ou cliente, CPF/CNPJ)
+para entrar na contabilidade. Depois, é preciso **conferir** se o que foi
+lançado bate com o extrato do banco: nada faltando, nada sobrando.
 
-1. Crie um repositório novo no GitHub (pode ser privado ou público — o
-   GitHub Pages funciona nos dois casos; em repositório privado, o Pages fica
-   restrito a quem tem acesso ao repo se a conta for Pro/Team/Enterprise, ou
-   público em conta free).
-2. Suba este arquivo `index.html` para a raiz do repositório (branch `main`).
-3. No repositório: **Settings → Pages → Build and deployment → Source**:
-   escolha **Deploy from a branch**, branch `main`, pasta `/ (root)`. Salve.
-4. Em alguns minutos o link fica disponível em
-   `https://SEU-USUARIO.github.io/NOME-DO-REPO/`.
+Fazer essa conferência na planilha é manual e lento — um único extrato do
+Sicoob chega a 1.600 movimentações no mês. O sistema:
 
-## Aviso sobre dados
+1. Guarda os lançamentos classificados por conta (digitados ou importados da planilha).
+2. Lê o extrato do banco (`.xlsx`, `.csv` ou o `.txt` do Sicoob, incluindo nome
+   e CPF/CNPJ de quem pagou ou recebeu no Pix).
+3. Cruza os dois e aponta, linha a linha:
+   - **OK** — mesmo valor, sinal (C/D) e data;
+   - **Data diferente** — mesmo valor e sinal, data próxima (tolerância ajustável);
+   - **Só no banco** — o banco mostra, ninguém lançou;
+   - **Só no sistema** — foi lançado, o banco não mostra.
+4. Mostra a diferença de saldo e se a conciliação do mês está fechada.
 
-A página em si não contém nenhum lançamento — eles só existem no navegador
-de quem preenche o formulário ou importa um arquivo. Publicar o repositório
-no GitHub Pages deixa a *ferramenta* acessível publicamente pelo link, mas
-os dados lançados continuam privados a cada navegador/dispositivo, a menos
-que a pessoa exporte e compartilhe o CSV manualmente.
+## Como usar
+
+Abra o `index.html` no navegador (ou pelo GitHub Pages). Os dados ficam só no
+`localStorage` daquele navegador — nada é enviado a servidor. Para levar os
+lançamentos para outro lugar, use **Exportar CSV** ou **Copiar (colar no Excel)**.
+
+## Estrutura
+
+| Arquivo | Papel |
+|---|---|
+| `js/core.js` | Regras de negócio puras: valores, datas, leitura de extratos, conciliação, exportação. Sem DOM. |
+| `js/app.js` | Tela: menu, formulários, tabelas, localStorage. Usa o `core.js`. |
+| `tests/` | Testes automatizados do `core.js` e um extrato Sicoob fictício. |
+
+## Testes
+
+Requer Node.js 18 ou mais novo. Não há dependências para instalar.
+
+```
+npm test
+```
+
+**Nunca** coloque extratos, planilhas ou cadastros reais em `tests/fixtures/`
+nem em qualquer pasta do repositório. Use dados fictícios.

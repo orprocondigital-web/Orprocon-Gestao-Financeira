@@ -61,18 +61,6 @@
     });
   });
 
-  var HEADER_MAP = [
-    { field: "dataMov", tests: ["data movimento"] },
-    { field: "data", tests: ["data"] },
-    { field: "desc", tests: ["descrição", "descricao", "hist", "lança", "favorecido"] },
-    { field: "doc", tests: ["doc.", "doc", "nro", "número"] },
-    { field: "valor", tests: ["valor", "saída", "entrada", "débito", "crédito"] },
-    { field: "categoria", tests: ["categoria"] },
-    { field: "unidade", tests: ["unidade"] },
-    { field: "codigo", tests: ["cod", "cód"] },
-    { field: "nome", tests: ["nome", "fornecedor/cliente", "razão", "razao", "cliente", "fornecedor"] },
-    { field: "cpf", tests: ["cpf/cnpj", "cpf", "cnpj"] }
-  ];
 
   var currentTab = null;
   var editingId = null;
@@ -94,33 +82,10 @@
     } catch(e){ return false; }
   }
 
-  // ---------- helpers ----------
-  function brDate(iso){
-    if(!iso) return "";
-    var p = iso.split("-");
-    return p.length===3 ? (p[2] + "/" + p[1] + "/" + p[0]) : iso;
-  }
-
-  function parseValorInput(raw){
-    if(!raw) return NaN;
-    var s = String(raw).trim();
-    s = s.replace(/[^\d,.\-]/g, "");
-    if(s.indexOf(",") > -1 && s.indexOf(".") > -1){
-      s = s.replace(/\./g, "").replace(",", ".");
-    } else if(s.indexOf(",") > -1){
-      s = s.replace(",", ".");
-    }
-    return parseFloat(s);
-  }
-
-  function formatBRNumber(n){
-    var neg = n < 0;
-    n = Math.abs(n);
-    var fixed = n.toFixed(2);
-    var parts = fixed.split(".");
-    var intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return (neg ? "-" : "") + intPart + "," + parts[1];
-  }
+  // ---------- helpers (regras em js/core.js) ----------
+  var brDate = Core.brDate;
+  var parseValorInput = Core.parseValor;
+  var formatBRNumber = Core.formatBR;
 
   function toast(msg){
     var t = document.getElementById("toast");
@@ -499,67 +464,6 @@
   }
 
   // ---------- Imports ----------
-  function excelDateToIso(v){
-    if(v instanceof Date && !isNaN(v)){
-      var y = v.getFullYear(), m = String(v.getMonth()+1).padStart(2,"0"), d = String(v.getDate()).padStart(2,"0");
-      return y + "-" + m + "-" + d;
-    }
-    if(typeof v === "number"){
-      var epoch = new Date(Date.UTC(1899, 11, 30));
-      var dt = new Date(epoch.getTime() + v * 86400000);
-      var y2 = dt.getUTCFullYear(), m2 = String(dt.getUTCMonth()+1).padStart(2,"0"), d2 = String(dt.getUTCDate()).padStart(2,"0");
-      return y2 + "-" + m2 + "-" + d2;
-    }
-    if(typeof v === "string"){
-      var s = v.trim().replace(/["']/g, '');
-      var p = s.split(/[\/\-]/);
-      if(p.length === 3) {
-        // Assume DD/MM/YYYY or DD/MM/YY
-        var yy = p[2].length === 2 ? "20" + p[2] : p[2];
-        return yy + "-" + p[1].padStart(2,"0") + "-" + p[0].padStart(2,"0");
-      }
-    }
-    return "";
-  }
-
-  function parseValorCell(v){
-    if(v === null || v === undefined || v === "") return null;
-    var s = String(v).trim().replace(/["']/g, '');
-    var sign = "C";
-    var lastChar = s.slice(-1).toUpperCase();
-    if(lastChar === "C" || lastChar === "D"){
-      sign = lastChar;
-      s = s.slice(0, -1);
-    }
-    var n = parseValorInput(s);
-    if(isNaN(n)) return null;
-    if(n < 0) sign = "D";
-    return { valorNum: Math.abs(n), sign: sign };
-  }
-
-  function detectHeaderRow(rows){
-    for(var i=0;i<Math.min(rows.length, 30);i++){
-      var line = (rows[i]||[]).map(function(c){ return String(c||"").toLowerCase(); }).join("|");
-      if(line.indexOf("data")>-1 && (line.indexOf("valor")>-1 || line.indexOf("descri")>-1 || line.indexOf("hist")>-1)) return i;
-    }
-    return 0;
-  }
-
-  function buildColumnMap(headerRow){
-    var map = {};
-    headerRow.forEach(function(h, idx){
-      var text = String(h||"").toLowerCase().trim();
-      if(!text) return;
-      HEADER_MAP.forEach(function(spec){
-        if(map[spec.field] !== undefined) return;
-        for(var t=0;t<spec.tests.length;t++){
-          if(text.indexOf(spec.tests[t]) > -1){ map[spec.field] = idx; return; }
-        }
-      });
-    });
-    return map;
-  }
-
   function importFile(file, isLedger){
     var statusEl = document.getElementById(isLedger ? "import-status-ledger" : "import-status-cadastro");
     document.getElementById(isLedger ? "import-filename-ledger" : "import-filename-cadastro").textContent = file.name;
@@ -573,38 +477,33 @@
         var item = itemIndex[currentTab];
         var sheetName = item.sheetName;
 
-        // Try exact match, otherwise try lowercase contains
-        var foundSheet = null;
-        wb.SheetNames.forEach(function(sn){
-          if(sn === sheetName || sn.toLowerCase().trim() === sheetName.toLowerCase().trim()) foundSheet = sn;
-        });
-
+        var foundSheet = Core.findSheet(wb.SheetNames, item);
         if(!foundSheet){
-          statusEl.textContent = "Não encontrei a aba \"" + sheetName + "\" neste arquivo.";
+          statusEl.textContent = "Não encontrei a aba \"" + sheetName + "\" neste arquivo. Abas disponíveis: " + wb.SheetNames.join(", ");
           return;
         }
 
         var ws = wb.Sheets[foundSheet];
         var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
-        var headerIdx = detectHeaderRow(rows);
-        var colMap = buildColumnMap(rows[headerIdx]);
-        
+        var headerIdx = Core.detectHeaderRow(rows);
+        var colMap = Core.buildColumnMap(rows[headerIdx]);
+
         var imported = [];
         for(var r = headerIdx + 1; r < rows.length; r++){
           var row = rows[r];
           if(!row || row.every(function(c){ return c === "" || c === null || c === undefined; })) continue;
 
           if (isLedger) {
-            var isoDate = excelDateToIso(colMap.data !== undefined ? row[colMap.data] : "");
+            var isoDate = Core.toIsoDate(colMap.data !== undefined ? row[colMap.data] : "");
             var valorCell = colMap.valor !== undefined ? row[colMap.valor] : "";
-            var parsedValor = parseValorCell(valorCell);
+            var parsedValor = Core.parseValorCell(valorCell);
             var desc = colMap.desc !== undefined ? String(row[colMap.desc] || "").trim() : "";
             if(!isoDate || !parsedValor || !desc) continue;
 
             imported.push({
               id: "e" + Date.now() + Math.random().toString(36).slice(2,7) + r,
               data: isoDate,
-              dataMov: item.hasDataMov && colMap.dataMov !== undefined ? excelDateToIso(row[colMap.dataMov]) : "",
+              dataMov: item.hasDataMov && colMap.dataMov !== undefined ? Core.toIsoDate(row[colMap.dataMov]) : "",
               desc: desc,
               doc: colMap.doc !== undefined ? String(row[colMap.doc] || "").trim() : "",
               valorNum: parsedValor.valorNum,
@@ -683,146 +582,133 @@
     });
   }
 
+  var ultimaConc = null; // { acctId, extrato, formato, arquivo } — permite refiltrar sem reimportar
+
+  var STATUS_CONC = {
+    ok:             { classe: "conc-match", texto: "✓ OK" },
+    data_diferente: { classe: "conc-warn",  texto: "≈ DATA DIFERENTE" },
+    so_extrato:     { classe: "conc-diff",  texto: "✗ SÓ NO BANCO" },
+    so_sistema:     { classe: "conc-miss",  texto: "! SÓ NO SISTEMA" }
+  };
+
   function runConciliacao(file) {
     var acctId = document.getElementById("conc-acct").value;
     var statusEl = document.getElementById("import-status-conc");
     if (!acctId) {
       statusEl.textContent = "Por favor, selecione a conta antes de importar o arquivo.";
+      document.getElementById("file-import-conc").value = "";
       return;
     }
-    
     document.getElementById("import-filename-conc").textContent = file.name;
     statusEl.textContent = "Processando " + file.name + "...";
-    
-    var isText = file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".txt") || file.name.toLowerCase().endsWith(".ofx");
 
+    var ehTexto = /\.(csv|txt|ofx)$/i.test(file.name);
     var reader = new FileReader();
     reader.onload = function(ev){
       try {
-        var rows = [];
-        if (isText) {
-          var text = ev.target.result;
-          var lines = text.split(/\r?\n/);
-          rows = lines.map(function(line) {
-            if (line.indexOf(";") > -1) {
-              return line.split(";");
-            } else if (line.indexOf(",") > -1 && line.split(",").length > 3) {
-              return line.split(",");
-            } else {
-              // Fixed width or single column
-              // Let's replace multiple spaces with a single tab or semicolon to simulate columns
-              // But safely, we can just split by 2 or more spaces
-              var cols = line.trim().split(/\s{2,}/);
-              return cols.length > 1 ? cols : [line];
-            }
-          });
+        var bytes = new Uint8Array(ev.target.result);
+        var r;
+        if (ehTexto) {
+          r = Core.parseExtratoTexto(Core.decodeText(bytes));
         } else {
-          var data = new Uint8Array(ev.target.result);
-          var wb = XLSX.read(data, { type: "array", cellDates: true });
-          var ws = wb.Sheets[wb.SheetNames[0]];
-          rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+          var wb = XLSX.read(bytes, { type: "array", cellDates: true });
+          r = Core.parseExtratoRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" }));
+          r.formato = "planilha";
         }
-        
-        var headerIdx = detectHeaderRow(rows);
-        var colMap = buildColumnMap(rows[headerIdx]);
-        
-        // Se ainda não achou as colunas mesmo com o split por espaços duplos
-        if(colMap.data === undefined || colMap.valor === undefined){
-          statusEl.textContent = "Não consegui identificar colunas de Data e Valor no arquivo do banco.";
-          return;
-        }
+        if (!r.ok) { statusEl.textContent = r.erro; return; }
+        if (r.itens.length === 0) { statusEl.textContent = "Nenhuma movimentação reconhecida no arquivo."; return; }
 
-        var filterText = (document.getElementById("conc-filter").value || "").toLowerCase().trim();
-
-        var extrato = [];
-        for(var r = headerIdx + 1; r < rows.length; r++){
-          var row = rows[r];
-          if(!row || row.every(function(c){ return c === "" || c === null || c === undefined; })) continue;
-          
-          var rowText = row.join(" ").toLowerCase();
-          if(filterText && rowText.indexOf(filterText) === -1) continue;
-          
-          var isoDate = excelDateToIso(row[colMap.data]);
-          var parsedValor = parseValorCell(row[colMap.valor]);
-          if(!isoDate || !parsedValor) continue;
-          
-          extrato.push({
-            data: isoDate,
-            valorNum: parsedValor.valorNum,
-            sign: parsedValor.sign,
-            fullText: rowText
-          });
-        }
-
-        // Lançamentos do Sistema
-        var sistema = loadEntries(acctId);
-        if (filterText) {
-          sistema = sistema.filter(function(s) {
-            var sText = [s.desc, s.nome, s.cpf, s.doc].join(" ").toLowerCase();
-            return sText.indexOf(filterText) > -1;
-          });
-        }
-        // Marcador para evitar que o mesmo lançamento case duas vezes
-        sistema.forEach(function(s){ s._matched = false; });
-        
-        var matchCount = 0;
-        var resultsHtml = "";
-        
-        extrato.forEach(function(ext) {
-          // Busca lançamento no sistema com mesma data e mesmo valor (e mesmo sinal)
-          var sysMatch = sistema.find(function(s) {
-             return !s._matched && s.data === ext.data && s.valorNum === ext.valorNum && s.sign === ext.sign;
-          });
-          
-          var tr = document.createElement("tr");
-          var tdData = "<td>" + brDate(ext.data) + "</td>";
-          var tdValorB = "<td class='" + (ext.sign === "D" ? "val-d" : "val-c") + "' style='border-right:1px solid var(--paper-line);'>" + formatBRNumber(ext.valorNum) + ext.sign + "</td>";
-          
-          if (sysMatch) {
-            sysMatch._matched = true;
-            matchCount++;
-            tr.innerHTML = tdData + tdValorB + 
-              "<td class='conc-match'>✓ OK</td>" +
-              "<td class='" + (sysMatch.sign === "D" ? "val-d" : "val-c") + "'>" + formatBRNumber(sysMatch.valorNum) + sysMatch.sign + "</td>" +
-              "<td>" + escapeHtml(sysMatch.desc) + "</td>";
-          } else {
-            tr.innerHTML = tdData + tdValorB + 
-              "<td class='conc-diff'>✗ PENDENTE</td>" +
-              "<td colspan='2' class='hint'>Nenhum lançamento exato encontrado no sistema.</td>";
-          }
-          resultsHtml += tr.outerHTML;
-        });
-
-        // Mostra os lançamentos do sistema que sobrararam (lançados mas não estão no extrato)
-        sistema.filter(function(s){ return !s._matched; }).forEach(function(sobrou) {
-           var tr = document.createElement("tr");
-           tr.innerHTML = "<td>" + brDate(sobrou.data) + "</td><td style='border-right:1px solid var(--paper-line);'>-</td>" +
-             "<td class='conc-miss'>! NÃO ESTÁ NO BANCO</td>" +
-             "<td class='" + (sobrou.sign === "D" ? "val-d" : "val-c") + "'>" + formatBRNumber(sobrou.valorNum) + sobrou.sign + "</td>" +
-             "<td>" + escapeHtml(sobrou.desc) + "</td>";
-           resultsHtml += tr.outerHTML;
-        });
-        
-        document.getElementById("conc-body").innerHTML = resultsHtml;
-        document.getElementById("conc-results-panel").style.display = "block";
-        document.getElementById("conc-totals").innerHTML = 
-           "<span>Total do Extrato: <strong>" + extrato.length + "</strong></span>" +
-           "<span>Lançamentos no Sistema: <strong>" + sistema.length + "</strong></span>" +
-           "<span class='val-c'>Batidos (OK): <strong>" + matchCount + "</strong></span>";
-           renderConciliacao(extrato);
-        statusEl.textContent = "Conciliação concluída.";
-        document.getElementById("file-import-conc").value = "";
+        ultimaConc = { acctId: acctId, extrato: r.itens, formato: r.formato, arquivo: file.name };
+        renderConciliacao();
+        statusEl.textContent = r.itens.length + " movimentação(ões) lidas (formato " + r.formato + ").";
       } catch(e) {
         console.error(e);
         statusEl.textContent = "Erro ao processar o arquivo: " + e.message;
+      } finally {
+        document.getElementById("file-import-conc").value = "";
       }
     };
     reader.onerror = function(){ statusEl.textContent = "Falha ao ler o arquivo."; };
-    if (isText) {
-      reader.readAsText(file, "utf-8"); // Ou iso-8859-1 se tiver problema com acento
-    } else {
-      reader.readAsArrayBuffer(file);
+    reader.readAsArrayBuffer(file);
+  }
+
+  function renderConciliacao() {
+    if (!ultimaConc) return;
+    var filtro = (document.getElementById("conc-filter").value || "").toLowerCase().trim();
+    var tolerancia = parseInt(document.getElementById("conc-tolerancia").value, 10);
+    if (isNaN(tolerancia) || tolerancia < 0) tolerancia = 0;
+
+    var extrato = ultimaConc.extrato;
+    var sistema = loadEntries(ultimaConc.acctId);
+    if (filtro) {
+      extrato = extrato.filter(function(e){ return String(e.texto || e.desc).toLowerCase().indexOf(filtro) > -1; });
+      sistema = sistema.filter(function(s){
+        return [s.desc, s.nome, s.cpf, s.doc].join(" ").toLowerCase().indexOf(filtro) > -1;
+      });
     }
+
+    var res = Core.conciliar(extrato, sistema, { toleranciaDias: tolerancia });
+    var ordem = { so_extrato: 0, so_sistema: 1, data_diferente: 2, ok: 3 };
+    var linhas = res.linhas.slice().sort(function(a, b){
+      var da = (a.extrato || a.sistema).data, db = (b.extrato || b.sistema).data;
+      return ordem[a.status] - ordem[b.status] || da.localeCompare(db);
+    });
+
+    var valor = function(l){ return l ? '<span class="' + (l.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(l.valorNum) + l.sign + "</span>" : "-"; };
+    document.getElementById("conc-body").innerHTML = linhas.map(function(l){
+      var st = STATUS_CONC[l.status];
+      var e = l.extrato, s = l.sistema;
+      var descBanco = e ? escapeHtml(e.desc) + (e.nome ? "<br><span class='hint'>" + escapeHtml(e.nome) + (e.cpfCnpj ? " · " + escapeHtml(e.cpfCnpj) : "") + "</span>" : "") : "";
+      return "<tr>" +
+        "<td>" + (e ? brDate(e.data) : "") + "</td>" +
+        "<td>" + descBanco + "</td>" +
+        "<td style='border-right:1px solid var(--paper-line);'>" + valor(e) + "</td>" +
+        "<td class='" + st.classe + "'>" + st.texto + "</td>" +
+        "<td>" + (s ? brDate(s.data) : "") + "</td>" +
+        "<td>" + valor(s) + "</td>" +
+        "<td>" + (s ? escapeHtml(s.desc) : "<span class='hint'>não lançado</span>") + "</td>" +
+      "</tr>";
+    }).join("");
+
+    var r = res.resumo;
+    var dif = r.diferencaCents / 100;
+    document.getElementById("conc-totals").innerHTML =
+      "<span class='val-c'>OK: <strong>" + r.ok + "</strong></span>" +
+      "<span>Data diferente: <strong>" + r.data_diferente + "</strong></span>" +
+      "<span class='val-d'>Só no banco: <strong>" + r.so_extrato + "</strong></span>" +
+      "<span>Só no sistema: <strong>" + r.so_sistema + "</strong></span>" +
+      "<span>Diferença de saldo (banco − sistema): <strong class='" + (dif === 0 ? "val-c" : "val-d") + "'>" + formatBRNumber(dif) + "</strong></span>" +
+      "<span><strong>" + (r.fechado ? "✓ Conciliação fechada" : "Conciliação em aberto") + "</strong></span>";
+    document.getElementById("conc-results-panel").style.display = "block";
+  }
+
+  // ---------- Exportação ----------
+  function lancamentosDaAba() {
+    return loadEntries(currentTab).slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); });
+  }
+
+  function exportarCSV() {
+    if (!currentTab) return;
+    var item = itemIndex[currentTab];
+    var entries = lancamentosDaAba();
+    if (!entries.length) { toast("Nada para exportar nesta conta."); return; }
+    var blob = new Blob([Core.toCSV(entries, item.hasDataMov)], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = ((item.bank ? item.bank + " " : "") + item.label).replace(/[\\/:*?"<>|]/g, "_") + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  function copiarParaExcel() {
+    if (!currentTab) return;
+    var entries = lancamentosDaAba();
+    if (!entries.length) { toast("Nada para copiar nesta conta."); return; }
+    var texto = Core.toTSV(entries, itemIndex[currentTab].hasDataMov);
+    navigator.clipboard.writeText(texto).then(
+      function(){ toast(entries.length + " lançamento(s) copiados. Cole no Excel."); },
+      function(){ toast("O navegador bloqueou a cópia."); }
+    );
   }
 
   // ---------- Events & Init ----------
@@ -848,6 +734,13 @@
   document.getElementById("file-import-conc").addEventListener("change", function(ev){
     if(ev.target.files && ev.target.files[0]) runConciliacao(ev.target.files[0]);
   });
+  document.getElementById("conc-filter").addEventListener("input", renderConciliacao);
+  document.getElementById("conc-tolerancia").addEventListener("input", renderConciliacao);
+  document.getElementById("conc-acct").addEventListener("change", function(){
+    if (ultimaConc) { ultimaConc.acctId = this.value; renderConciliacao(); }
+  });
+  document.getElementById("export-csv").addEventListener("click", exportarCSV);
+  document.getElementById("export-clip").addEventListener("click", copiarParaExcel);
 
   // Export and Clear bindings
   function clearCurrentTab() {
@@ -927,6 +820,8 @@
       type: "ledger", 
       bank: bankSel, 
       sheetName: bankSel + " " + acctName,
+      agencia: ag,
+      conta: cc,
       hasDataMov: true
     };
     var savedBanks = JSON.parse(localStorage.getItem("system_banks")) || [];

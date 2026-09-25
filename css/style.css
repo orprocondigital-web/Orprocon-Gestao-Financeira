@@ -178,6 +178,8 @@
   .conc-match { color: var(--credit); font-weight: 600; }
   .conc-diff { color: var(--debit); font-weight: 600; }
   .conc-miss { color: #A9793F; font-weight: 600; }
+  .conc-warn { color: #6B6BA8; font-weight: 600; }
+  .conc-match, .conc-diff, .conc-miss, .conc-warn { white-space: nowrap; }
 
   :root[data-theme="dark"] .panel h2, @media (prefers-color-scheme: dark) { }
 
