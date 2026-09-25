@@ -18,9 +18,9 @@
 
   var MENU_SECTIONS = [
     {
-      title: "Visão Geral & Fechamento",
+      title: "Visão geral",
       items: [
-        { id: "master", label: "Master", type: "master" },
+        { id: "master", label: "Resumo do mês", type: "master" },
         { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
       ]
     },
@@ -33,22 +33,22 @@
       items: savedUnits
     },
     {
-      title: "Outras Movimentações",
+      title: "Outras movimentações",
       items: [
-        { id: "mov-dinheiro", label: "Pagamentos em Dinheiro", type: "ledger", bank: "Movimento", sheetName: "pagamentos em dinheiro" },
-        { id: "mov-juros", label: "Juros Recebidos", type: "ledger", bank: "Movimento", sheetName: "juros recebidos" },
-        { id: "mov-compras", label: "Digitação Compras", type: "ledger", bank: "Movimento", sheetName: "digitação compras" }
+        { id: "mov-dinheiro", label: "Pagamentos em dinheiro", type: "ledger", bank: "Movimento", sheetName: "pagamentos em dinheiro" },
+        { id: "mov-juros", label: "Juros recebidos", type: "ledger", bank: "Movimento", sheetName: "juros recebidos" },
+        { id: "mov-compras", label: "Digitação de compras", type: "ledger", bank: "Movimento", sheetName: "digitação compras" }
       ]
     },
     {
-      title: "Cadastros Base",
+      title: "Cadastros",
       items: [
         { id: "cad-clientes", label: "Clientes", type: "cadastro", sheetName: "clientes" },
         { id: "cad-fornecedores", label: "Fornecedores", type: "cadastro", sheetName: "fornecedores" },
-        { id: "cad-plano", label: "Plano de Contas", type: "cadastro", sheetName: "plano de contas" },
-        { id: "cad-custos", label: "Central de Custos", type: "cadastro", sheetName: "central de custos" },
-        { id: "cad-bancos", label: "Tabela de Bancos", type: "cadastro", sheetName: "tabela de bancos" },
-        { id: "cad-unidades", label: "Tabela de Unidades", type: "cadastro", sheetName: "tabela de unidades" }
+        { id: "cad-plano", label: "Plano de contas", type: "cadastro", sheetName: "plano de contas" },
+        { id: "cad-custos", label: "Central de custos", type: "cadastro", sheetName: "central de custos" },
+        { id: "cad-bancos", label: "Tabela de bancos", type: "cadastro", sheetName: "tabela de bancos" },
+        { id: "cad-unidades", label: "Tabela de unidades", type: "cadastro", sheetName: "tabela de unidades" }
       ]
     }
   ];
@@ -102,51 +102,75 @@
   }
 
   // ---------- sidebar ----------
+  var ICONS = {
+    master: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z"/>',
+    conciliacao: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
+    banco: '<path d="M3 10l9-6 9 6M5 10v8M19 10v8M9.5 10v8M14.5 10v8M3 20h18"/>',
+    unidade: '<path d="M4 20V8l8-4 8 4v12M9 20v-6h6v6"/>',
+    mov: '<path d="M4 7h16M4 12h10M4 17h7"/>',
+    cadastro: '<path d="M8 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8zM4 8h4M4 12h4M4 16h4"/>'
+  };
+  var EMPTY_SECTION = { "Bancos": "Nenhuma conta cadastrada", "Unidades": "Nenhuma unidade cadastrada" };
+
+  function iconFor(item){
+    if (item.type === "master") return ICONS.master;
+    if (item.type === "conciliacao") return ICONS.conciliacao;
+    if (item.type === "cadastro") return ICONS.cadastro;
+    if (item.section === "Bancos") return ICONS.banco;
+    if (item.section === "Unidades") return ICONS.unidade;
+    return ICONS.mov;
+  }
+
   function buildSidebar(){
     var wrap = document.getElementById("sidebar-menu");
     wrap.innerHTML = "";
     MENU_SECTIONS.forEach(function(sec){
+      var secEl = document.createElement("div");
+      secEl.className = "nav-section";
       var secTitle = document.createElement("div");
-      secTitle.style.marginTop = "22px";
-      secTitle.style.marginBottom = "6px";
-      secTitle.style.padding = "0 10px";
-      secTitle.style.fontSize = "11px";
-      secTitle.style.color = "#C9C2AD";
-      secTitle.style.fontWeight = "700";
-      secTitle.style.textTransform = "uppercase";
-      secTitle.style.letterSpacing = "0.05em";
+      secTitle.className = "nav-title";
       secTitle.textContent = sec.title;
-      wrap.appendChild(secTitle);
+      secEl.appendChild(secTitle);
+
+      if (!sec.items.length && EMPTY_SECTION[sec.title]) {
+        var vazio = document.createElement("div");
+        vazio.className = "nav-empty";
+        vazio.textContent = EMPTY_SECTION[sec.title];
+        secEl.appendChild(vazio);
+      }
 
       var subGroups = {};
       sec.items.forEach(function(item){
-        var key = item.bank || ""; 
+        var key = item.bank || "";
         if(!subGroups[key]) subGroups[key] = [];
         subGroups[key].push(item);
       });
+      var agrupar = sec.title === "Bancos" && Object.keys(subGroups).length > 0;
 
       Object.keys(subGroups).forEach(function(key){
         var group = document.createElement("div");
-        group.className = "bank-group";
-        group.style.marginTop = "4px";
-        
-        if (key && key !== "Unidade" && key !== "Movimento") {
-           var title = document.createElement("div");
-           title.className = "bank-name";
-           title.textContent = key;
-           group.appendChild(title);
+        group.className = "nav-group";
+        if (agrupar && key) {
+          var title = document.createElement("div");
+          title.className = "nav-subtitle";
+          title.textContent = key;
+          group.appendChild(title);
         }
-        
         subGroups[key].forEach(function(item){
+          item.section = item.section || sec.title;
           var btn = document.createElement("button");
           btn.className = "acct-btn";
           btn.id = "btn-" + item.id;
-          btn.innerHTML = item.label + '<span class="acct-count" id="count-' + item.id + '"></span>';
+          btn.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + iconFor(item) + '</svg>' +
+            '<span class="acct-label">' + escapeHtml(item.label) + '</span>' +
+            '<span class="acct-count" id="count-' + item.id + '"></span>';
+          btn.title = (item.bank && item.bank !== "Unidade" && item.bank !== "Movimento" ? item.bank + " " : "") + item.label;
           btn.addEventListener("click", function(){ selectTab(item.id); });
           group.appendChild(btn);
         });
-        wrap.appendChild(group);
+        secEl.appendChild(group);
       });
+      wrap.appendChild(secEl);
     });
     refreshCounts();
   }
@@ -171,9 +195,9 @@
     document.querySelectorAll(".acct-btn").forEach(function(b){ b.classList.remove("active"); });
     document.getElementById("btn-" + id).classList.add("active");
     
-    var title = item.bank ? (item.bank + " — " + item.label) : item.label;
-    document.getElementById("view-title").textContent = title;
-    document.getElementById("view-sub").textContent = item.section.toUpperCase();
+    var mostraBanco = item.bank && item.bank !== "Unidade" && item.bank !== "Movimento";
+    document.getElementById("view-title").textContent = item.label;
+    document.getElementById("view-sub").textContent = item.section + (mostraBanco ? " / " + item.bank : "");
 
     // Hide all views
     document.getElementById("view-ledger").style.display = "none";
@@ -184,7 +208,7 @@
     // Show correct view based on type
     if (item.type === "ledger") {
       document.getElementById("view-ledger").style.display = "block";
-      document.getElementById("f-datamov-wrap").style.display = item.hasDataMov ? "block" : "none";
+      document.getElementById("f-datamov-wrap").style.display = item.hasDataMov ? "" : "none";
       document.getElementById("cancel-edit").style.display = "none";
       document.getElementById("submit-btn").textContent = "Adicionar lançamento";
       document.getElementById("import-status-ledger").textContent = "";
@@ -243,7 +267,7 @@
       { key: "unidade", label: "Unidade" },
       { key: "nome", label: "Fornecedor/Cliente" },
       { key: "cpf", label: "CPF/CNPJ" },
-      { key: "", label: "" }
+      { key: "", label: "", cls: "col-actions" }
     );
     return cols;
   }
@@ -255,7 +279,10 @@
     var cols = columnsFor(item);
 
     var head = document.getElementById("ledger-head");
-    head.innerHTML = cols.map(function(c){ return "<th>" + c.label + "</th>"; }).join("");
+    head.innerHTML = cols.map(function(c){
+      var cls = c.key === "valor" ? "num" : (c.cls || "");
+      return "<th" + (cls ? ' class="' + cls + '"' : "") + ">" + c.label + "</th>";
+    }).join("");
 
     var body = document.getElementById("ledger-body");
     var empty = document.getElementById("ledger-empty");
@@ -282,9 +309,9 @@
         
         var actionsTd = document.createElement("td");
         actionsTd.className = "row-actions";
-        var editBtn = document.createElement("button"); editBtn.textContent = "editar";
+        var editBtn = document.createElement("button"); editBtn.textContent = "Editar";
         editBtn.addEventListener("click", function(){ startEdit(e.id); });
-        var delBtn = document.createElement("button"); delBtn.textContent = "excluir";
+        var delBtn = document.createElement("button"); delBtn.textContent = "Excluir";
         delBtn.addEventListener("click", function(){ deleteEntry(e.id); });
         actionsTd.appendChild(editBtn); actionsTd.appendChild(delBtn);
         
@@ -296,9 +323,10 @@
     var totC = 0, totD = 0;
     entries.forEach(function(e){ if(e.sign === "D") totD += e.valorNum; else totC += e.valorNum; });
     document.getElementById("totals").innerHTML =
-      '<span>créditos: </span><strong class="val-c">' + formatBRNumber(totC) + 'C</strong>' +
-      '<span>débitos: </span><strong class="val-d">' + formatBRNumber(totD) + 'D</strong>' +
-      '<span>' + entries.length + ' lançamento(s)</span>';
+      '<span>' + entries.length + ' lançamento' + (entries.length === 1 ? '' : 's') + '</span>' +
+      '<span>Créditos<strong class="val-c">' + formatBRNumber(totC) + 'C</strong></span>' +
+      '<span>Débitos<strong class="val-d">' + formatBRNumber(totD) + 'D</strong></span>' +
+      '<span>Saldo<strong class="' + (totC - totD >= 0 ? 'val-c' : 'val-d') + '">' + formatBRNumber(Math.abs(totC - totD)) + (totC - totD >= 0 ? 'C' : 'D') + '</strong></span>';
 
     refreshCounts();
   }
@@ -385,7 +413,7 @@
 
     if(entries.length === 0){
       var tr = document.createElement("tr");
-      tr.innerHTML = "<td colspan='2' class='empty'>Nenhum cadastro encontrado. Importe da planilha para preencher.</td>";
+      tr.innerHTML = "<td colspan='2' class='empty'><strong>Nenhum item cadastrado</strong><br>Importe a aba correspondente da planilha para preencher.</td>";
       body.appendChild(tr);
     } else {
       entries.forEach(function(e) {
@@ -395,7 +423,7 @@
         
         var actionsTd = document.createElement("td");
         actionsTd.className = "row-actions";
-        var delBtn = document.createElement("button"); delBtn.textContent = "excluir";
+        var delBtn = document.createElement("button"); delBtn.textContent = "Excluir";
         delBtn.addEventListener("click", function(){
            var updated = loadEntries(currentTab).filter(function(x){ return x.id !== e.id; });
            saveEntries(currentTab, updated);
@@ -439,25 +467,25 @@
       }
     });
 
-    var cardsHtml = 
-      '<div class="card"><div class="label">Total Entradas (Créditos)</div><div class="value val-c">' + formatBRNumber(totCredit) + 'C</div></div>' +
-      '<div class="card"><div class="label">Total Saídas (Débitos)</div><div class="value val-d">' + formatBRNumber(totDebit) + 'D</div></div>' +
-      '<div class="card"><div class="label">Saldo Geral</div><div class="value ' + ((totCredit - totDebit) >= 0 ? 'val-c' : 'val-d') + '">' + formatBRNumber(totCredit - totDebit) + '</div></div>';
-    
+    var saldo = totCredit - totDebit;
+    var cardsHtml =
+      '<div class="stat primary"><div class="label">Saldo do mês</div><div class="value">' + formatBRNumber(Math.abs(saldo)) + (saldo >= 0 ? 'C' : 'D') + '</div></div>' +
+      '<div class="stat"><div class="label">Entradas (créditos)</div><div class="value val-c">' + formatBRNumber(totCredit) + '</div></div>' +
+      '<div class="stat"><div class="label">Saídas (débitos)</div><div class="value val-d">' + formatBRNumber(totDebit) + '</div></div>';
     document.getElementById("master-cards").innerHTML = cardsHtml;
 
     var tbody = document.getElementById("master-body");
     tbody.innerHTML = "";
     if (accountStats.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='4' class='empty'>Nenhuma movimentação encontrada nas contas.</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='4' class='empty'><strong>Nenhuma movimentação ainda</strong><br>Os saldos aparecem aqui assim que as contas tiverem lançamentos.</td></tr>";
     } else {
       accountStats.forEach(function(st) {
         var tr = document.createElement("tr");
         tr.innerHTML = 
           '<td>' + escapeHtml(st.label) + '</td>' +
-          '<td class="val-c">' + formatBRNumber(st.c) + 'C</td>' +
-          '<td class="val-d">' + formatBRNumber(st.d) + 'D</td>' +
-          '<td class="' + (st.bal >= 0 ? 'val-c' : 'val-d') + '">' + formatBRNumber(st.bal) + (st.bal >= 0 ? 'C' : 'D') + '</td>';
+          '<td class="num"><span class="val-c">' + formatBRNumber(st.c) + 'C</span></td>' +
+          '<td class="num"><span class="val-d">' + formatBRNumber(st.d) + 'D</span></td>' +
+          '<td class="num"><span class="' + (st.bal >= 0 ? 'val-c' : 'val-d') + '">' + formatBRNumber(Math.abs(st.bal)) + (st.bal >= 0 ? 'C' : 'D') + '</span></td>';
         tbody.appendChild(tr);
       });
     }
@@ -585,10 +613,10 @@
   var ultimaConc = null; // { acctId, extrato, formato, arquivo } — permite refiltrar sem reimportar
 
   var STATUS_CONC = {
-    ok:             { classe: "conc-match", texto: "✓ OK" },
-    data_diferente: { classe: "conc-warn",  texto: "≈ DATA DIFERENTE" },
-    so_extrato:     { classe: "conc-diff",  texto: "✗ SÓ NO BANCO" },
-    so_sistema:     { classe: "conc-miss",  texto: "! SÓ NO SISTEMA" }
+    ok:             { classe: "conc-match", texto: "Conciliado", barra: "b-ok" },
+    data_diferente: { classe: "conc-warn",  texto: "Data diferente", barra: "b-warn" },
+    so_extrato:     { classe: "conc-diff",  texto: "Só no banco", barra: "b-diff" },
+    so_sistema:     { classe: "conc-miss",  texto: "Só no sistema", barra: "b-miss" }
   };
 
   function runConciliacao(file) {
@@ -654,31 +682,41 @@
       return ordem[a.status] - ordem[b.status] || da.localeCompare(db);
     });
 
-    var valor = function(l){ return l ? '<span class="' + (l.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(l.valorNum) + l.sign + "</span>" : "-"; };
+    var valor = function(l){ return l ? '<span class="' + (l.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(l.valorNum) + l.sign + "</span>" : '<span class="muted">—</span>'; };
     document.getElementById("conc-body").innerHTML = linhas.map(function(l){
       var st = STATUS_CONC[l.status];
       var e = l.extrato, s = l.sistema;
-      var descBanco = e ? escapeHtml(e.desc) + (e.nome ? "<br><span class='hint'>" + escapeHtml(e.nome) + (e.cpfCnpj ? " · " + escapeHtml(e.cpfCnpj) : "") + "</span>" : "") : "";
+      var descBanco = e ? escapeHtml(e.desc) + (e.nome || e.cpfCnpj ? "<span class='cell-sub'>" + escapeHtml([e.nome, e.cpfCnpj].filter(Boolean).join(", ")) + "</span>" : "") : "";
       return "<tr>" +
         "<td>" + (e ? brDate(e.data) : "") + "</td>" +
         "<td>" + descBanco + "</td>" +
-        "<td style='border-right:1px solid var(--paper-line);'>" + valor(e) + "</td>" +
-        "<td class='" + st.classe + "'>" + st.texto + "</td>" +
+        "<td class='num'>" + valor(e) + "</td>" +
+        "<td><span class='pill " + st.classe + "'>" + st.texto + "</span></td>" +
         "<td>" + (s ? brDate(s.data) : "") + "</td>" +
-        "<td>" + valor(s) + "</td>" +
-        "<td>" + (s ? escapeHtml(s.desc) : "<span class='hint'>não lançado</span>") + "</td>" +
+        "<td class='num'>" + valor(s) + "</td>" +
+        "<td>" + (s ? escapeHtml(s.desc) : "<span class='muted'>Não lançado</span>") + "</td>" +
       "</tr>";
     }).join("");
 
     var r = res.resumo;
     var dif = r.diferencaCents / 100;
+    var total = res.linhas.length || 1;
+    var partes = ["ok", "data_diferente", "so_extrato", "so_sistema"];
+    var barra = partes.filter(function(k){ return r[k] > 0; }).map(function(k){
+      return '<span class="' + STATUS_CONC[k].barra + '" style="flex:' + r[k] + '" title="' + STATUS_CONC[k].texto + ': ' + r[k] + '"></span>';
+    }).join("");
+    var legenda = partes.map(function(k){
+      return '<span><i class="' + STATUS_CONC[k].barra + '"></i>' + STATUS_CONC[k].texto + ' <strong>' + r[k] + '</strong></span>';
+    }).join("");
+    var pendentes = r.so_extrato + r.so_sistema;
+    var pct = Math.round((r.ok + r.data_diferente) / total * 100);
+    var titulo = r.fechado ? "Conciliação fechada" :
+      pendentes + (pendentes === 1 ? " pendência" : " pendências") + ", " + pct + "% conciliado";
     document.getElementById("conc-totals").innerHTML =
-      "<span class='val-c'>OK: <strong>" + r.ok + "</strong></span>" +
-      "<span>Data diferente: <strong>" + r.data_diferente + "</strong></span>" +
-      "<span class='val-d'>Só no banco: <strong>" + r.so_extrato + "</strong></span>" +
-      "<span>Só no sistema: <strong>" + r.so_sistema + "</strong></span>" +
-      "<span>Diferença de saldo (banco − sistema): <strong class='" + (dif === 0 ? "val-c" : "val-d") + "'>" + formatBRNumber(dif) + "</strong></span>" +
-      "<span><strong>" + (r.fechado ? "✓ Conciliação fechada" : "Conciliação em aberto") + "</strong></span>";
+      '<div class="conc-headline"><h2>' + titulo + '</h2>' +
+      '<div class="diff">Diferença de saldo, banco menos sistema<strong class="' + (dif === 0 ? "val-c" : "val-d") + '">' + formatBRNumber(dif) + '</strong></div></div>' +
+      '<div class="conc-bar" role="img" aria-label="' + pct + '% conciliado">' + barra + '</div>' +
+      '<div class="conc-legend">' + legenda + '</div>';
     document.getElementById("conc-results-panel").style.display = "block";
   }
 
