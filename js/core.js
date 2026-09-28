@@ -107,14 +107,19 @@
 
   // ------------------------------------------------- planilhas e cabeçalhos
 
+  // Ordem importa: o primeiro campo que casar fica com a coluna.
+  // Teste começando com "=" exige o texto exato do cabeçalho.
   var HEADER_MAP = [
     { field: "dataMov", tests: ["data movimento"] },
-    { field: "data", tests: ["data"] },
+    { field: "data", tests: ["=data"] },
+    { field: "modelo", tests: ["modelo doc"] },
+    { field: "natureza", tests: ["natureza"] },
     { field: "desc", tests: ["descrição", "descricao", "hist", "lança", "favorecido"] },
     { field: "doc", tests: ["doc.", "doc", "nro", "número"] },
-    { field: "valor", tests: ["valor", "saída", "entrada", "débito", "crédito"] },
+    { field: "valor", tests: ["=valor", "valor", "saída", "entrada", "débito", "crédito"] },
     { field: "categoria", tests: ["categoria"] },
     { field: "unidade", tests: ["unidade"] },
+    { field: "conta", tests: ["=conta"] },
     { field: "codigo", tests: ["cod", "cód"] },
     { field: "nome", tests: ["nome", "fornecedor/cliente", "razão", "razao", "cliente", "fornecedor"] },
     { field: "cpf", tests: ["cpf/cnpj", "cpf", "cnpj"] }
@@ -130,7 +135,15 @@
     return 0;
   }
 
-  /** Cabeçalho → { campo: índiceDaColuna }. Cada coluna atende um campo só. */
+  function casa(texto, teste) {
+    return teste.charAt(0) === "=" ? texto === teste.slice(1) : texto.indexOf(teste) > -1;
+  }
+
+  /**
+   * Cabeçalho → { campo: índiceDaColuna }. Cada coluna atende um campo só.
+   * "Data" só casa com o texto exato para não pegar "Data Movimento" nem "Índice Diário".
+   * Nome: uma coluna com "razão" ou "nome" vence outra que só diz "cliente"/"fornecedor".
+   */
   function buildColumnMap(headerRow) {
     var map = {}, usadas = {};
     (headerRow || []).forEach(function (h, idx) {
@@ -138,12 +151,23 @@
       if (!text) return;
       for (var f = 0; f < HEADER_MAP.length; f++) {
         var spec = HEADER_MAP[f];
-        if (map[spec.field] !== undefined || usadas[idx]) continue;
-        for (var t = 0; t < spec.tests.length; t++) {
-          if (text.indexOf(spec.tests[t]) > -1) { map[spec.field] = idx; usadas[idx] = true; break; }
+        if (usadas[idx]) break;
+        var bate = spec.tests.some(function (t) { return casa(text, t); });
+        if (!bate) continue;
+        if (map[spec.field] === undefined) { map[spec.field] = idx; usadas[idx] = true; }
+        else if (spec.field === "nome" && /raz[aã]o|nome/.test(text) && !/raz[aã]o|nome/.test(String(headerRow[map.nome]).toLowerCase())) {
+          map.nome = idx; usadas[idx] = true;
         }
       }
     });
+    if (map.data === undefined) {
+      // planilhas com "Data do lançamento", "Data Mov." etc.
+      (headerRow || []).some(function (h, idx) {
+        var t = String(h || "").toLowerCase().trim();
+        if (!usadas[idx] && t.indexOf("data") === 0 && t.indexOf("movimento") < 0) { map.data = idx; return true; }
+        return false;
+      });
+    }
     return map;
   }
 
@@ -342,7 +366,8 @@
   var COLUNAS_EXPORT = [
     ["data", "Data"], ["dataMov", "Data Movimento"], ["desc", "Descrição/Histórico"], ["doc", "Doc."],
     ["valor", "Valor"], ["categoria", "Categoria"], ["unidade", "Unidade"],
-    ["nome", "Fornecedor/Cliente"], ["cpf", "CPF/CNPJ"]
+    ["nome", "Fornecedor/Cliente"], ["cpf", "CPF/CNPJ"],
+    ["modelo", "Modelo DOC"], ["natureza", "Natureza do gasto"], ["conta", "Conta"]
   ];
 
   function celulaExport(e, campo) {

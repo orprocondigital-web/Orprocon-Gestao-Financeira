@@ -1,116 +1,108 @@
 (function(){
   "use strict";
 
-  var DEFAULT_CATEGORIAS = ["Aplicações","Crédito Bloqueado","Despesa","Pagamento","Pendente","Recebimento","Resgate","Saldo do dia"];
+  var I = Integracao;
   var DEFAULT_UNIDADES = ["Matriz","Tubarão","Chapecó","Criciúma","Florianópolis","Passo Fundo"];
+  var LIMITE_CADASTRO_TELA = 500;
+  var LIMITE_SUGESTOES_NOME = 5000;
 
-  var savedBanks = JSON.parse(localStorage.getItem("system_banks"));
-  if (!savedBanks) {
-    savedBanks = [];
-    localStorage.setItem("system_banks", JSON.stringify(savedBanks));
+  // ---------- contas e unidades cadastradas (lista pequena, fica no localStorage) ----------
+  function lerLista(chave){
+    try { return JSON.parse(localStorage.getItem(chave)) || []; } catch(e){ return []; }
   }
+  function gravarLista(chave, lista){ localStorage.setItem(chave, JSON.stringify(lista)); }
 
-  var savedUnits = JSON.parse(localStorage.getItem("system_units"));
-  if (!savedUnits) {
-    savedUnits = [];
-    localStorage.setItem("system_units", JSON.stringify(savedUnits));
-  }
-
-  var MENU_SECTIONS = [
-    {
-      title: "Visão geral",
-      items: [
-        { id: "master", label: "Resumo do mês", type: "master" },
-        { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
-      ]
-    },
-    {
-      title: "Bancos",
-      items: savedBanks
-    },
-    {
-      title: "Unidades",
-      items: savedUnits
-    },
-    {
-      title: "Outras movimentações",
-      items: [
-        { id: "mov-dinheiro", label: "Pagamentos em dinheiro", type: "ledger", bank: "Movimento", sheetName: "pagamentos em dinheiro" },
-        { id: "mov-juros", label: "Juros recebidos", type: "ledger", bank: "Movimento", sheetName: "juros recebidos" },
-        { id: "mov-compras", label: "Digitação de compras", type: "ledger", bank: "Movimento", sheetName: "digitação compras" }
-      ]
-    },
-    {
-      title: "Cadastros",
-      items: [
-        { id: "cad-clientes", label: "Clientes", type: "cadastro", sheetName: "clientes" },
-        { id: "cad-fornecedores", label: "Fornecedores", type: "cadastro", sheetName: "fornecedores" },
-        { id: "cad-plano", label: "Plano de contas", type: "cadastro", sheetName: "plano de contas" },
-        { id: "cad-custos", label: "Central de custos", type: "cadastro", sheetName: "central de custos" },
-        { id: "cad-bancos", label: "Tabela de bancos", type: "cadastro", sheetName: "tabela de bancos" },
-        { id: "cad-unidades", label: "Tabela de unidades", type: "cadastro", sheetName: "tabela de unidades" }
-      ]
-    }
-  ];
-
-  var itemIndex = {};
-  MENU_SECTIONS.forEach(function(sec){
-    sec.items.forEach(function(item){
-      item.section = sec.title;
-      itemIndex[item.id] = item;
-    });
+  var bancos = lerLista("system_banks");
+  var unidades = lerLista("system_units");
+  // contas criadas antes da conta contábil existir: tenta tirar do nome da aba
+  bancos.forEach(function(b){
+    if (b.contaContabil === undefined) b.contaContabil = I.contaDoNome(b.sheetName || "") || I.contaDoNome(b.label || "");
   });
 
+  var MOVIMENTOS = [
+    { id: "mov-dinheiro", label: "Pagamentos em dinheiro", type: "ledger", bank: "Movimento", sheetName: "Pagamento em dinheiro", entraNaIntegracao: true },
+    { id: "mov-juros", label: "Juros recebidos", type: "ledger", bank: "Movimento", sheetName: "Juros Recebidos" },
+    { id: "mov-compras", label: "Digitação de compras", type: "ledger", bank: "Movimento", sheetName: "Digitação Compras (Nova-teste)" }
+  ];
+  var CADASTROS = [
+    { id: "cad-clientes", label: "Clientes", type: "cadastro", sheetName: "Clientes" },
+    { id: "cad-fornecedores", label: "Fornecedores", type: "cadastro", sheetName: "Fornecedores" },
+    { id: "cad-plano", label: "Plano de contas", type: "cadastro", sheetName: "Plano de Contas" },
+    { id: "cad-custos", label: "Centro de custos", type: "cadastro", sheetName: "Centro de Custos" },
+    { id: "cad-bancos", label: "Tabela de bancos", type: "cadastro", sheetName: "Tabela de Bancos" },
+    { id: "cad-unidades", label: "Tabela de unidades", type: "cadastro", sheetName: "Tabela de Unidades" }
+  ];
+
+  var MENU_SECTIONS = [];
+  var itemIndex = {};
+
+  function montarMenu(){
+    MENU_SECTIONS = [
+      { title: "Visão geral", items: [
+        { id: "master", label: "Master", type: "master" },
+        { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
+      ]},
+      { title: "Bancos", items: bancos },
+      { title: "Unidades", items: unidades },
+      { title: "Outras movimentações", items: MOVIMENTOS },
+      { title: "Cadastros", items: CADASTROS }
+    ];
+    itemIndex = {};
+    MENU_SECTIONS.forEach(function(sec){
+      sec.items.forEach(function(item){ item.section = sec.title; itemIndex[item.id] = item; });
+    });
+  }
+  montarMenu();
 
   var currentTab = null;
   var editingId = null;
 
-  // ---------- storage ----------
+  // ---------- dados (IndexedDB via js/storage.js) ----------
   function storageKey(id){ return "lancamentos:agosto:" + id; }
-
-  function loadEntries(id){
-    try {
-      var raw = localStorage.getItem(storageKey(id));
-      return raw ? JSON.parse(raw) : [];
-    } catch(e){ return []; }
-  }
-
+  function loadEntries(id){ return Store.get(storageKey(id)) || []; }
   function saveEntries(id, entries){
-    try {
-      localStorage.setItem(storageKey(id), JSON.stringify(entries));
-      return true;
-    } catch(e){ return false; }
+    Store.set(storageKey(id), entries).then(function(ok){
+      if (!ok) toast("Não foi possível gravar no navegador. Verifique o espaço em disco.");
+    });
+    return true;
   }
+  function cabecalhoCadastro(id){ return Store.get("cabecalho:" + id) || []; }
 
-  // ---------- helpers (regras em js/core.js) ----------
+  // ---------- helpers ----------
   var brDate = Core.brDate;
   var parseValorInput = Core.parseValor;
   var formatBRNumber = Core.formatBR;
+  function $(id){ return document.getElementById(id); }
 
   function toast(msg){
-    var t = document.getElementById("toast");
+    var t = $("toast");
     t.textContent = msg;
     t.classList.add("show");
     clearTimeout(toast._h);
-    toast._h = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+    toast._h = setTimeout(function(){ t.classList.remove("show"); }, 2800);
   }
 
   function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, function(m){
+    return String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, function(m){
       return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m];
     });
   }
 
-  // ---------- sidebar ----------
+  function limpaPlaceholder(v){ var s = String(v === undefined || v === null ? "" : v).trim(); return I.ehVazioOuPlaceholder(s) ? "" : s; }
+  function ehUnidade(item){ return item && item.section === "Unidades"; }
+  function nomeDaFonte(item){ return item.bank === "Movimento" ? item.sheetName : (item.sheetName || ((item.bank ? item.bank + " " : "") + item.label)); }
+
+  // ---------- menu lateral ----------
   var ICONS = {
     master: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z"/>',
     conciliacao: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
     banco: '<path d="M3 10l9-6 9 6M5 10v8M19 10v8M9.5 10v8M14.5 10v8M3 20h18"/>',
     unidade: '<path d="M4 20V8l8-4 8 4v12M9 20v-6h6v6"/>',
     mov: '<path d="M4 7h16M4 12h10M4 17h7"/>',
-    cadastro: '<path d="M8 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8zM4 8h4M4 12h4M4 16h4"/>'
+    cadastro: '<path d="M8 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8zM4 8h4M4 12h4M4 16h4"/>',
+    mais: '<path d="M12 5v14M5 12h14"/>'
   };
-  var EMPTY_SECTION = { "Bancos": "Nenhuma conta cadastrada", "Unidades": "Nenhuma unidade cadastrada" };
+  var EMPTY_SECTION = { "Bancos": "Nenhuma conta cadastrada", "Unidades": "Criadas ao distribuir por unidade" };
 
   function iconFor(item){
     if (item.type === "master") return ICONS.master;
@@ -122,14 +114,25 @@
   }
 
   function buildSidebar(){
-    var wrap = document.getElementById("sidebar-menu");
+    var wrap = $("sidebar-menu");
     wrap.innerHTML = "";
     MENU_SECTIONS.forEach(function(sec){
       var secEl = document.createElement("div");
       secEl.className = "nav-section";
       var secTitle = document.createElement("div");
       secTitle.className = "nav-title";
-      secTitle.textContent = sec.title;
+      secTitle.innerHTML = "<span>" + escapeHtml(sec.title) + "</span>";
+      var acao = sec.title === "Bancos" ? abrirModalConta : (sec.title === "Unidades" ? abrirModalUnidade : null);
+      if (acao) {
+        var add = document.createElement("button");
+        add.className = "nav-add";
+        add.type = "button";
+        add.title = sec.title === "Bancos" ? "Nova conta bancária" : "Nova unidade";
+        add.setAttribute("aria-label", add.title);
+        add.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.mais + '</svg>';
+        add.addEventListener("click", acao);
+        secTitle.appendChild(add);
+      }
       secEl.appendChild(secTitle);
 
       if (!sec.items.length && EMPTY_SECTION[sec.title]) {
@@ -139,32 +142,30 @@
         secEl.appendChild(vazio);
       }
 
-      var subGroups = {};
+      var subGroups = {}, ordem = [];
       sec.items.forEach(function(item){
-        var key = item.bank || "";
-        if(!subGroups[key]) subGroups[key] = [];
+        var key = sec.title === "Bancos" ? (item.bank || "") : "";
+        if(!subGroups[key]) { subGroups[key] = []; ordem.push(key); }
         subGroups[key].push(item);
       });
-      var agrupar = sec.title === "Bancos" && Object.keys(subGroups).length > 0;
 
-      Object.keys(subGroups).forEach(function(key){
+      ordem.forEach(function(key){
         var group = document.createElement("div");
         group.className = "nav-group";
-        if (agrupar && key) {
+        if (key) {
           var title = document.createElement("div");
           title.className = "nav-subtitle";
           title.textContent = key;
           group.appendChild(title);
         }
         subGroups[key].forEach(function(item){
-          item.section = item.section || sec.title;
           var btn = document.createElement("button");
           btn.className = "acct-btn";
           btn.id = "btn-" + item.id;
           btn.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + iconFor(item) + '</svg>' +
             '<span class="acct-label">' + escapeHtml(item.label) + '</span>' +
             '<span class="acct-count" id="count-' + item.id + '"></span>';
-          btn.title = (item.bank && item.bank !== "Unidade" && item.bank !== "Movimento" ? item.bank + " " : "") + item.label;
+          btn.title = sec.title === "Bancos" ? nomeDaFonte(item) : item.label;
           btn.addEventListener("click", function(){ selectTab(item.id); });
           group.appendChild(btn);
         });
@@ -177,99 +178,111 @@
 
   function refreshCounts(){
     Object.keys(itemIndex).forEach(function(id){
-      var el = document.getElementById("count-" + id);
-      if(el) {
-        var count = loadEntries(id).length;
-        el.textContent = count || "";
-      }
+      var el = $("count-" + id);
+      if(el) el.textContent = loadEntries(id).length || "";
     });
   }
 
-  // ---------- Navigation ----------
+  // ---------- navegação ----------
   function selectTab(id){
+    if (!itemIndex[id]) id = "master";
     currentTab = id;
     editingId = null;
     var item = itemIndex[id];
-    
-    // UI states
+
     document.querySelectorAll(".acct-btn").forEach(function(b){ b.classList.remove("active"); });
-    document.getElementById("btn-" + id).classList.add("active");
-    
-    var mostraBanco = item.bank && item.bank !== "Unidade" && item.bank !== "Movimento";
-    document.getElementById("view-title").textContent = item.label;
-    document.getElementById("view-sub").textContent = item.section + (mostraBanco ? " / " + item.bank : "");
+    var btn = $("btn-" + id);
+    if (btn) btn.classList.add("active");
 
-    // Hide all views
-    document.getElementById("view-ledger").style.display = "none";
-    document.getElementById("view-cadastro").style.display = "none";
-    document.getElementById("view-master").style.display = "none";
-    document.getElementById("view-conciliacao").style.display = "none";
+    $("view-title").textContent = item.section === "Bancos" ? nomeDaFonte(item) : item.label;
+    $("view-sub").textContent = item.section + (item.section === "Bancos" && item.bank ? " / " + item.bank : "");
 
-    // Show correct view based on type
+    ["view-ledger","view-cadastro","view-master","view-conciliacao"].forEach(function(v){ $(v).style.display = "none"; });
+
     if (item.type === "ledger") {
-      document.getElementById("view-ledger").style.display = "block";
-      document.getElementById("f-datamov-wrap").style.display = item.hasDataMov ? "" : "none";
-      document.getElementById("cancel-edit").style.display = "none";
-      document.getElementById("submit-btn").textContent = "Adicionar lançamento";
-      document.getElementById("import-status-ledger").textContent = "";
-      document.getElementById("import-filename-ledger").textContent = "nenhum arquivo escolhido";
-      document.getElementById("file-import-ledger").value = "";
-      
-      var delBtn = document.getElementById("delete-acct");
-      if (delBtn) delBtn.style.display = ((item.section === "Bancos" || item.section === "Unidades") ? "inline-block" : "none");
-      
+      $("view-ledger").style.display = "block";
+      var derivada = ehUnidade(item);
+      $("ledger-note").hidden = !derivada;
+      $("ledger-toolbar").hidden = derivada;
+      $("ledger-form-panel").hidden = derivada;
+      $("f-datamov-wrap").style.display = item.hasDataMov ? "" : "none";
+      $("cancel-edit").style.display = "none";
+      $("submit-btn").textContent = "Adicionar lançamento";
+      $("import-status-ledger").textContent = "";
+      $("import-filename-ledger").textContent = "nenhum arquivo escolhido";
+      $("file-import-ledger").value = "";
+      $("delete-acct").style.display = item.section === "Bancos" ? "" : "none";
+      $("edit-contabil").style.display = item.section === "Bancos" ? "" : "none";
+      $("edit-contabil").textContent = item.contaContabil ? "Conta contábil " + item.contaContabil : "Definir conta contábil";
+      $("edit-contabil").classList.toggle("btn-danger-ghost", item.section === "Bancos" && !item.contaContabil);
+      $("delete-acct").textContent = "Excluir conta";
       resetForm();
       renderLedger();
-    } 
+    }
     else if (item.type === "cadastro") {
-      document.getElementById("view-cadastro").style.display = "block";
-      document.getElementById("import-status-cadastro").textContent = "";
-      document.getElementById("import-filename-cadastro").textContent = "nenhum arquivo escolhido";
-      document.getElementById("file-import-cadastro").value = "";
+      $("view-cadastro").style.display = "block";
+      $("import-status-cadastro").textContent = "";
+      $("import-filename-cadastro").textContent = "nenhum arquivo escolhido";
+      $("file-import-cadastro").value = "";
       renderCadastro();
     }
     else if (item.type === "master") {
-      document.getElementById("view-master").style.display = "block";
+      $("view-master").style.display = "block";
       renderMaster();
     }
     else if (item.type === "conciliacao") {
-      document.getElementById("view-conciliacao").style.display = "block";
+      $("view-conciliacao").style.display = "block";
     }
   }
 
-  // ---------- Ledger (Bancos, Unidades, Movimentações) ----------
+  // ---------- lançamentos ----------
   function resetForm(){
-    document.getElementById("entry-form").reset();
+    $("entry-form").reset();
     setValorSign("C");
-    document.getElementById("form-error").style.display = "none";
+    $("form-error").style.display = "none";
   }
 
   function setValorSign(sign){
-    document.getElementById("btn-c").classList.toggle("active", sign === "C");
-    document.getElementById("btn-d").classList.toggle("active", sign === "D");
-    document.getElementById("entry-form").dataset.sign = sign;
+    $("btn-c").classList.toggle("active", sign === "C");
+    $("btn-d").classList.toggle("active", sign === "D");
+    $("entry-form").dataset.sign = sign;
   }
 
   function formatValorField(){
-    var input = document.getElementById("f-valor");
+    var input = $("f-valor");
     var n = parseValorInput(input.value);
-    if(!isNaN(n)) input.value = formatBRNumber(n);
+    if(!isNaN(n)) input.value = formatBRNumber(Math.abs(n));
   }
 
   function columnsFor(item){
+    if (ehUnidade(item)) {
+      return [
+        { key: "data", label: "Data" }, { key: "banco", label: "Banco" }, { key: "doc", label: "Doc." },
+        { key: "desc", label: "Descrição / fornecedor" }, { key: "categoria", label: "Categoria" },
+        { key: "natureza", label: "Natureza" }, { key: "valor", label: "Valor", cls: "num" },
+        { key: "contas", label: "Débito / crédito" }, { key: "hp", label: "HP" }
+      ];
+    }
     var cols = [{ key: "data", label: "Data" }];
-    if(item.hasDataMov) cols.push({ key: "dataMov", label: "Data Movimento" });
+    if(item.hasDataMov) cols.push({ key: "dataMov", label: "Data mov." });
     cols.push(
-      { key: "desc", label: "Descrição/Histórico" },
+      { key: "desc", label: "Descrição / fornecedor" },
       { key: "doc", label: "Doc." },
-      { key: "valor", label: "Valor" },
+      { key: "valor", label: "Valor", cls: "num" },
       { key: "categoria", label: "Categoria" },
       { key: "unidade", label: "Unidade" },
-      { key: "nome", label: "Fornecedor/Cliente" },
-      { key: "cpf", label: "CPF/CNPJ" },
+      { key: "natureza", label: "Natureza / conta" },
       { key: "", label: "", cls: "col-actions" }
     );
     return cols;
+  }
+
+  function celulaDesc(e){
+    var sub = [e.nome, e.cpf || e.cnpj].filter(Boolean).join(", ");
+    return escapeHtml(e.desc || e.nome || "") + (sub && sub !== e.desc ? "<span class='cell-sub'>" + escapeHtml(sub) + "</span>" : "");
+  }
+  function celulaValor(e){
+    return '<span class="' + (e.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(e.valorNum) + (e.sign || "") + '</span>';
   }
 
   function renderLedger(){
@@ -277,83 +290,108 @@
     var item = itemIndex[currentTab];
     var entries = loadEntries(currentTab);
     var cols = columnsFor(item);
+    var derivada = ehUnidade(item);
 
-    var head = document.getElementById("ledger-head");
-    head.innerHTML = cols.map(function(c){
-      var cls = c.key === "valor" ? "num" : (c.cls || "");
-      return "<th" + (cls ? ' class="' + cls + '"' : "") + ">" + c.label + "</th>";
+    $("ledger-head").innerHTML = cols.map(function(c){
+      return "<th" + (c.cls ? ' class="' + c.cls + '"' : "") + ">" + c.label + "</th>";
     }).join("");
 
-    var body = document.getElementById("ledger-body");
-    var empty = document.getElementById("ledger-empty");
+    var body = $("ledger-body");
     body.innerHTML = "";
+    $("ledger-empty").style.display = entries.length ? "none" : "flex";
+    $("ledger-empty").innerHTML = derivada
+      ? "<strong>Nada distribuído para esta unidade</strong><span>Classifique os lançamentos nas contas bancárias e use Distribuir por unidade no Master.</span>"
+      : "<strong>Nenhum lançamento nesta conta</strong><span>Adicione pelo formulário acima ou importe a aba da planilha.</span>";
 
-    if(entries.length === 0){
-      empty.style.display = "block";
-    } else {
-      empty.style.display = "none";
-      entries.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); }).forEach(function(e){
-        var tr = document.createElement("tr");
-        var cells = [];
-        cells.push(brDate(e.data));
-        if(item.hasDataMov) cells.push(brDate(e.dataMov));
-        cells.push(escapeHtml(e.desc));
-        cells.push(escapeHtml(e.doc||""));
-        var valClass = e.sign === "D" ? "val-d" : "val-c";
-        cells.push('<span class="' + valClass + '">' + formatBRNumber(e.valorNum) + e.sign + '</span>');
-        cells.push(escapeHtml(e.categoria));
-        cells.push(escapeHtml(e.unidade));
-        cells.push(escapeHtml(e.nome||""));
-        cells.push(escapeHtml(e.cpf||""));
-        tr.innerHTML = cells.map(function(c){ return "<td>" + c + "</td>"; }).join("");
-        
-        var actionsTd = document.createElement("td");
+    var lista = derivada ? entries : entries.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); });
+    var frag = document.createDocumentFragment();
+    lista.forEach(function(e){
+      var tr = document.createElement("tr");
+      var pendente = !e.categoria;
+      if (pendente && !derivada) tr.className = "linha-pendente";
+      var html = cols.map(function(c){
+        switch(c.key){
+          case "data": return "<td>" + brDate(e.data) + "</td>";
+          case "dataMov": return "<td>" + brDate(e.dataMov) + "</td>";
+          case "banco": return "<td class='col-curta'>" + escapeHtml(e.banco) + "</td>";
+          case "desc": return "<td class='col-desc'>" + celulaDesc(e) + "</td>";
+          case "doc": return "<td>" + escapeHtml(e.doc || "") + (e.modelo ? "<span class='cell-sub'>" + escapeHtml(e.modelo) + "</span>" : "") + "</td>";
+          case "valor": return "<td class='num'>" + celulaValor(e) + "</td>";
+          case "categoria": return "<td>" + (pendente ? "<span class='pill pendente'>Pendente</span>" : escapeHtml(e.categoria)) + "</td>";
+          case "unidade": return "<td>" + escapeHtml(e.unidade || "") + "</td>";
+          case "natureza":
+            return "<td class='col-curta'>" + escapeHtml(e.natureza || "") + (e.conta && !derivada ? "<span class='cell-sub'>conta " + escapeHtml(e.conta) + "</span>" : "") + "</td>";
+          case "contas":
+            var aviso = (!e.ctaDeb || !e.ctaCred) ? " <span class='pill conc-diff' title='Sem conta contábil: confira categoria e conta do banco'>faltando</span>" : "";
+            return "<td class='contas'>" + escapeHtml(e.ctaDeb || "—") + " / " + escapeHtml(e.ctaCred || "—") + aviso + "</td>";
+          case "hp": return "<td class='contas'>" + escapeHtml(e.hp || "") + "</td>";
+          default: return "<td></td>";
+        }
+      }).join("");
+      tr.innerHTML = html;
+      if (!derivada) {
+        var actionsTd = tr.lastChild;
         actionsTd.className = "row-actions";
         var editBtn = document.createElement("button"); editBtn.textContent = "Editar";
         editBtn.addEventListener("click", function(){ startEdit(e.id); });
         var delBtn = document.createElement("button"); delBtn.textContent = "Excluir";
         delBtn.addEventListener("click", function(){ deleteEntry(e.id); });
         actionsTd.appendChild(editBtn); actionsTd.appendChild(delBtn);
-        
-        tr.appendChild(actionsTd);
-        body.appendChild(tr);
-      });
-    }
+      }
+      frag.appendChild(tr);
+    });
+    body.appendChild(frag);
 
-    var totC = 0, totD = 0;
-    entries.forEach(function(e){ if(e.sign === "D") totD += e.valorNum; else totC += e.valorNum; });
-    document.getElementById("totals").innerHTML =
+    var totC = 0, totD = 0, pend = 0;
+    entries.forEach(function(e){
+      if(e.sign === "D") totD += e.valorNum; else totC += e.valorNum;
+      if(!e.categoria) pend++;
+    });
+    var saldo = totC - totD;
+    $("totals").innerHTML =
       '<span>' + entries.length + ' lançamento' + (entries.length === 1 ? '' : 's') + '</span>' +
+      (derivada ? '' : '<span>Pendentes<strong class="' + (pend ? 'val-d' : 'val-c') + '">' + pend + '</strong></span>') +
       '<span>Créditos<strong class="val-c">' + formatBRNumber(totC) + 'C</strong></span>' +
       '<span>Débitos<strong class="val-d">' + formatBRNumber(totD) + 'D</strong></span>' +
-      '<span>Saldo<strong class="' + (totC - totD >= 0 ? 'val-c' : 'val-d') + '">' + formatBRNumber(Math.abs(totC - totD)) + (totC - totD >= 0 ? 'C' : 'D') + '</strong></span>';
+      '<span>Saldo<strong class="' + (saldo >= 0 ? 'val-c' : 'val-d') + '">' + formatBRNumber(Math.abs(saldo)) + (saldo >= 0 ? 'C' : 'D') + '</strong></span>';
 
     refreshCounts();
   }
 
+  function garantirOpcao(sel, valor){
+    if (!valor) return;
+    var existe = Array.prototype.some.call(sel.options, function(o){ return o.value === valor; });
+    if (!existe) {
+      var o = document.createElement("option");
+      o.value = valor; o.textContent = valor;
+      sel.appendChild(o);
+    }
+  }
+
   function startEdit(id){
-    var entries = loadEntries(currentTab);
-    var e = entries.find(function(x){ return x.id === id; });
+    var e = loadEntries(currentTab).filter(function(x){ return x.id === id; })[0];
     if(!e) return;
     editingId = id;
-    document.getElementById("f-data").value = e.data || "";
-    if(document.getElementById("f-datamov")) document.getElementById("f-datamov").value = e.dataMov || "";
-    document.getElementById("f-desc").value = e.desc || "";
-    document.getElementById("f-doc").value = e.doc || "";
-    document.getElementById("f-valor").value = formatBRNumber(e.valorNum);
+    $("f-data").value = e.data || "";
+    $("f-datamov").value = e.dataMov || "";
+    $("f-desc").value = e.desc || "";
+    $("f-doc").value = e.doc || "";
+    garantirOpcao($("f-modelo"), e.modelo); $("f-modelo").value = e.modelo || "";
+    $("f-valor").value = formatBRNumber(e.valorNum);
     setValorSign(e.sign);
-    document.getElementById("f-categoria").value = e.categoria || "";
-    document.getElementById("f-unidade").value = e.unidade || "";
-    document.getElementById("f-nome").value = e.nome || "";
-    document.getElementById("f-cpf").value = e.cpf || "";
-    document.getElementById("submit-btn").textContent = "Salvar edição";
-    document.getElementById("cancel-edit").style.display = "inline-block";
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    garantirOpcao($("f-categoria"), e.categoria); $("f-categoria").value = e.categoria || "";
+    garantirOpcao($("f-unidade"), e.unidade); $("f-unidade").value = e.unidade || "";
+    $("f-natureza").value = e.natureza || "";
+    $("f-conta").value = e.conta || "";
+    $("f-nome").value = e.nome || "";
+    $("f-cpf").value = e.cpf || "";
+    $("submit-btn").textContent = "Salvar edição";
+    $("cancel-edit").style.display = "inline-flex";
+    $("ledger-form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function deleteEntry(id){
-    var entries = loadEntries(currentTab).filter(function(x){ return x.id !== id; });
-    saveEntries(currentTab, entries);
+    saveEntries(currentTab, loadEntries(currentTab).filter(function(x){ return x.id !== id; }));
     renderLedger();
     toast("Lançamento excluído.");
   }
@@ -361,233 +399,323 @@
   function submitForm(ev){
     ev.preventDefault();
     var item = itemIndex[currentTab];
-    var data = document.getElementById("f-data").value;
-    var dataMov = item.hasDataMov ? document.getElementById("f-datamov").value : "";
-    var desc = document.getElementById("f-desc").value.trim();
-    var doc = document.getElementById("f-doc").value.trim();
-    var valorRaw = document.getElementById("f-valor").value;
-    var valorNum = parseValorInput(valorRaw);
-    var sign = document.getElementById("entry-form").dataset.sign || "C";
-    var categoria = document.getElementById("f-categoria").value;
-    var unidade = document.getElementById("f-unidade").value;
-    var nome = document.getElementById("f-nome").value.trim();
-    var cpf = document.getElementById("f-cpf").value.trim();
+    var valorNum = parseValorInput($("f-valor").value);
+    var dados = {
+      data: $("f-data").value,
+      dataMov: item.hasDataMov ? $("f-datamov").value : "",
+      desc: $("f-desc").value.trim(),
+      doc: $("f-doc").value.trim(),
+      modelo: $("f-modelo").value,
+      valorNum: Math.abs(valorNum),
+      sign: $("entry-form").dataset.sign || "C",
+      categoria: $("f-categoria").value,
+      unidade: $("f-unidade").value,
+      natureza: $("f-natureza").value.trim(),
+      conta: $("f-conta").value.trim(),
+      nome: $("f-nome").value.trim(),
+      cpf: $("f-cpf").value.trim()
+    };
 
-    if(!data || !desc || isNaN(valorNum) || !categoria || !unidade){
-      document.getElementById("form-error").style.display = "block";
+    if(!dados.data || !dados.desc || isNaN(valorNum)){
+      $("form-error").style.display = "block";
       return;
     }
-    document.getElementById("form-error").style.display = "none";
+    $("form-error").style.display = "none";
 
     var entries = loadEntries(currentTab);
     if(editingId){
-      var idx = entries.findIndex(function(x){ return x.id === editingId; });
-      if(idx > -1){
-        entries[idx] = Object.assign({}, entries[idx], { data:data, dataMov:dataMov, desc:desc, doc:doc, valorNum:valorNum, sign:sign, categoria:categoria, unidade:unidade, nome:nome, cpf:cpf });
-      }
+      entries = entries.map(function(x){ return x.id === editingId ? Object.assign({}, x, dados) : x; });
       editingId = null;
-      document.getElementById("cancel-edit").style.display = "none";
-      document.getElementById("submit-btn").textContent = "Adicionar lançamento";
+      $("cancel-edit").style.display = "none";
+      $("submit-btn").textContent = "Adicionar lançamento";
       toast("Lançamento atualizado.");
     } else {
-      entries.push({
-        id: "e" + Date.now() + Math.random().toString(36).slice(2,7),
-        data: data, dataMov: dataMov, desc: desc, doc: doc,
-        valorNum: valorNum, sign: sign, categoria: categoria, unidade: unidade,
-        nome: nome, cpf: cpf
-      });
+      dados.id = "e" + Date.now() + Math.random().toString(36).slice(2,7);
+      entries.push(dados);
       toast("Lançamento adicionado.");
     }
-    var ok = saveEntries(currentTab, entries);
-    if(!ok) toast("Não foi possível salvar — armazenamento indisponível.");
+    saveEntries(currentTab, entries);
     resetForm();
     renderLedger();
   }
 
-  // ---------- Cadastro View ----------
+  /** Ao escolher a natureza, preenche a conta contábil pelo plano de contas (se estiver vazia). */
+  function preencherContaPelaNatureza(){
+    var nat = $("f-natureza").value.trim().toLowerCase();
+    if (!nat || $("f-conta").value.trim()) return;
+    var achou = loadEntries("cad-plano").filter(function(p){ return String(p.nome).trim().toLowerCase() === nat; })[0];
+    if (achou && achou.linha && achou.linha[1] !== undefined && achou.linha[1] !== "") $("f-conta").value = String(achou.linha[1]);
+  }
+
+  // ---------- cadastros ----------
   function renderCadastro() {
     if(!currentTab) return;
     var entries = loadEntries(currentTab);
-    var body = document.getElementById("cadastro-body");
-    body.innerHTML = "";
+    var cab = cabecalhoCadastro(currentTab);
+    var nCols = Math.min(Math.max(cab.length, 1), 4);
+    $("cadastro-head").innerHTML = (cab.length ? cab.slice(0, nCols) : ["Nome"]).map(function(h){ return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "<th class='col-actions'></th>";
 
+    var body = $("cadastro-body");
+    body.innerHTML = "";
     if(entries.length === 0){
-      var tr = document.createElement("tr");
-      tr.innerHTML = "<td colspan='2' class='empty'><strong>Nenhum item cadastrado</strong><br>Importe a aba correspondente da planilha para preencher.</td>";
-      body.appendChild(tr);
+      body.innerHTML = "<tr><td colspan='" + (nCols + 1) + "' class='empty'><strong>Nenhum item cadastrado</strong><br>Importe a aba \"" + escapeHtml(itemIndex[currentTab].sheetName) + "\" da planilha.</td></tr>";
     } else {
-      entries.forEach(function(e) {
+      var frag = document.createDocumentFragment();
+      entries.slice(0, LIMITE_CADASTRO_TELA).forEach(function(e) {
         var tr = document.createElement("tr");
-        var nameCell = document.createElement("td");
-        nameCell.textContent = e.nome || e.desc || e.categoria || "Sem nome";
-        
+        var celulas = e.linha ? e.linha.slice(0, nCols) : [e.nome];
+        while (celulas.length < nCols) celulas.push("");
+        tr.innerHTML = celulas.map(function(c){ return "<td>" + escapeHtml(c) + "</td>"; }).join("");
         var actionsTd = document.createElement("td");
         actionsTd.className = "row-actions";
         var delBtn = document.createElement("button"); delBtn.textContent = "Excluir";
         delBtn.addEventListener("click", function(){
-           var updated = loadEntries(currentTab).filter(function(x){ return x.id !== e.id; });
-           saveEntries(currentTab, updated);
-           renderCadastro();
+          saveEntries(currentTab, loadEntries(currentTab).filter(function(x){ return x.id !== e.id; }));
+          renderCadastro();
         });
         actionsTd.appendChild(delBtn);
-        
-        tr.appendChild(nameCell);
         tr.appendChild(actionsTd);
-        body.appendChild(tr);
+        frag.appendChild(tr);
       });
+      body.appendChild(frag);
+      if (entries.length > LIMITE_CADASTRO_TELA) {
+        var tr = document.createElement("tr");
+        tr.innerHTML = "<td colspan='" + (nCols + 1) + "' class='empty'>Mostrando os primeiros " + LIMITE_CADASTRO_TELA +
+          " de <strong>" + entries.length.toLocaleString("pt-BR") + "</strong> itens.</td>";
+        body.appendChild(tr);
+      }
     }
     refreshCounts();
+    refreshFormOptions();
   }
 
-  // ---------- Master View ----------
+  // ---------- integração contábil (Master) ----------
+  function fontesIntegracao(){
+    var fontes = bancos.map(function(b){
+      return { id: b.id, nome: nomeDaFonte(b), contaBanco: b.contaContabil || "", lancamentos: loadEntries(b.id) };
+    });
+    MOVIMENTOS.filter(function(m){ return m.entraNaIntegracao; }).forEach(function(m){
+      fontes.push({ id: m.id, nome: m.sheetName, contaBanco: "", lancamentos: loadEntries(m.id) });
+    });
+    return fontes;
+  }
+
+  function tabelaUnidades(){ return loadEntries("cad-unidades").filter(function(e){ return e.linha && String(e.linha[0]).trim(); }); }
+
+  function nomesUnidades(){
+    var t = tabelaUnidades().map(function(e){ return String(e.linha[0]).trim(); });
+    if (t.length) return t;
+    if (unidades.length) return unidades.map(function(u){ return u.label; });
+    return DEFAULT_UNIDADES;
+  }
+
+  function idUnidade(nome){
+    var achou = unidades.filter(function(u){ return u.label.toLowerCase() === nome.toLowerCase(); })[0];
+    return achou ? achou.id : null;
+  }
+
   function renderMaster() {
-    var totCredit = 0;
-    var totDebit = 0;
-    var accountStats = [];
+    var fontes = fontesIntegracao();
+    var st = I.estatisticasMaster(fontes, nomesUnidades());
 
-    // Iterar apenas pelas abas do tipo "ledger"
-    Object.keys(itemIndex).forEach(function(id) {
-      var item = itemIndex[id];
-      if (item.type !== "ledger") return;
-      
-      var entries = loadEntries(id);
-      var c = 0, d = 0;
-      entries.forEach(function(e) {
-        if(e.sign === "D") d += e.valorNum;
-        else c += e.valorNum;
-      });
+    var tot = 0, cls = 0;
+    st.bancos.forEach(function(b){ tot += b.total; cls += b.classificados; });
+    var pct = tot ? Math.round(cls / tot * 100) : 0;
+    $("master-resumo").innerHTML = tot
+      ? '<div class="conc-headline"><h2>' + cls.toLocaleString("pt-BR") + ' de ' + tot.toLocaleString("pt-BR") + ' lançamentos classificados</h2>' +
+        '<div class="diff">Pendentes<strong class="' + (tot - cls ? "val-d" : "val-c") + '">' + (tot - cls).toLocaleString("pt-BR") + '</strong></div></div>' +
+        '<div class="conc-bar" role="img" aria-label="' + pct + '% classificado"><span class="b-ok" style="flex:' + cls + '"></span>' +
+        (tot - cls ? '<span class="b-miss" style="flex:' + (tot - cls) + '"></span>' : '') + '</div>'
+      : '<div class="conc-headline"><h2>Nenhum lançamento ainda</h2></div><p class="muted small">Cadastre as contas bancárias, importe as abas da planilha e classifique categoria e unidade.</p>';
 
-      if (c > 0 || d > 0) {
-        totCredit += c;
-        totDebit += d;
-        accountStats.push({ 
-          label: (item.bank ? item.bank + " - " : "") + item.label, 
-          c: c, d: d, bal: c - d 
-        });
-      }
+    var tbU = $("master-body-unidades");
+    tbU.innerHTML = "";
+    st.unidades.forEach(function(u){
+      var tr = document.createElement("tr");
+      var id = idUnidade(u.nome);
+      if (id) { tr.className = "clicavel"; tr.addEventListener("click", function(){ selectTab(id); }); tr.title = "Abrir " + u.nome; }
+      var pctTxt = u.pct === null ? "—" : u.pct.toFixed(1).replace(".", ",") + "%";
+      tr.innerHTML = "<td>" + escapeHtml(u.nome) + (id ? "" : "<span class='cell-sub'>ainda não distribuída</span>") + "</td>" +
+        "<td class='num val-c'>" + u.classificados + "</td>" +
+        "<td class='num" + (u.pendentes ? " val-d" : "") + "'>" + u.pendentes + "</td>" +
+        "<td class='num'><strong>" + u.total + "</strong></td>" +
+        "<td class='num'>" + (u.pct === null ? "" : "<span class='pct-bar'><i style='width:" + u.pct + "%'></i></span>") + pctTxt + "</td>";
+      tbU.appendChild(tr);
     });
 
-    var saldo = totCredit - totDebit;
-    var cardsHtml =
-      '<div class="stat primary"><div class="label">Saldo do mês</div><div class="value">' + formatBRNumber(Math.abs(saldo)) + (saldo >= 0 ? 'C' : 'D') + '</div></div>' +
-      '<div class="stat"><div class="label">Entradas (créditos)</div><div class="value val-c">' + formatBRNumber(totCredit) + '</div></div>' +
-      '<div class="stat"><div class="label">Saídas (débitos)</div><div class="value val-d">' + formatBRNumber(totDebit) + '</div></div>';
-    document.getElementById("master-cards").innerHTML = cardsHtml;
-
-    var tbody = document.getElementById("master-body");
-    tbody.innerHTML = "";
-    if (accountStats.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='4' class='empty'><strong>Nenhuma movimentação ainda</strong><br>Os saldos aparecem aqui assim que as contas tiverem lançamentos.</td></tr>";
-    } else {
-      accountStats.forEach(function(st) {
-        var tr = document.createElement("tr");
-        tr.innerHTML = 
-          '<td>' + escapeHtml(st.label) + '</td>' +
-          '<td class="num"><span class="val-c">' + formatBRNumber(st.c) + 'C</span></td>' +
-          '<td class="num"><span class="val-d">' + formatBRNumber(st.d) + 'D</span></td>' +
-          '<td class="num"><span class="' + (st.bal >= 0 ? 'val-c' : 'val-d') + '">' + formatBRNumber(Math.abs(st.bal)) + (st.bal >= 0 ? 'C' : 'D') + '</span></td>';
-        tbody.appendChild(tr);
-      });
-    }
+    var tbB = $("master-body-bancos");
+    tbB.innerHTML = "";
+    if (!st.bancos.length) tbB.innerHTML = "<tr><td colspan='4' class='empty'>Nenhuma conta cadastrada.</td></tr>";
+    st.bancos.forEach(function(b){
+      var tr = document.createElement("tr");
+      tr.className = "clicavel";
+      tr.addEventListener("click", function(){ selectTab(b.id); });
+      var item = itemIndex[b.id];
+      var semConta = item && item.section === "Bancos" && !item.contaContabil;
+      tr.innerHTML = "<td>" + escapeHtml(b.nome) + (semConta ? "<span class='cell-sub val-d'>sem conta contábil</span>" : "") + "</td>" +
+        "<td class='num val-c'>" + b.classificados + "</td>" +
+        "<td class='num" + (b.pendentes ? " val-d" : "") + "'>" + b.pendentes + "</td>" +
+        "<td class='num'><strong>" + b.total + "</strong></td>";
+      tbB.appendChild(tr);
+    });
   }
 
-  // ---------- Imports ----------
+  function distribuirPorUnidade(silencioso){
+    var tx = I.coletarTransacoes(fontesIntegracao());
+    if (!tx.length) {
+      if (!silencioso) $("master-status").textContent = "Nenhum lançamento classificado. Preencha categoria e unidade nas contas bancárias.";
+      return null;
+    }
+    var dist = I.distribuirPorUnidade(tx);
+    var criadas = 0;
+    dist.forEach(function(d){
+      var id = idUnidade(d.unidade);
+      if (!id) {
+        id = "unid-" + Date.now() + "-" + criadas;
+        unidades.push({ id: id, label: d.unidade, type: "ledger", bank: "Unidade", sheetName: d.unidade, hasDataMov: false });
+        criadas++;
+      }
+      saveEntries(id, d.linhas.map(function(l, i){ return Object.assign({ id: id + "-" + i }, l); }));
+    });
+    // unidades sem lançamento nesta rodada ficam vazias (igual à planilha)
+    unidades.forEach(function(u){
+      if (!dist.some(function(d){ return d.unidade.toLowerCase() === u.label.toLowerCase(); })) saveEntries(u.id, []);
+    });
+    if (criadas) { gravarLista("system_units", unidades); montarMenu(); buildSidebar(); populateConcSelect(); }
+    refreshCounts();
+
+    var semConta = 0;
+    dist.forEach(function(d){ semConta += I.semConta(d.linhas).length; });
+    var msg = tx.length.toLocaleString("pt-BR") + " lançamentos distribuídos para " + dist.length + " unidade(s), ordenados por Despesa, Pagamento e Recebimento.";
+    if (semConta) msg += " Atenção: " + semConta + " sem conta de débito ou crédito (veja a coluna Débito / crédito).";
+    if (!silencioso) { $("master-status").textContent = msg; toast("Distribuição concluída."); }
+    return { dist: dist, semConta: semConta };
+  }
+
+  function baixarArquivos(arquivos){
+    arquivos.forEach(function(a, i){
+      setTimeout(function(){
+        var blob = new Blob([a.conteudo], { type: "text/plain;charset=utf-8" }); // UTF-8 sem BOM
+        var link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = a.nome;
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(function(){ URL.revokeObjectURL(link.href); }, 2000);
+      }, i * 300);
+    });
+  }
+
+  function gerarTxts(formato){
+    var r = distribuirPorUnidade(true);
+    if (!r) { $("master-status").textContent = "Nenhum lançamento classificado para gerar TXT."; return; }
+    var tabela = tabelaUnidades();
+    if (!tabela.length) {
+      $("master-status").textContent = "Importe a Tabela de unidades (em Cadastros) antes: ela traz o CNPJ e o código SCI de cada unidade.";
+      return;
+    }
+    var arquivos = formato === "unico"
+      ? I.gerarTxtsUnico(r.dist, tabela, loadEntries("cad-custos"))
+      : I.gerarTxts(r.dist, tabela);
+    var foraDaTabela = r.dist.filter(function(d){ return !I.infoUnidade(tabela, d.unidade); }).map(function(d){ return d.unidade; });
+    if (!arquivos.length) { $("master-status").textContent = "Nenhuma unidade da Tabela de unidades tem lançamentos."; return; }
+    if (r.semConta && !confirm(r.semConta + " lançamento(s) vão sair sem conta de débito ou crédito. Gerar assim mesmo?")) return;
+    baixarArquivos(arquivos);
+    var msg = arquivos.length + " arquivo(s): " + arquivos.map(function(a){ return a.nome; }).join(", ") + ".";
+    if (foraDaTabela.length) msg += " Ficaram de fora por não estarem na Tabela de unidades: " + foraDaTabela.join(", ") + ".";
+    $("master-status").textContent = msg;
+    renderMaster();
+  }
+
+  // ---------- importação de planilhas ----------
   function importFile(file, isLedger){
-    var statusEl = document.getElementById(isLedger ? "import-status-ledger" : "import-status-cadastro");
-    document.getElementById(isLedger ? "import-filename-ledger" : "import-filename-cadastro").textContent = file.name;
+    var statusEl = $(isLedger ? "import-status-ledger" : "import-status-cadastro");
+    $(isLedger ? "import-filename-ledger" : "import-filename-cadastro").textContent = file.name;
+    if (typeof XLSX === "undefined") { statusEl.textContent = "O leitor de planilhas não carregou. Verifique a conexão com a internet e recarregue a página."; return; }
     statusEl.textContent = "Lendo arquivo…";
+    var tab = currentTab;
 
     var reader = new FileReader();
     reader.onload = function(ev){
       try {
-        var data = new Uint8Array(ev.target.result);
-        var wb = XLSX.read(data, { type: "array", cellDates: true });
-        var item = itemIndex[currentTab];
-        var sheetName = item.sheetName;
-
-        var foundSheet = Core.findSheet(wb.SheetNames, item);
+        var wb = XLSX.read(new Uint8Array(ev.target.result), { type: "array", cellDates: true });
+        var item = itemIndex[tab];
+        var foundSheet = Core.findSheet(wb.SheetNames, { sheetName: nomeDaFonte(item), label: item.label, conta: item.conta });
         if(!foundSheet){
-          statusEl.textContent = "Não encontrei a aba \"" + sheetName + "\" neste arquivo. Abas disponíveis: " + wb.SheetNames.join(", ");
+          statusEl.textContent = "Não encontrei a aba \"" + nomeDaFonte(item) + "\" neste arquivo. Abas disponíveis: " + wb.SheetNames.join(", ");
           return;
         }
 
-        var ws = wb.Sheets[foundSheet];
-        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[foundSheet], { header: 1, raw: true, defval: "" });
         var headerIdx = Core.detectHeaderRow(rows);
-        var colMap = Core.buildColumnMap(rows[headerIdx]);
+        var col = Core.buildColumnMap(rows[headerIdx]);
+        var get = function(row, k){ return col[k] !== undefined ? String(row[col[k]] === null || row[col[k]] === undefined ? "" : row[col[k]]).trim() : ""; };
 
-        var imported = [];
+        var imported = [], ignoradas = 0, stamp = Date.now();
         for(var r = headerIdx + 1; r < rows.length; r++){
           var row = rows[r];
           if(!row || row.every(function(c){ return c === "" || c === null || c === undefined; })) continue;
 
           if (isLedger) {
-            var isoDate = Core.toIsoDate(colMap.data !== undefined ? row[colMap.data] : "");
-            var valorCell = colMap.valor !== undefined ? row[colMap.valor] : "";
-            var parsedValor = Core.parseValorCell(valorCell);
-            var desc = colMap.desc !== undefined ? String(row[colMap.desc] || "").trim() : "";
-            if(!isoDate || !parsedValor || !desc) continue;
-
+            var isoDate = Core.toIsoDate(col.data !== undefined ? row[col.data] : "");
+            var v = Core.parseValorCell(col.valor !== undefined ? row[col.valor] : "");
+            if(!isoDate || !v){
+              if (v && limpaPlaceholder(get(row, "categoria"))) ignoradas++;   // classificada, mas sem data
+              continue;
+            }
+            var desc = get(row, "desc") || get(row, "nome") || get(row, "natureza") || "SEM DESCRIÇÃO";
             imported.push({
-              id: "e" + Date.now() + Math.random().toString(36).slice(2,7) + r,
+              id: "e" + stamp + "-" + r,
               data: isoDate,
-              dataMov: item.hasDataMov && colMap.dataMov !== undefined ? Core.toIsoDate(row[colMap.dataMov]) : "",
-              desc: desc,
-              doc: colMap.doc !== undefined ? String(row[colMap.doc] || "").trim() : "",
-              valorNum: parsedValor.valorNum,
-              sign: parsedValor.sign,
-              categoria: colMap.categoria !== undefined ? String(row[colMap.categoria] || "").trim() : "",
-              unidade: colMap.unidade !== undefined ? String(row[colMap.unidade] || "").trim() : "",
-              nome: colMap.nome !== undefined ? String(row[colMap.nome] || "").trim() : "",
-              cpf: colMap.cpf !== undefined ? String(row[colMap.cpf] || "").trim() : ""
+              dataMov: item.hasDataMov ? Core.toIsoDate(col.dataMov !== undefined ? row[col.dataMov] : "") : "",
+              desc: desc, doc: get(row, "doc"), modelo: limpaPlaceholder(get(row, "modelo")),
+              valorNum: v.valorNum, sign: v.sign,
+              categoria: limpaPlaceholder(get(row, "categoria")), unidade: limpaPlaceholder(get(row, "unidade")),
+              natureza: limpaPlaceholder(get(row, "natureza")), conta: get(row, "conta"),
+              nome: get(row, "nome"), cpf: get(row, "cpf")
             });
           } else {
-            // Importando Cadastro (apenas pega nome ou descrição dependendo do que achar)
-            var cadName = "";
-            if (colMap.nome !== undefined && row[colMap.nome]) cadName = row[colMap.nome];
-            else if (colMap.desc !== undefined && row[colMap.desc]) cadName = row[colMap.desc];
-            else if (row[0]) cadName = row[0]; // fallback to first column
-            
-            if(!String(cadName).trim()) continue;
-            
+            var nome = get(row, "nome") || get(row, "desc");
+            if (!nome) {
+              for (var c = 0; c < row.length; c++) {
+                var cel = String(row[c] === null || row[c] === undefined ? "" : row[c]).trim();
+                if (cel.length > 1 && isNaN(Number(cel))) { nome = cel; break; }
+              }
+            }
+            if (!nome) continue;
             imported.push({
-              id: "c" + Date.now() + Math.random().toString(36).slice(2,7) + r,
-              nome: String(cadName).trim()
+              id: "c" + stamp + "-" + r,
+              nome: nome,
+              linha: row.map(function(x){ return x instanceof Date ? Core.brDate(Core.toIsoDate(x)) : (x === null || x === undefined ? "" : x); })
             });
           }
         }
 
         if(imported.length === 0){
-          statusEl.textContent = "Nenhum dado reconhecido nessa aba.";
+          statusEl.textContent = "Nenhum dado reconhecido na aba \"" + foundSheet + "\".";
           return;
         }
 
-        var existing = loadEntries(currentTab);
+        var existing = loadEntries(tab);
         var append = existing.length === 0 || confirm(
           "Encontrei " + imported.length + " item(ns) na aba \"" + foundSheet + "\".\n\n" +
           "OK = adicionar aos " + existing.length + " já existentes.\n" +
           "Cancelar = substituir os existentes por estes."
         );
         var finalEntries = append ? existing.concat(imported) : imported;
-        
-        // Remove duplicates for Cadastros
         if(!isLedger) {
-           var unique = [];
-           var seen = {};
-           finalEntries.forEach(function(c) {
-              if(!seen[c.nome]) { seen[c.nome] = true; unique.push(c); }
-           });
-           finalEntries = unique;
+          var seen = {};
+          finalEntries = finalEntries.filter(function(c){ var k = String(c.nome); if (seen[k]) return false; seen[k] = true; return true; });
+          Store.set("cabecalho:" + tab, (rows[headerIdx] || []).map(function(h){ return String(h || "").trim(); }));
         }
+        saveEntries(tab, finalEntries);
 
-        saveEntries(currentTab, finalEntries);
-        
-        if (isLedger) renderLedger();
-        else renderCadastro();
-        
-        statusEl.textContent = imported.length + " item(ns) importado(s).";
+        if (isLedger) renderLedger(); else renderCadastro();
+        var msg = imported.length.toLocaleString("pt-BR") + " item(ns) importado(s) da aba \"" + foundSheet + "\".";
+        if (ignoradas) msg += " " + ignoradas + " linha(s) classificadas ficaram de fora por não terem data. A planilha também não as envia ao Único.";
+        statusEl.textContent = msg;
         toast("Importação concluída.");
       } catch(err){
+        console.error(err);
         statusEl.textContent = "Erro ao ler arquivo: " + (err.message || "desconhecido");
       }
     };
@@ -597,17 +725,16 @@
 
   // ---------- Conciliação ----------
   function populateConcSelect() {
-    var sel = document.getElementById("conc-acct");
+    var sel = $("conc-acct");
+    var atual = sel.value;
     sel.innerHTML = '<option value="" disabled selected>Escolha uma conta…</option>';
-    Object.keys(itemIndex).forEach(function(id){
-      var item = itemIndex[id];
-      if (item.type === "ledger") {
-        var opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = (item.bank ? item.bank + " - " : "") + item.label;
-        sel.appendChild(opt);
-      }
+    bancos.concat(MOVIMENTOS).forEach(function(item){
+      var opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = item.section === "Bancos" ? nomeDaFonte(item) : item.label;
+      sel.appendChild(opt);
     });
+    if (atual && itemIndex[atual]) sel.value = atual;
   }
 
   var ultimaConc = null; // { acctId, extrato, formato, arquivo } — permite refiltrar sem reimportar
@@ -749,221 +876,172 @@
     );
   }
 
-  // ---------- Events & Init ----------
-  document.getElementById("btn-c").addEventListener("click", function(){ setValorSign("C"); });
-  document.getElementById("btn-d").addEventListener("click", function(){ setValorSign("D"); });
-  document.getElementById("f-valor").addEventListener("blur", formatValorField);
-  document.getElementById("entry-form").addEventListener("submit", submitForm);
+  // ---------- modais: nova conta e nova unidade ----------
+  function abrirModalConta(){
+    ["modal-bank-ag","modal-bank-cc","modal-bank-contabil"].forEach(function(id){ $(id).value = ""; });
+    $("modal-add-account").style.display = "flex";
+    $("modal-bank-select").focus();
+  }
+  function abrirModalUnidade(){
+    $("modal-unit-name").value = "";
+    $("modal-add-unit").style.display = "flex";
+    $("modal-unit-name").focus();
+  }
 
-  document.getElementById("cancel-edit").addEventListener("click", function(){
+  $("modal-bank-cancel").addEventListener("click", function(){ $("modal-add-account").style.display = "none"; });
+  $("modal-unit-cancel").addEventListener("click", function(){ $("modal-add-unit").style.display = "none"; });
+
+  $("modal-bank-save").addEventListener("click", function() {
+    var banco = $("modal-bank-select").value.toUpperCase();
+    var cc = $("modal-bank-cc").value.trim().toUpperCase();
+    var contabil = $("modal-bank-contabil").value.trim();
+    var ag = $("modal-bank-ag").value.trim();
+    if (!cc || !contabil) { alert("Preencha o número da conta e a conta contábil no Único."); return; }
+    if (!/^\d+$/.test(contabil)) { alert("A conta contábil deve ter só números (ex.: 643)."); return; }
+
+    // mesmo padrão dos nomes de aba da planilha: "SICOOB 24402-3 Conta 643"
+    var id = "banco-" + Date.now();
+    var nova = {
+      id: id, type: "ledger", bank: banco,
+      label: cc + " Conta " + contabil,
+      sheetName: banco + " " + cc + " Conta " + contabil,
+      agencia: ag, conta: cc, contaContabil: contabil, hasDataMov: true
+    };
+    bancos.push(nova);
+    gravarLista("system_banks", bancos);
+    montarMenu(); buildSidebar(); populateConcSelect();
+    selectTab(id);
+    $("modal-add-account").style.display = "none";
+  });
+
+  $("modal-unit-save").addEventListener("click", function() {
+    var nome = $("modal-unit-name").value.trim();
+    if (!nome) { alert("Digite o nome da unidade."); return; }
+    if (idUnidade(nome)) { alert("Essa unidade já existe."); return; }
+    var id = "unid-" + Date.now();
+    unidades.push({ id: id, label: nome, type: "ledger", bank: "Unidade", sheetName: nome, hasDataMov: false });
+    gravarLista("system_units", unidades);
+    montarMenu(); buildSidebar(); populateConcSelect();
+    selectTab(id);
+    $("modal-add-unit").style.display = "none";
+  });
+
+  document.querySelectorAll(".modal").forEach(function(m){
+    m.addEventListener("keydown", function(e){ if (e.key === "Escape") m.style.display = "none"; });
+  });
+
+  // ---------- eventos ----------
+  $("btn-c").addEventListener("click", function(){ setValorSign("C"); });
+  $("btn-d").addEventListener("click", function(){ setValorSign("D"); });
+  $("f-valor").addEventListener("blur", formatValorField);
+  $("f-natureza").addEventListener("change", preencherContaPelaNatureza);
+  $("entry-form").addEventListener("submit", submitForm);
+  $("cancel-edit").addEventListener("click", function(){
     editingId = null;
     resetForm();
-    document.getElementById("cancel-edit").style.display = "none";
-    document.getElementById("submit-btn").textContent = "Adicionar lançamento";
+    $("cancel-edit").style.display = "none";
+    $("submit-btn").textContent = "Adicionar lançamento";
   });
 
-  document.getElementById("file-import-ledger").addEventListener("change", function(ev){
+  $("file-import-ledger").addEventListener("change", function(ev){
     if(ev.target.files && ev.target.files[0]) importFile(ev.target.files[0], true);
   });
-  document.getElementById("file-import-cadastro").addEventListener("change", function(ev){
+  $("file-import-cadastro").addEventListener("change", function(ev){
     if(ev.target.files && ev.target.files[0]) importFile(ev.target.files[0], false);
   });
-
-  document.getElementById("file-import-conc").addEventListener("change", function(ev){
+  $("file-import-conc").addEventListener("change", function(ev){
     if(ev.target.files && ev.target.files[0]) runConciliacao(ev.target.files[0]);
   });
-  document.getElementById("conc-filter").addEventListener("input", renderConciliacao);
-  document.getElementById("conc-tolerancia").addEventListener("input", renderConciliacao);
-  document.getElementById("conc-acct").addEventListener("change", function(){
+  $("conc-filter").addEventListener("input", renderConciliacao);
+  $("conc-tolerancia").addEventListener("input", renderConciliacao);
+  $("conc-acct").addEventListener("change", function(){
     if (ultimaConc) { ultimaConc.acctId = this.value; renderConciliacao(); }
   });
-  document.getElementById("export-csv").addEventListener("click", exportarCSV);
-  document.getElementById("export-clip").addEventListener("click", copiarParaExcel);
+  $("export-csv").addEventListener("click", exportarCSV);
+  $("export-clip").addEventListener("click", copiarParaExcel);
 
-  // Export and Clear bindings
+  $("btn-master-distribuir").addEventListener("click", function(){
+    if (distribuirPorUnidade(false)) renderMaster();
+  });
+  $("btn-redistribuir").addEventListener("click", function(){
+    distribuirPorUnidade(false);
+    renderLedger();
+  });
+  $("btn-master-txt-atual").addEventListener("click", function(){ gerarTxts("atual"); });
+  $("btn-master-txt-unico").addEventListener("click", function(){ gerarTxts("unico"); });
+
   function clearCurrentTab() {
     if(!currentTab) return;
-    if(confirm("Excluir tudo salvo nesta aba neste navegador?")){
+    if(confirm("Apagar tudo o que está salvo em \"" + itemIndex[currentTab].label + "\" neste navegador?")){
       saveEntries(currentTab, []);
-      if (itemIndex[currentTab] && itemIndex[currentTab].type === "ledger") {
-        renderLedger();
-      } else {
-        renderCadastro();
-      }
-      toast("Limpado com sucesso.");
+      if (itemIndex[currentTab].type === "ledger") renderLedger(); else renderCadastro();
+      toast("Apagado.");
     }
   }
-  document.getElementById("clear-acct").addEventListener("click", clearCurrentTab);
-  document.getElementById("clear-acct-top").addEventListener("click", clearCurrentTab);
-  document.getElementById("clear-cadastro").addEventListener("click", clearCurrentTab);
+  $("clear-acct").addEventListener("click", clearCurrentTab);
+  $("clear-acct-top").addEventListener("click", clearCurrentTab);
+  $("clear-cadastro").addEventListener("click", clearCurrentTab);
 
-  document.getElementById("delete-acct").addEventListener("click", function() {
-    if(!currentTab || !itemIndex[currentTab]) return;
-    var section = itemIndex[currentTab].section;
-    
-    if(confirm("ATENÇÃO: Você tem certeza que deseja EXCLUIR esta conta inteira e todos os seus lançamentos? Essa ação não pode ser desfeita!")) {
-      saveEntries(currentTab, []); // clear entries
-      
-      if (section === "Bancos") {
-        var savedBanks = JSON.parse(localStorage.getItem("system_banks")) || [];
-        savedBanks = savedBanks.filter(function(b) { return b.id !== currentTab; });
-        localStorage.setItem("system_banks", JSON.stringify(savedBanks));
-        MENU_SECTIONS[1].items = savedBanks;
-      } else if (section === "Unidades") {
-        var savedUnits = JSON.parse(localStorage.getItem("system_units")) || [];
-        savedUnits = savedUnits.filter(function(b) { return b.id !== currentTab; });
-        localStorage.setItem("system_units", JSON.stringify(savedUnits));
-        MENU_SECTIONS[2].items = savedUnits;
-      }
-      
-      delete itemIndex[currentTab];
-      
-      buildSidebar();
-      if (MENU_SECTIONS[1].items.length > 0) selectTab(MENU_SECTIONS[1].items[0].id);
-      else selectTab("master");
-      
-      populateConcSelect();
-      toast("Conta/Unidade excluída com sucesso.");
-    }
+  $("edit-contabil").addEventListener("click", function(){
+    var item = itemIndex[currentTab];
+    if (!item || item.section !== "Bancos") return;
+    var novo = prompt("Conta contábil desta conta no Único (só números, ex.: 643):", item.contaContabil || "");
+    if (novo === null) return;
+    novo = novo.trim();
+    if (!/^\d+$/.test(novo)) { alert("Use só números."); return; }
+    item.contaContabil = novo;
+    gravarLista("system_banks", bancos);
+    selectTab(item.id);
+    toast("Conta contábil atualizada.");
   });
 
-  document.getElementById("btn-add-account").addEventListener("click", function() {
-    document.getElementById("modal-bank-ag").value = "";
-    document.getElementById("modal-bank-cc").value = "";
-    document.getElementById("modal-add-account").style.display = "flex";
-    document.getElementById("modal-bank-select").focus();
+  $("delete-acct").addEventListener("click", function() {
+    var item = itemIndex[currentTab];
+    if(!item || item.section !== "Bancos") return;
+    if(!confirm("Excluir a conta \"" + nomeDaFonte(item) + "\" e todos os lançamentos dela? Não dá para desfazer.")) return;
+    saveEntries(currentTab, []);
+    bancos = bancos.filter(function(b){ return b.id !== currentTab; });
+    gravarLista("system_banks", bancos);
+    montarMenu(); buildSidebar(); populateConcSelect();
+    selectTab(bancos.length ? bancos[0].id : "master");
+    toast("Conta excluída.");
   });
 
-  document.getElementById("modal-bank-cancel").addEventListener("click", function() {
-    document.getElementById("modal-add-account").style.display = "none";
-  });
-
-  document.getElementById("modal-bank-save").addEventListener("click", function() {
-    var bankSel = document.getElementById("modal-bank-select").value;
-    var ag = document.getElementById("modal-bank-ag").value.trim();
-    var cc = document.getElementById("modal-bank-cc").value.trim();
-    
-    if (!ag || !cc) {
-      alert("Por favor, preencha a agência e a conta.");
-      return;
-    }
-    
-    // Label follows format: "Ag 1234 Conta 5678-9"
-    var acctName = "Ag " + ag + " Conta " + cc;
-    
-    var id = "banco-" + Date.now();
-    var newBank = { 
-      id: id, 
-      label: acctName, 
-      type: "ledger", 
-      bank: bankSel, 
-      sheetName: bankSel + " " + acctName,
-      agencia: ag,
-      conta: cc,
-      hasDataMov: true
-    };
-    var savedBanks = JSON.parse(localStorage.getItem("system_banks")) || [];
-    savedBanks.push(newBank);
-    localStorage.setItem("system_banks", JSON.stringify(savedBanks));
-    
-    // Update MENU_SECTIONS in memory
-    MENU_SECTIONS[1].items = savedBanks;
-    
-    // Update itemIndex so selectTab works properly for the new tab
-    newBank.section = MENU_SECTIONS[1].title;
-    itemIndex[id] = newBank;
-    
-    buildSidebar();
-    selectTab(id);
-    populateConcSelect();
-    
-    document.getElementById("modal-add-account").style.display = "none";
-  });
-
-  document.getElementById("btn-add-unit").addEventListener("click", function() {
-    document.getElementById("modal-unit-name").value = "";
-    document.getElementById("modal-add-unit").style.display = "flex";
-    document.getElementById("modal-unit-name").focus();
-  });
-
-  document.getElementById("modal-unit-cancel").addEventListener("click", function() {
-    document.getElementById("modal-add-unit").style.display = "none";
-  });
-
-  document.getElementById("modal-unit-save").addEventListener("click", function() {
-    var unitName = document.getElementById("modal-unit-name").value.trim();
-    if (!unitName) {
-      alert("Por favor, digite o nome da unidade.");
-      return;
-    }
-    
-    var id = "unid-" + Date.now();
-    var newUnit = { 
-      id: id, 
-      label: unitName, 
-      type: "ledger", 
-      bank: "Unidade", 
-      sheetName: unitName,
-      hasDataMov: false
-    };
-    
-    var savedUnits = JSON.parse(localStorage.getItem("system_units")) || [];
-    savedUnits.push(newUnit);
-    localStorage.setItem("system_units", JSON.stringify(savedUnits));
-    
-    MENU_SECTIONS[2].items = savedUnits;
-    newUnit.section = MENU_SECTIONS[2].title;
-    itemIndex[id] = newUnit;
-    
-    buildSidebar();
-    selectTab(id);
-    populateConcSelect();
-    
-    document.getElementById("modal-add-unit").style.display = "none";
-  });
-
-  // Init
-  function fillSelect(sel, options){
-    sel.innerHTML = '<option value="" disabled selected>selecionar…</option>' +
+  // ---------- opções do formulário ----------
+  function fillSelect(sel, options, vazio){
+    sel.innerHTML = '<option value="">' + escapeHtml(vazio) + '</option>' +
       options.map(function(o){ return '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>'; }).join("");
   }
 
   function refreshFormOptions() {
-    // 1. Categorias (Plano de Contas)
-    var planos = loadEntries("cad-plano").map(function(e){ return e.nome; }).filter(Boolean);
-    if(planos.length === 0) planos = DEFAULT_CATEGORIAS;
-    fillSelect(document.getElementById("f-categoria"), planos);
+    fillSelect($("f-categoria"), I.CATEGORIAS, "Pendente (sem categoria)");
+    fillSelect($("f-unidade"), nomesUnidades(), "Sem unidade");
+    fillSelect($("f-modelo"), I.MODELOS_DOC, "—");
 
-    // 2. Unidades (Central de Custos / Tabela de Unidades)
-    var unidades = loadEntries("cad-unidades").map(function(e){ return e.nome; }).filter(Boolean);
-    if(unidades.length === 0) unidades = loadEntries("cad-custos").map(function(e){ return e.nome; }).filter(Boolean);
-    if(unidades.length === 0) unidades = DEFAULT_UNIDADES;
-    fillSelect(document.getElementById("f-unidade"), unidades);
+    $("dl-naturezas").innerHTML = loadEntries("cad-plano").map(function(e){
+      return '<option value="' + escapeHtml(e.nome) + '">' + (e.linha && e.linha[1] ? "conta " + escapeHtml(e.linha[1]) : "") + '</option>';
+    }).join("");
 
-    // 3. Fornecedores/Clientes (Datalist)
-    var f = loadEntries("cad-fornecedores").map(function(e){ return e.nome; });
-    var c = loadEntries("cad-clientes").map(function(e){ return e.nome; });
-    var nomes = f.concat(c).filter(Boolean);
-    var uniqueNomes = nomes.filter(function(v, i, a){ return a.indexOf(v) === i; }).sort();
-    
-    var dl = document.getElementById("dl-nomes");
-    dl.innerHTML = uniqueNomes.map(function(n){ return '<option value="' + escapeHtml(n) + '">'; }).join("");
+    var vistos = {}, nomes = [];
+    loadEntries("cad-fornecedores").concat(loadEntries("cad-clientes")).some(function(e){
+      if (e.nome && !vistos[e.nome]) { vistos[e.nome] = true; nomes.push(e.nome); }
+      return nomes.length >= LIMITE_SUGESTOES_NOME;
+    });
+    $("dl-nomes").innerHTML = nomes.sort().map(function(n){ return '<option value="' + escapeHtml(n) + '">'; }).join("");
   }
 
-  // Hook into renderCadastro to refresh options when cadastros change
-  var origRenderCadastro = renderCadastro;
-  renderCadastro = function() {
-    origRenderCadastro();
+  // ---------- início ----------
+  Store.init().then(function(ok){
+    if (!ok) toast("Este navegador não permite gravar dados. Nada será salvo.");
     refreshFormOptions();
-  };
+    buildSidebar();
+    populateConcSelect();
+    selectTab(bancos.length ? bancos[0].id : "master");
+    $("content").setAttribute("aria-busy", "false");
+  });
 
-  refreshFormOptions();
-  buildSidebar();
-  populateConcSelect();
-  if (MENU_SECTIONS[1].items && MENU_SECTIONS[1].items.length > 0) {
-    selectTab(MENU_SECTIONS[1].items[0].id);
-  } else {
-    selectTab("master");
-  }
+  window.addEventListener("beforeunload", function(e){
+    if (Store.gravando()) { e.preventDefault(); e.returnValue = ""; }
+  });
 
 })();

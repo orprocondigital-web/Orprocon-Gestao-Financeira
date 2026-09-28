@@ -1,8 +1,8 @@
 {
   "name": "gestao-financeira",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Lançamentos e conciliação bancária mensal",
+  "description": "Integração contábil (SCI Único) e conciliação bancária",
   "scripts": {
     "test": "node --test"
   }

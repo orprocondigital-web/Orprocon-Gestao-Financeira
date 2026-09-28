@@ -1,49 +1,62 @@
-# Gestão Financeira — lançamentos e conciliação bancária
+# Gestão Financeira — integração contábil e conciliação bancária
 
-Substitui a planilha mensal `.xlsm` de lançamentos usada no atendimento ao
-cliente (uma aba por conta bancária, por filial e por tipo de movimento).
+Substitui a planilha mensal de lançamentos (`Setembro_v19-CORRETA.xlsm`) usada
+para integrar a movimentação bancária do cliente ao **SCI Único**.
 
-## O problema que resolve
+## O que resolve
 
 Todo mês, cada movimentação de cada conta bancária do cliente precisa ser
-**classificada** (categoria, unidade/filial, fornecedor ou cliente, CPF/CNPJ)
-para entrar na contabilidade. Depois, é preciso **conferir** se o que foi
-lançado bate com o extrato do banco: nada faltando, nada sobrando.
+classificada (categoria, unidade/filial, natureza do gasto, fornecedor ou
+cliente) e virar lançamento contábil no Único, com conta de débito, conta de
+crédito e histórico padrão. Na planilha isso é feito com macros VBA. O sistema
+reproduz o mesmo fluxo:
 
-Fazer essa conferência na planilha é manual e lento — um único extrato do
-Sicoob chega a 1.600 movimentações no mês. O sistema:
+1. **Contas bancárias** — cada conta tem a sua conta contábil no Único (ex.: 643).
+   Os lançamentos são digitados ou importados da aba da planilha.
+2. **Classificação** — categoria, unidade, natureza e conta. O que falta
+   classificar aparece como *Pendente*.
+3. **Master** — acompanha classificados e pendentes por unidade e por banco e tem os três botões da planilha:
+   - *Distribuir por unidade*: agrupa por filial, ordena (Despesa, Pagamento,
+     Recebimento, Aplicações) e calcula débito, crédito e HP.
+   - *Gerar TXTs (formato atual)*: um arquivo por unidade e categoria, separado por tabulação.
+   - *Gerar TXTs (SCI Único)*: um arquivo por unidade no layout de importação do Único.
+4. **Conciliação** — cruza o extrato do banco (`.xlsx`, `.csv` ou o `.txt` do
+   Sicoob) com os lançamentos e aponta o que falta de cada lado.
 
-1. Guarda os lançamentos classificados por conta (digitados ou importados da planilha).
-2. Lê o extrato do banco (`.xlsx`, `.csv` ou o `.txt` do Sicoob, incluindo nome
-   e CPF/CNPJ de quem pagou ou recebeu no Pix).
-3. Cruza os dois e aponta, linha a linha:
-   - **OK** — mesmo valor, sinal (C/D) e data;
-   - **Data diferente** — mesmo valor e sinal, data próxima (tolerância ajustável);
-   - **Só no banco** — o banco mostra, ninguém lançou;
-   - **Só no sistema** — foi lançado, o banco não mostra.
-4. Mostra a diferença de saldo e se a conciliação do mês está fechada.
+### Regras contábeis (iguais às macros da planilha)
 
-## Como usar
+| Categoria | Débito | Crédito | HP |
+|---|---|---|---|
+| Recebimento | conta do banco | 18 (2284 se natureza = Juros Recebidos) | 3708 |
+| Pagamento | 148 | conta do banco | 3026 |
+| Despesa | coluna Conta (ou 148) | conta do banco | — |
+| Aplicações | coluna Conta (ou 148) | conta do banco | — |
+| Aplicações com natureza "resgate" | conta do banco | coluna Conta (ou 148) | — |
 
-Abra o `index.html` no navegador (ou pelo GitHub Pages). Os dados ficam só no
-`localStorage` daquele navegador — nada é enviado a servidor. Para levar os
-lançamentos para outro lugar, use **Exportar CSV** ou **Copiar (colar no Excel)**.
+Outras categorias saem sem conta, como na planilha; o sistema avisa antes de gerar.
+
+## Onde ficam os dados
+
+No **IndexedDB do navegador** de quem usa: nada vai para servidor. Cada
+navegador e cada computador tem os seus dados. Limpar os dados de navegação
+apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 
 ## Estrutura
 
 | Arquivo | Papel |
 |---|---|
-| `js/core.js` | Regras de negócio puras: valores, datas, leitura de extratos, conciliação, exportação. Sem DOM. |
-| `js/app.js` | Tela: menu, formulários, tabelas, localStorage. Usa o `core.js`. |
-| `tests/` | Testes automatizados do `core.js` e um extrato Sicoob fictício. |
+| `js/core.js` | Valores, datas, leitura de planilhas e extratos, conciliação, exportação. |
+| `js/integracao.js` | Porte das macros VBA: coleta, contas contábeis, distribuição, TXTs, Master. |
+| `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
+| `js/app.js` | Tela. |
+| `tests/` | Testes automatizados e um extrato Sicoob fictício. |
 
 ## Testes
 
-Requer Node.js 18 ou mais novo. Não há dependências para instalar.
+Requer Node.js 18 ou mais novo, sem dependências:
 
 ```
 npm test
 ```
 
-**Nunca** coloque extratos, planilhas ou cadastros reais em `tests/fixtures/`
-nem em qualquer pasta do repositório. Use dados fictícios.
+**Nunca** coloque extratos, planilhas ou cadastros reais no repositório. Use dados fictícios.

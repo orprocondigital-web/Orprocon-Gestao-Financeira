@@ -334,3 +334,43 @@ td.empty { display: table-cell; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* ------------------------------------------------------------- integração contábil */
+.nav-title { display: flex; align-items: center; justify-content: space-between; }
+.nav-add {
+  width: 22px; height: 22px; display: grid; place-items: center;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); cursor: pointer;
+}
+.nav-add:hover { background: var(--brand-soft); color: var(--brand); }
+.nav-add:focus-visible { outline: none; box-shadow: var(--focus); }
+.nav-add .ico { width: 15px; height: 15px; }
+
+.notice {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 14px 18px; margin-bottom: 16px;
+  background: var(--info-soft); border: 1px solid color-mix(in srgb, var(--info) 25%, transparent); border-radius: var(--r-lg);
+}
+.notice strong { color: var(--info); }
+.notice p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); max-width: 72ch; }
+
+.master-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; border-top: 1px solid var(--line); }
+.master-actions .step { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.master-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.master-grid .panel { margin-bottom: 0; }
+tr.clicavel { cursor: pointer; }
+tr.clicavel:hover td:first-child { color: var(--brand); }
+.pct-bar { display: inline-block; width: 48px; height: 6px; border-radius: 999px; background: var(--line); vertical-align: middle; margin-right: 8px; overflow: hidden; }
+.pct-bar i { display: block; height: 100%; background: var(--credit); }
+
+.pill.pendente { background: var(--warn-soft); color: var(--warn); }
+.ledger tr.linha-pendente td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.contas { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink-2); }
+
+.content[aria-busy="true"] > * { opacity: .4; pointer-events: none; }
+
+@media (max-width: 1100px) {
+  .master-actions, .master-grid { grid-template-columns: 1fr; }
+}
+
+table.ledger td.col-desc { min-width: 240px; }
+table.ledger td.col-curta { max-width: 180px; }

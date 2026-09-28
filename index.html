@@ -20,20 +20,10 @@
       </span>
       <span class="brand-text">
         <strong>Gestão Financeira</strong>
-        <span>Conciliação bancária</span>
+        <span>Integração contábil</span>
       </span>
     </div>
     <div class="nav" id="sidebar-menu"></div>
-    <div class="sidebar-foot">
-      <button id="btn-add-account" class="btn btn-soft btn-block">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        Nova conta bancária
-      </button>
-      <button id="btn-add-unit" class="btn btn-soft btn-block">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        Nova unidade
-      </button>
-    </div>
   </nav>
 
   <main>
@@ -47,11 +37,18 @@
       </div>
     </header>
 
-    <div class="content">
+    <div class="content" id="content" aria-busy="true">
 
     <!-- CONTA / UNIDADE / MOVIMENTAÇÃO -->
     <div id="view-ledger" style="display:none;">
-      <section class="toolbar">
+      <section class="notice" id="ledger-note" hidden>
+        <div>
+          <strong>Aba gerada automaticamente</strong>
+          <p>Os lançamentos desta unidade vêm das contas bancárias classificadas com ela, já com as contas de débito e crédito. Para mudar algo, corrija na conta bancária e distribua de novo.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="btn-redistribuir">Distribuir por unidade</button>
+      </section>
+      <section class="toolbar" id="ledger-toolbar">
         <div class="toolbar-main">
           <label class="btn btn-outline" for="file-import-ledger">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
@@ -61,16 +58,17 @@
           <span class="muted small" id="import-filename-ledger">nenhum arquivo escolhido</span>
         </div>
         <div class="toolbar-side">
+          <button type="button" class="btn btn-ghost" id="edit-contabil"></button>
           <button type="button" class="btn btn-ghost" id="clear-acct-top">Limpar lançamentos</button>
           <button type="button" class="btn btn-danger-ghost" id="delete-acct">Excluir conta</button>
         </div>
       </section>
       <div id="import-status-ledger" class="status-line"></div>
 
-      <section class="panel">
+      <section class="panel" id="ledger-form-panel">
         <div class="panel-head">
           <h2>Novo lançamento</h2>
-          <p class="muted small">O valor é formatado ao sair do campo. Use C para entrada e D para saída.</p>
+          <p class="muted small">Só data, descrição e valor são obrigatórios. Sem categoria e unidade, o lançamento fica como pendente.</p>
         </div>
         <form id="entry-form" class="panel-body">
           <div class="grid">
@@ -86,11 +84,15 @@
               <label for="f-desc">Descrição / histórico</label>
               <input type="text" id="f-desc" placeholder="Ex.: PIX RECEBIDO - OUTRA IF" required>
             </div>
+
             <div class="field">
               <label for="f-doc">Documento</label>
               <input type="text" id="f-doc" placeholder="Opcional">
             </div>
-
+            <div class="field">
+              <label for="f-modelo">Modelo do documento</label>
+              <select id="f-modelo"></select>
+            </div>
             <div class="field span2">
               <label for="f-valor">Valor</label>
               <div class="valor-row">
@@ -101,26 +103,36 @@
                 </div>
               </div>
             </div>
+
             <div class="field">
               <label for="f-categoria">Categoria</label>
-              <select id="f-categoria" required></select>
+              <select id="f-categoria"></select>
             </div>
             <div class="field">
               <label for="f-unidade">Unidade</label>
-              <select id="f-unidade" required></select>
+              <select id="f-unidade"></select>
+            </div>
+            <div class="field span2">
+              <label for="f-natureza">Natureza do gasto</label>
+              <input type="text" id="f-natureza" list="dl-naturezas" placeholder="Nome da conta no plano de contas" autocomplete="off">
+              <datalist id="dl-naturezas"></datalist>
             </div>
 
+            <div class="field">
+              <label for="f-conta">Conta contábil</label>
+              <input type="text" id="f-conta" inputmode="numeric" placeholder="Preenchida pela natureza">
+            </div>
             <div class="field span2">
               <label for="f-nome">Fornecedor ou cliente</label>
               <input type="text" id="f-nome" list="dl-nomes" placeholder="Razão social, não o nome fantasia" autocomplete="off">
               <datalist id="dl-nomes"></datalist>
             </div>
-            <div class="field span2">
+            <div class="field">
               <label for="f-cpf">CPF / CNPJ</label>
               <input type="text" id="f-cpf" placeholder="Opcional">
             </div>
           </div>
-          <div class="error-msg" id="form-error">Preencha data, descrição, valor, categoria e unidade.</div>
+          <div class="error-msg" id="form-error">Preencha data, descrição e valor.</div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="submit-btn">Adicionar lançamento</button>
             <button type="button" class="btn btn-ghost" id="cancel-edit" style="display:none">Cancelar edição</button>
@@ -170,25 +182,54 @@
       <section class="panel">
         <div class="table-wrap">
           <table class="ledger" id="cadastro-table">
-            <thead><tr id="cadastro-head"><th>Nome / descrição</th><th class="col-actions"></th></tr></thead>
+            <thead><tr id="cadastro-head"></tr></thead>
             <tbody id="cadastro-body"></tbody>
           </table>
         </div>
       </section>
     </div>
 
-    <!-- VISÃO GERAL -->
+    <!-- MASTER / INTEGRAÇÃO CONTÁBIL -->
     <div id="view-master" style="display:none;">
-      <section class="stats" id="master-cards"></section>
       <section class="panel">
-        <div class="panel-head"><h2>Saldo por conta e unidade</h2></div>
-        <div class="table-wrap">
-          <table class="ledger">
-            <thead><tr><th>Conta / unidade</th><th class="num">Créditos</th><th class="num">Débitos</th><th class="num">Saldo</th></tr></thead>
-            <tbody id="master-body"></tbody>
-          </table>
+        <div class="conc-summary" id="master-resumo"></div>
+        <div class="panel-body master-actions">
+          <div class="step">
+            <button type="button" class="btn btn-primary" id="btn-master-distribuir">Distribuir por unidade</button>
+            <span class="muted small">Monta as abas de unidade com as contas de débito e crédito.</span>
+          </div>
+          <div class="step">
+            <button type="button" class="btn btn-outline" id="btn-master-txt-atual">Gerar TXTs (formato atual)</button>
+            <span class="muted small">Um arquivo por unidade e categoria, separado por tabulação.</span>
+          </div>
+          <div class="step">
+            <button type="button" class="btn btn-outline" id="btn-master-txt-unico">Gerar TXTs (SCI Único)</button>
+            <span class="muted small">Um arquivo por unidade no layout de importação do Único.</span>
+          </div>
         </div>
+        <div id="master-status" class="status-line inset"></div>
       </section>
+
+      <div class="master-grid">
+        <section class="panel">
+          <div class="panel-head row"><h2>Unidades</h2></div>
+          <div class="table-wrap">
+            <table class="ledger">
+              <thead><tr><th>Unidade</th><th class="num">Classificados</th><th class="num">Pendentes</th><th class="num">Total</th><th class="num">Completo</th></tr></thead>
+              <tbody id="master-body-unidades"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head row"><h2>Bancos e movimentos</h2></div>
+          <div class="table-wrap">
+            <table class="ledger">
+              <thead><tr><th>Conta</th><th class="num">Classificados</th><th class="num">Pendentes</th><th class="num">Total</th></tr></thead>
+              <tbody id="master-body-bancos"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </div>
 
     <!-- CONCILIAÇÃO -->
@@ -260,7 +301,7 @@
 <div id="modal-add-account" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-account-title">
   <div class="modal-card">
     <h3 id="modal-account-title">Nova conta bancária</h3>
-    <p class="muted small">A conta aparece no menu e passa a aceitar lançamentos e conciliação.</p>
+    <p class="muted small">A conta contábil é o código do banco no plano de contas do Único. Ela entra nos TXTs como débito ou crédito.</p>
     <div class="field">
       <label for="modal-bank-select">Banco</label>
       <select id="modal-bank-select">
@@ -279,13 +320,17 @@
     </div>
     <div class="grid-2">
       <div class="field">
-        <label for="modal-bank-ag">Agência</label>
-        <input type="text" id="modal-bank-ag" placeholder="Ex.: 3078">
+        <label for="modal-bank-cc">Número da conta</label>
+        <input type="text" id="modal-bank-cc" placeholder="Ex.: 24402-3">
       </div>
       <div class="field">
-        <label for="modal-bank-cc">Conta</label>
-        <input type="text" id="modal-bank-cc" placeholder="Ex.: 24.402-3">
+        <label for="modal-bank-contabil">Conta contábil no Único</label>
+        <input type="text" id="modal-bank-contabil" inputmode="numeric" placeholder="Ex.: 643">
       </div>
+    </div>
+    <div class="field">
+      <label for="modal-bank-ag">Agência <span class="muted">(opcional)</span></label>
+      <input type="text" id="modal-bank-ag" placeholder="Ex.: 3078">
     </div>
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost" id="modal-bank-cancel">Cancelar</button>
@@ -310,7 +355,9 @@
   </div>
 </div>
 
+<script src="js/storage.js"></script>
 <script src="js/core.js"></script>
+<script src="js/integracao.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -86,6 +86,18 @@ describe("planilhas", () => {
     assert.deepEqual(map, { data: 0, dataMov: 1, desc: 2, doc: 3, valor: 4, categoria: 5, unidade: 6, nome: 7, cpf: 8 });
   });
 
+  test("cabeçalho real das abas bancárias da planilha de setembro", () => {
+    const map = Core.buildColumnMap(["Data", "Doc.", "Descrição/Histórico", "Valor", "Saldo", "Última Trasação do dia",
+      "Modelo DOC", "Nome do Fornecedor/Cliente (não usar nome de fantasia)", "CPF/CNPJ", "Categoria", "Unidade",
+      "Natureza do gasto", "Conta", "", "Índice Diário"]);
+    assert.deepEqual(map, { data: 0, doc: 1, desc: 2, valor: 3, modelo: 6, nome: 7, cpf: 8, categoria: 9, unidade: 10, natureza: 11, conta: 12 });
+  });
+
+  test("nome: coluna com razão social vence coluna genérica de cliente", () => {
+    const map = Core.buildColumnMap(["Código", "Cliente", "Razão Social", "CNPJ"]);
+    assert.equal(map.nome, 2);
+  });
+
   test("extrato em planilha: pula saldos e linhas sem data/valor", () => {
     const rows = [
       ["Data", "Histórico", "Valor"],
@@ -271,7 +283,7 @@ describe("exportação", () => {
 
   test("TSV para colar no Excel, com coluna Data Movimento quando pedida", () => {
     const tsv = Core.toTSV(entries, true);
-    assert.equal(tsv.split("\t").length, 9);
+    assert.equal(tsv.split("\t").length, 12);
     assert.ok(tsv.startsWith("03/08/2026\t\t"));
   });
 });
