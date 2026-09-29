@@ -33,6 +33,9 @@
     { id: "cad-unidades", label: "Tabela de unidades", type: "cadastro", sheetName: "Tabela de Unidades" }
   ];
 
+  var contasMov = (function(){ try { return JSON.parse(localStorage.getItem("system_mov_contas")) || {}; } catch(e){ return {}; } })();
+  MOVIMENTOS.forEach(function(m){ if (m.entraNaIntegracao) m.contaContabil = contasMov[m.id] || ""; });
+
   var MENU_SECTIONS = [];
   var itemIndex = {};
 
@@ -212,9 +215,10 @@
       $("import-filename-ledger").textContent = "nenhum arquivo escolhido";
       $("file-import-ledger").value = "";
       $("delete-acct").style.display = item.section === "Bancos" ? "" : "none";
-      $("edit-contabil").style.display = item.section === "Bancos" ? "" : "none";
+      var temContabil = item.section === "Bancos" || item.entraNaIntegracao;
+      $("edit-contabil").style.display = temContabil ? "" : "none";
       $("edit-contabil").textContent = item.contaContabil ? "Conta contábil " + item.contaContabil : "Definir conta contábil";
-      $("edit-contabil").classList.toggle("btn-danger-ghost", item.section === "Bancos" && !item.contaContabil);
+      $("edit-contabil").classList.toggle("btn-danger-ghost", temContabil && !item.contaContabil);
       $("delete-acct").textContent = "Excluir conta";
       resetForm();
       renderLedger();
@@ -495,7 +499,7 @@
       return { id: b.id, nome: nomeDaFonte(b), contaBanco: b.contaContabil || "", lancamentos: loadEntries(b.id) };
     });
     MOVIMENTOS.filter(function(m){ return m.entraNaIntegracao; }).forEach(function(m){
-      fontes.push({ id: m.id, nome: m.sheetName, contaBanco: "", lancamentos: loadEntries(m.id) });
+      fontes.push({ id: m.id, nome: m.sheetName, contaBanco: m.contaContabil || "", lancamentos: loadEntries(m.id) });
     });
     return fontes;
   }
@@ -551,7 +555,7 @@
       tr.className = "clicavel";
       tr.addEventListener("click", function(){ selectTab(b.id); });
       var item = itemIndex[b.id];
-      var semConta = item && item.section === "Bancos" && !item.contaContabil;
+      var semConta = item && (item.section === "Bancos" || item.entraNaIntegracao) && !item.contaContabil && b.total > 0;
       tr.innerHTML = "<td>" + escapeHtml(b.nome) + (semConta ? "<span class='cell-sub val-d'>sem conta contábil</span>" : "") + "</td>" +
         "<td class='num val-c'>" + b.classificados + "</td>" +
         "<td class='num" + (b.pendentes ? " val-d" : "") + "'>" + b.pendentes + "</td>" +
@@ -613,15 +617,31 @@
       $("master-status").textContent = "Importe a Tabela de unidades (em Cadastros) antes: ela traz o CNPJ e o código SCI de cada unidade.";
       return;
     }
+    if (r.semConta && !confirm(
+      r.semConta + " lançamento(s) estão sem conta de débito ou crédito e seriam recusados pelo Único.\n\n" +
+      "OK = gerar os TXTs só com os lançamentos completos e baixar a lista de pendências para corrigir.\n" +
+      "Cancelar = não gerar agora.")) return;
+
+    var opcoes = { ignorarSemConta: true };
     var arquivos = formato === "unico"
-      ? I.gerarTxtsUnico(r.dist, tabela, loadEntries("cad-custos"))
-      : I.gerarTxts(r.dist, tabela);
-    var foraDaTabela = r.dist.filter(function(d){ return !I.infoUnidade(tabela, d.unidade); }).map(function(d){ return d.unidade; });
-    if (!arquivos.length) { $("master-status").textContent = "Nenhuma unidade da Tabela de unidades tem lançamentos."; return; }
-    if (r.semConta && !confirm(r.semConta + " lançamento(s) vão sair sem conta de débito ou crédito. Gerar assim mesmo?")) return;
+      ? I.gerarTxtsUnico(r.dist, tabela, loadEntries("cad-custos"), opcoes)
+      : I.gerarTxts(r.dist, tabela, opcoes);
+    if (!arquivos.length) { $("master-status").textContent = "Nenhuma unidade da Tabela de unidades tem lançamentos completos."; return; }
+    if (r.semConta) arquivos.push({ nome: "PENDENCIAS_" + (formato === "unico" ? "UNICO" : "TXT") + ".csv", conteudo: I.pendenciasCSV(r.dist, nomesUnidades()) });
     baixarArquivos(arquivos);
-    var msg = arquivos.length + " arquivo(s): " + arquivos.map(function(a){ return a.nome; }).join(", ") + ".";
-    if (foraDaTabela.length) msg += " Ficaram de fora por não estarem na Tabela de unidades: " + foraDaTabela.join(", ") + ".";
+
+    var foraDaTabela = r.dist.filter(function(d){ return !I.infoUnidade(tabela, d.unidade); }).map(function(d){ return d.unidade; });
+    var destino = formato === "unico"
+      ? arquivos.filter(function(a){ return /^UNICO_/.test(a.nome); }).map(function(a){
+          var uni = r.dist.filter(function(d){ return a.nome === "UNICO_" + d.unidade.split(" ").join("_") + ".txt"; })[0];
+          var info = uni && I.infoUnidade(tabela, uni.unidade);
+          return a.nome + " → empresa " + (info ? info.codigo : "?");
+        }).join("; ")
+      : arquivos.map(function(a){ return a.nome; }).join(", ");
+    var msg = "Arquivos gerados: " + destino + ".";
+    if (formato === "unico") msg += " Importe cada arquivo no Único com a empresa indicada.";
+    if (r.semConta) msg += " " + r.semConta + " lançamento(s) ficaram de fora: veja o arquivo de pendências.";
+    if (foraDaTabela.length) msg += " Sem arquivo por não estarem na Tabela de unidades: " + foraDaTabela.join(", ") + ".";
     $("master-status").textContent = msg;
     renderMaster();
   }
@@ -984,13 +1004,15 @@
 
   $("edit-contabil").addEventListener("click", function(){
     var item = itemIndex[currentTab];
-    if (!item || item.section !== "Bancos") return;
-    var novo = prompt("Conta contábil desta conta no Único (só números, ex.: 643):", item.contaContabil || "");
+    if (!item || !(item.section === "Bancos" || item.entraNaIntegracao)) return;
+    var dica = item.entraNaIntegracao ? " A Tabela de bancos da planilha lista o Caixa com a conta 5." : "";
+    var novo = prompt("Conta contábil no Único (só números)." + dica, item.contaContabil || "");
     if (novo === null) return;
     novo = novo.trim();
     if (!/^\d+$/.test(novo)) { alert("Use só números."); return; }
     item.contaContabil = novo;
-    gravarLista("system_banks", bancos);
+    if (item.entraNaIntegracao) { contasMov[item.id] = novo; localStorage.setItem("system_mov_contas", JSON.stringify(contasMov)); }
+    else gravarLista("system_banks", bancos);
     selectTab(item.id);
     toast("Conta contábil atualizada.");
   });

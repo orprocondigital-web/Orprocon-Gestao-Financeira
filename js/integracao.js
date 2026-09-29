@@ -224,7 +224,11 @@
    * Só gera para unidades que estão na Tabela de Unidades (igual ao VBA).
    * Conteúdo: cabeçalho + linhas separadas por TAB, fim de linha CRLF, UTF-8 sem BOM.
    */
-  function gerarTxts(distribuicao, tabelaUnidades) {
+  function soCompletas(linhas, opcoes) {
+    return opcoes && opcoes.ignorarSemConta ? linhas.filter(function (l) { return l.ctaDeb && l.ctaCred; }) : linhas;
+  }
+
+  function gerarTxts(distribuicao, tabelaUnidades, opcoes) {
     var arquivos = [];
     (tabelaUnidades || []).forEach(function (row) {
       var info = infoUnidade([row], (row.linha || [])[0]);
@@ -232,7 +236,7 @@
       var grupo = distribuicao.filter(function (d) { return chave(d.unidade) === chave(info.nome); })[0];
       if (!grupo) return;
       var porCat = {}, ordem = [];
-      grupo.linhas.forEach(function (l) {
+      soCompletas(grupo.linhas, opcoes).forEach(function (l) {
         if (!porCat[l.categoria]) { porCat[l.categoria] = ""; ordem.push(l.categoria); }
         porCat[l.categoria] += linhaTxt(l, info) + "\r\n";
       });
@@ -267,21 +271,42 @@
   }
 
   /** Um arquivo por unidade: "UNICO_Passo_Fundo.txt". Sequência reinicia em cada unidade. Sem cabeçalho. */
-  function gerarTxtsUnico(distribuicao, tabelaUnidades, tabelaCentroCustos) {
+  function gerarTxtsUnico(distribuicao, tabelaUnidades, tabelaCentroCustos, opcoes) {
     var arquivos = [];
     (tabelaUnidades || []).forEach(function (row) {
       var info = infoUnidade([row], (row.linha || [])[0]);
       if (!info || !info.nome) return;
       var grupo = distribuicao.filter(function (d) { return chave(d.unidade) === chave(info.nome); })[0];
-      if (!grupo || !grupo.linhas.length) return;
+      var linhas = grupo ? soCompletas(grupo.linhas, opcoes) : [];
+      if (!linhas.length) return;
       var cc = centroDeCusto(tabelaCentroCustos, info.nome);
-      var conteudo = grupo.linhas.map(function (l, i) {
+      var conteudo = linhas.map(function (l, i) {
         var lote = l.categoria.toUpperCase() + "_" + nomeArquivoUnidade(info.nome);
         return linhaUnico(l, i + 1, lote, cc) + "\r\n";
       }).join("");
       arquivos.push({ nome: "UNICO_" + nomeArquivoUnidade(info.nome) + ".txt", conteudo: conteudo });
     });
     return arquivos;
+  }
+
+  /** Linhas sem conta → CSV (";" e BOM, para abrir no Excel) com o motivo provável de cada uma. */
+  function pendenciasCSV(distribuicao, nomesUnidades) {
+    var unis = (nomesUnidades || []).map(chave);
+    var cab = ["Unidade", "Banco", "Data", "Doc.", "Descrição", "Fornecedor/Cliente", "Categoria", "Natureza", "Valor", "Motivo"];
+    var linhas = [cab.join(";")];
+    distribuicao.forEach(function (d) {
+      semConta(d.linhas).forEach(function (l) {
+        var motivo = CATEGORIAS.indexOf(l.categoria) < 0 && !ehAplicacao(l.categoria)
+          ? "Categoria sem regra contábil: " + l.categoria +
+            (unis.indexOf(chave(l.categoria)) > -1 ? " (é o nome de uma unidade: foi digitada na coluna errada?)" :
+            (chave(l.categoria).indexOf("aplica") === 0 ? " (use Aplicações, com acento)" : ""))
+          : (l.categoria === "Resgate" ? "Categoria Resgate não tem regra contábil (use Aplicações com natureza de resgate)"
+          : (!l.contaBanco ? "Conta de origem sem conta contábil (defina no sistema)" : "Conta contábil faltando"));
+        linhas.push([d.unidade, l.banco, dataBR(l.data), l.doc, l.desc, l.nome, l.categoria, l.natureza, valorTxt(l.valorNum), motivo]
+          .map(function (c) { c = limpa(c); return /[;"\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(";"));
+      });
+    });
+    return "\uFEFF" + linhas.join("\r\n");
   }
 
   // ------------------------------------------------------ painel Master (VBA FormatMaster)
@@ -322,7 +347,7 @@
     ordenarTransacoes: ordenarTransacoes, distribuirPorUnidade: distribuirPorUnidade,
     jurosRecebidos: jurosRecebidos, semConta: semConta,
     infoUnidade: infoUnidade, centroDeCusto: centroDeCusto,
-    linhaTxt: linhaTxt, gerarTxts: gerarTxts, linhaUnico: linhaUnico, gerarTxtsUnico: gerarTxtsUnico,
+    linhaTxt: linhaTxt, gerarTxts: gerarTxts, pendenciasCSV: pendenciasCSV, linhaUnico: linhaUnico, gerarTxtsUnico: gerarTxtsUnico,
     estatisticasMaster: estatisticasMaster
   };
 });

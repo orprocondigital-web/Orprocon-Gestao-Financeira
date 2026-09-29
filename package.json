@@ -1,5 +1,9 @@
 {
-  "dependencies": {
-    "xlsx": "^0.18.5"
+  "name": "gestao-financeira",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Integração contábil (SCI Único) e conciliação bancária",
+  "scripts": {
+    "test": "node --test"
   }
 }
