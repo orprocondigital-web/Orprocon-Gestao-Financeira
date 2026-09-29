@@ -21,7 +21,9 @@
     HP_PAGAMENTO: "3026",
     CRED_RECEBIMENTO: "18",
     CRED_JUROS_RECEBIDOS: "2284",
-    DEB_PAGAMENTO_DEFAULT: "148"
+    DEB_PAGAMENTO_DEFAULT: "148",
+    HP_DESPESA_BANCARIA: "3712",
+    HP_TRANSFERENCIA: "2020"
   };
 
   var CATEGORIAS = ["Recebimento", "Despesa", "Pagamento", "Aplicações", "Resgate"];
@@ -39,7 +41,8 @@
   }
   function soDigitos(s) { return limpa(s).replace(/\D/g, ""); }
   function ehAplicacao(cat) { return cat === "Aplicações" || cat === "Aplicacoes"; }
-  function ehVazioOuPlaceholder(s) { var k = chave(s); return !k || k === "selecionar" || k === "selecionar..." || k === "selecionar…"; }
+  // "Selecionar" é o texto da lista suspensa vazia; "Pendente" é como a planilha marca o que falta classificar
+  function ehVazioOuPlaceholder(s) { var k = chave(s); return !k || k === "selecionar" || k === "selecionar..." || k === "selecionar…" || k === "pendente"; }
 
   /** VBA NormalizeUnitName: corrige erros conhecidos de digitação. */
   function normalizaUnidade(nome) {
@@ -82,6 +85,37 @@
     return s.replace(/,/g, "");
   }
 
+  /**
+   * Documento no TXT do Único (conferido com o gabarito de agosto/2026):
+   * vazio vira "0"; número no formato brasileiro ("9.393.740") vira inteiro; vírgulas saem.
+   */
+  function docUnico(doc) {
+    var s = limpa(doc);
+    if (!s) return "0";
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = String(Math.round(Number(s.replace(/\./g, "").replace(",", "."))));
+    else if (!isNaN(Number(s.replace(",", ".")))) s = String(Math.round(Number(s.replace(",", "."))));
+    return s.replace(/,/g, "");
+  }
+
+  /** Nome no complemento: junta espaços repetidos e depois troca vírgula por espaço (nessa ordem, como no gabarito). */
+  function nomeUnico(nome) { return limpa(nome).replace(/\s+/g, " ").replace(/,/g, " "); }
+
+  /** HP das despesas pela natureza do gasto (gabarito de agosto/2026). */
+  function hpDespesa(natureza) {
+    var k = chave(natureza);
+    if (k === "despesas bancarias") return REGRAS.HP_DESPESA_BANCARIA;
+    if (k.indexOf("transferencia banco") === 0) return REGRAS.HP_TRANSFERENCIA;
+    return "";
+  }
+
+  function ehChequeBloqueado(l) { return /CHEQUE BLOQ/i.test(limpa(l.desc)) || /CHEQUE BLOQ/i.test(limpa(l.nome)); }
+  /**
+   * Gabarito de agosto/2026: valor bloqueado ("3.640,00*" no extrato do Sicoob) não vai para o Único —
+   * o dinheiro entra depois, na linha "LIBERAÇÃO DE DEPÓSITO". Lançamentos importados antes de o
+   * sistema marcar o bloqueio são reconhecidos pelo texto "CHEQUE BLOQ" com valor zero.
+   */
+  function foraDoUnico(l) { return !!l.bloqueado || (ehChequeBloqueado(l) && Math.round(Number(l.valorNum) * 100) === 0); }
+
   function dataBR(iso) { var p = limpa(iso).split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : limpa(iso); }
   function dataAAAAMMDD(iso) { return limpa(iso).replace(/-/g, ""); }
 
@@ -109,6 +143,7 @@
           data: e.data, banco: f.nome, doc: limpa(e.doc), modelo: limpa(e.modelo), desc: limpa(e.desc),
           nome: limpa(e.nome), cnpj: formatCNPJ(e.cpf), categoria: cat, unidade: uni,
           natureza: limpa(e.natureza), conta: limpa(e.conta), valorNum: Math.abs(Number(e.valorNum)), sign: e.sign === "D" ? "D" : "C",
+          bloqueado: !!e.bloqueado, valorInvalido: !!e.valorInvalido, valorOriginal: limpa(e.valorOriginal),
           contaBanco: limpa(f.contaBanco)
         });
       });
@@ -126,13 +161,16 @@
       case "Pagamento":
         return { ctaDeb: REGRAS.DEB_PAGAMENTO_DEFAULT, ctaCred: banco, hp: REGRAS.HP_PAGAMENTO };
       case "Despesa":
-        return { ctaDeb: contaM || REGRAS.DEB_PAGAMENTO_DEFAULT, ctaCred: banco, hp: "" };
+        return { ctaDeb: contaM || REGRAS.DEB_PAGAMENTO_DEFAULT, ctaCred: banco, hp: hpDespesa(tx.natureza) };
+      case "Resgate":
+        // gabarito de agosto/2026: debita o banco, credita 148
+        return { ctaDeb: banco, ctaCred: contaM || REGRAS.DEB_PAGAMENTO_DEFAULT, hp: "" };
       case "Aplicações":
       case "Aplicacoes":
         var cod = contaM || REGRAS.DEB_PAGAMENTO_DEFAULT;
         return nat.indexOf("resgate") > -1 ? { ctaDeb: banco, ctaCred: cod, hp: "" } : { ctaDeb: cod, ctaCred: banco, hp: "" };
       default:
-        // COMPORTAMENTO DO VBA: outras categorias (Resgate, Pendente…) saem sem contas.
+        // outras categorias (Pendente, nome de unidade digitado na categoria…) saem sem contas
         return { ctaDeb: "", ctaCred: "", hp: "" };
     }
   }
@@ -174,9 +212,9 @@
       .map(function (t) { return Object.assign({}, t, mapeamentoContabil(t)); });
   }
 
-  /** Lançamentos que vão sair sem conta de débito ou crédito — para avisar antes de gerar. */
+  /** Lançamentos que não podem ir para o Único: sem conta de débito/crédito ou com valor digitado fora do padrão. */
   function semConta(linhas) {
-    return linhas.filter(function (l) { return !l.ctaDeb || !l.ctaCred; });
+    return linhas.filter(function (l) { return !l.ctaDeb || !l.ctaCred || l.valorInvalido; });
   }
 
   // ------------------------------------------------ tabelas de referência
@@ -225,7 +263,7 @@
    * Conteúdo: cabeçalho + linhas separadas por TAB, fim de linha CRLF, UTF-8 sem BOM.
    */
   function soCompletas(linhas, opcoes) {
-    return opcoes && opcoes.ignorarSemConta ? linhas.filter(function (l) { return l.ctaDeb && l.ctaCred; }) : linhas;
+    return opcoes && opcoes.ignorarSemConta ? linhas.filter(function (l) { return l.ctaDeb && l.ctaCred && !l.valorInvalido; }) : linhas;
   }
 
   function gerarTxts(distribuicao, tabelaUnidades, opcoes) {
@@ -254,37 +292,39 @@
 
   function linhaUnico(l, seq, lote, centroCusto) {
     var valor = valorTxt(l.valorNum).replace(",", ".");
-    var doc = docTxt(l.doc);
-    var nome = limpa(l.nome).replace(/,/g, " ");
+    var doc = docUnico(l.doc);
     var cnpj = soDigitos(l.cnpj);
-    var complemento = (doc ? doc + " - " + nome : nome).replace(/,/g, " ");
+    var complemento = (doc + " - " + nomeUnico(l.nome)).replace(/,/g, " ");
     var cnpjDeb = "", cnpjCred = "";
     if (l.categoria === "Pagamento") cnpjCred = cnpj;
     else if (l.categoria === "Recebimento" || l.categoria === "Despesa" || ehAplicacao(l.categoria)) cnpjDeb = cnpj;
 
     var linha = ("000000" + seq).slice(-6) + "," + dataAAAAMMDD(l.data) + "," + l.ctaDeb + "," + l.ctaCred + "," +
-      valor + "," + l.hp + ",\"" + complemento + "\"," + (doc ? "DCTO" + doc : "DCTO") + "," + lote + "," +
-      cnpjDeb + "," + cnpjCred;
-    // COMPORTAMENTO DO VBA: com centro de custo são 6 campos a mais; sem, 4 vazios.
+      valor + "," + l.hp + ",\"" + complemento + "\",DCTO" + doc + "," + lote + "," + cnpjDeb + "," + cnpjCred;
+    // com centro de custo são 6 campos a mais; sem, 4 vazios (16 campos no total)
     linha += centroCusto ? ",D," + centroCusto + "," + valor + ",C," + centroCusto + "," + valor : ",,,,";
     return linha + ",A";
   }
 
-  /** Um arquivo por unidade: "UNICO_Passo_Fundo.txt". Sequência reinicia em cada unidade. Sem cabeçalho. */
+  /**
+   * Um arquivo por unidade: "UNICO_Passo_Fundo.txt". Conferido byte a byte com o gabarito de agosto/2026:
+   * UTF-8 com BOM, sem cabeçalho, fim de linha CRLF, sequência reiniciando em cada unidade,
+   * sem os depósitos de cheque bloqueado.
+   */
   function gerarTxtsUnico(distribuicao, tabelaUnidades, tabelaCentroCustos, opcoes) {
     var arquivos = [];
     (tabelaUnidades || []).forEach(function (row) {
       var info = infoUnidade([row], (row.linha || [])[0]);
       if (!info || !info.nome) return;
       var grupo = distribuicao.filter(function (d) { return chave(d.unidade) === chave(info.nome); })[0];
-      var linhas = grupo ? soCompletas(grupo.linhas, opcoes) : [];
+      var linhas = grupo ? soCompletas(grupo.linhas, opcoes).filter(function (l) { return !foraDoUnico(l); }) : [];
       if (!linhas.length) return;
       var cc = centroDeCusto(tabelaCentroCustos, info.nome);
       var conteudo = linhas.map(function (l, i) {
         var lote = l.categoria.toUpperCase() + "_" + nomeArquivoUnidade(info.nome);
         return linhaUnico(l, i + 1, lote, cc) + "\r\n";
       }).join("");
-      arquivos.push({ nome: "UNICO_" + nomeArquivoUnidade(info.nome) + ".txt", conteudo: conteudo });
+      arquivos.push({ nome: "UNICO_" + nomeArquivoUnidade(info.nome) + ".txt", conteudo: "\uFEFF" + conteudo });
     });
     return arquivos;
   }
@@ -296,12 +336,12 @@
     var linhas = [cab.join(";")];
     distribuicao.forEach(function (d) {
       semConta(d.linhas).forEach(function (l) {
-        var motivo = CATEGORIAS.indexOf(l.categoria) < 0 && !ehAplicacao(l.categoria)
+        var motivo = l.valorInvalido ? "Valor digitado fora do padrão na planilha: " + (l.valorOriginal || valorTxt(l.valorNum)) + " (corrija na conta bancária)"
+          : CATEGORIAS.indexOf(l.categoria) < 0 && !ehAplicacao(l.categoria)
           ? "Categoria sem regra contábil: " + l.categoria +
             (unis.indexOf(chave(l.categoria)) > -1 ? " (é o nome de uma unidade: foi digitada na coluna errada?)" :
             (chave(l.categoria).indexOf("aplica") === 0 ? " (use Aplicações, com acento)" : ""))
-          : (l.categoria === "Resgate" ? "Categoria Resgate não tem regra contábil (use Aplicações com natureza de resgate)"
-          : (!l.contaBanco ? "Conta de origem sem conta contábil (defina no sistema)" : "Conta contábil faltando"));
+          : (!l.contaBanco ? "Conta de origem sem conta contábil (defina no sistema)" : "Conta contábil faltando");
         linhas.push([d.unidade, l.banco, dataBR(l.data), l.doc, l.desc, l.nome, l.categoria, l.natureza, valorTxt(l.valorNum), motivo]
           .map(function (c) { c = limpa(c); return /[;"\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(";"));
       });
@@ -340,9 +380,9 @@
   }
 
   return {
-    REGRAS: REGRAS, CATEGORIAS: CATEGORIAS, MODELOS_DOC: MODELOS_DOC, CABECALHO_TXT: CABECALHO_TXT,
+    REGRAS: REGRAS, CATEGORIAS: CATEGORIAS, ehChequeBloqueado: ehChequeBloqueado, foraDoUnico: foraDoUnico, MODELOS_DOC: MODELOS_DOC, CABECALHO_TXT: CABECALHO_TXT,
     normalizaUnidade: normalizaUnidade, contaDoNome: contaDoNome, formatCNPJ: formatCNPJ,
-    valorTxt: valorTxt, docTxt: docTxt, ehVazioOuPlaceholder: ehVazioOuPlaceholder,
+    valorTxt: valorTxt, docTxt: docTxt, docUnico: docUnico, hpDespesa: hpDespesa, ehVazioOuPlaceholder: ehVazioOuPlaceholder,
     coletarTransacoes: coletarTransacoes, mapeamentoContabil: mapeamentoContabil,
     ordenarTransacoes: ordenarTransacoes, distribuirPorUnidade: distribuirPorUnidade,
     jurosRecebidos: jurosRecebidos, semConta: semConta,

@@ -32,6 +32,15 @@ describe("valores", () => {
     assert.deepEqual(Core.parseValorCell("-1,20D"), { valorNum: 1.2, sign: "D" });
     assert.deepEqual(Core.parseValorCell(-350), { valorNum: 350, sign: "D" });
     assert.deepEqual(Core.parseValorCell("100"), { valorNum: 100, sign: "C" });
+    assert.deepEqual(Core.parseValorCell("3.640,00*"), { valorNum: 3640, sign: "C", bloqueado: true });
+  });
+
+  test("valor digitado fora do padrão é marcado como inválido", () => {
+    for (const ok of ["1.234,56C", "1234,56", "- 109.618,91D", "0,00C", "1234.56", "R$ 86.461,48", "-1,20D"])
+      assert.ok(!Core.parseValorCell(ok).invalido, ok);
+    for (const ruim of ["2.29598C", "14.39831C", "8,934,48C", "1,132,21C", "-0,12,00D", "3.658.88C"])
+      assert.ok(Core.parseValorCell(ruim).invalido, ruim);
+    assert.ok(!Core.parseValorCell(390.46).invalido);   // número de verdade na célula
     assert.equal(Core.parseValorCell(""), null);
   });
 

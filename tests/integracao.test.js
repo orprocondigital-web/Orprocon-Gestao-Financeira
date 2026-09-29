@@ -33,6 +33,7 @@ describe("utilidades", () => {
     assert.equal(I.normalizaUnidade("Ciciuma"), "Criciúma");
     assert.equal(I.normalizaUnidade("Matriz "), "Matriz");
     assert.ok(I.ehVazioOuPlaceholder("Selecionar"));
+    assert.ok(I.ehVazioOuPlaceholder("Pendente"));
     assert.ok(!I.ehVazioOuPlaceholder("Matriz"));
   });
 });
@@ -82,8 +83,16 @@ describe("contas de débito e crédito (GetLineMappings)", () => {
     assert.deepEqual(m({ categoria: "Aplicações", conta: "793", natureza: "App Automática Sicredi (627)" }), { ctaDeb: "793", ctaCred: "627", hp: "" });
     assert.deepEqual(m({ categoria: "Aplicações", conta: "793", natureza: "Resgate App Automática Sicredi (627)" }), { ctaDeb: "627", ctaCred: "793", hp: "" });
   });
-  test("outras categorias saem sem conta (igual ao VBA) e são apontadas", () => {
-    const r = m({ categoria: "Resgate" });
+  test("Despesa: HP pela natureza (bancárias 3712, transferência 2020)", () => {
+    assert.equal(m({ categoria: "Despesa", conta: "565", natureza: "Despesas Bancárias" }).hp, "3712");
+    assert.equal(m({ categoria: "Despesa", conta: "643", natureza: "Transferência Banco - SICOOB 24402-3 Conta 643" }).hp, "2020");
+    assert.equal(m({ categoria: "Despesa", conta: "497", natureza: "Seguros" }).hp, "");
+  });
+  test("Resgate: debita o banco, credita 148", () => {
+    assert.deepEqual(m({ categoria: "Resgate" }), { ctaDeb: "627", ctaCred: "148", hp: "" });
+  });
+  test("outras categorias saem sem conta e são apontadas", () => {
+    const r = m({ categoria: "Pendente" });
     assert.deepEqual(r, { ctaDeb: "", ctaCred: "", hp: "" });
     assert.equal(I.semConta([Object.assign({}, r)]).length, 1);
   });
@@ -141,13 +150,35 @@ describe("arquivos TXT", () => {
     const [arq] = I.gerarTxtsUnico(dist, unidades, []);
     assert.equal(arq.nome, "UNICO_Passo_Fundo.txt");
     const linhas = arq.conteudo.split("\r\n");
-    assert.equal(linhas[0], '000001,20260902,499,627,9.80,,"POSTO X",DCTO,DESPESA_Passo_Fundo,,,,,,,A');
+    assert.ok(arq.conteudo.startsWith("\uFEFF000001,"));   // UTF-8 com BOM, como o gabarito
+    assert.equal(linhas[0].replace("\uFEFF", ""), '000001,20260902,499,627,9.80,,"0 - POSTO X",DCTO0,DESPESA_Passo_Fundo,,,,,,,A');
     assert.equal(linhas[1], '000002,20260901,627,18,972.92,3708,"13693803 - ELETRO VOLTS  LTDA",DCTO13693803,RECEBIMENTO_Passo_Fundo,14580324000150,,,,,,A');
   });
 
   test("SCI Único com centro de custo acrescenta os rateios D e C", () => {
     const l = Object.assign({}, dist[0].linhas[0]);
     assert.match(I.linhaUnico(l, 1, "LOTE", "7"), /,D,7,9\.80,C,7,9\.80,A$/);
+  });
+
+  test("regras do gabarito de agosto: documento, nome e cheque bloqueado", () => {
+    assert.equal(I.docUnico(""), "0");
+    assert.equal(I.docUnico("9.393.740"), "9393740");
+    assert.equal(I.docUnico("1.274,25C"), "1.27425C");
+    assert.equal(I.docUnico("COB000002"), "COB000002");
+    const base = { data: "2026-08-03", categoria: "Recebimento", ctaDeb: "643", ctaCred: "18", hp: "3708", valorNum: 1 };
+    assert.match(I.linhaUnico(Object.assign({}, base, { nome: "ENIO LUIZ  BONORA" }), 1, "L", ""), /"0 - ENIO LUIZ BONORA"/);
+    assert.match(I.linhaUnico(Object.assign({}, base, { nome: "INSTAR ELETRICOS, CLIMATIZACAO" }), 1, "L", ""), /"0 - INSTAR ELETRICOS  CLIMATIZACAO"/);
+    assert.ok(I.ehChequeBloqueado({ desc: "DEP.CHEQUE BLOQ.1D" }));
+    const d = I.distribuirPorUnidade(I.coletarTransacoes([fonte([
+      L({ unidade: "Passo Fundo", desc: "DEP.CHEQUE BLOQ.1D", valorNum: 0 }),
+      L({ unidade: "Passo Fundo", desc: "DEP.CHEQUE BLOQ.1D", valorNum: 3640, bloqueado: true }),
+      L({ unidade: "Passo Fundo", nome: "DEPÓSITO CHEQUE BLOQUEADO", desc: "LIBERAÇÃO DE DEPÓSITO", valorNum: 7500, data: "2026-09-03" }),
+      L({ unidade: "Passo Fundo", desc: "PIX RECEBIDO", data: "2026-09-02" })
+    ])]));
+    const [arq] = I.gerarTxtsUnico(d, unidades, []);
+    const ls = arq.conteudo.replace("\uFEFF", "").trim().split("\r\n");
+    assert.equal(ls.length, 2);   // zerado e bloqueado (valor com *) ficam fora; a liberação de 7.500 entra
+    assert.match(ls[1], /,7500\.00,/);
   });
 
   test("com ignorarSemConta, linhas sem conta ficam fora e a sequência continua corrida", () => {
@@ -157,16 +188,26 @@ describe("arquivos TXT", () => {
       L({ unidade: "Passo Fundo", data: "2026-09-06" })
     ])]));
     const [arq] = I.gerarTxtsUnico(d, unidades, [], { ignorarSemConta: true });
-    assert.deepEqual(arq.conteudo.trim().split("\r\n").map((l) => l.slice(0, 15)), ["000001,20260905", "000002,20260906"]);
+    assert.deepEqual(arq.conteudo.replace("\uFEFF", "").trim().split("\r\n").map((l) => l.slice(0, 15)), ["000001,20260905", "000002,20260906"]);
     assert.equal(I.gerarTxts(d, unidades, { ignorarSemConta: true }).length, 1);
     const csv = I.pendenciasCSV(d, ["Criciúma"]);
     assert.match(csv, /Categoria sem regra contábil: Criciúma \(é o nome de uma unidade/);
     assert.equal(csv.trim().split("\r\n").length, 2);
   });
 
+  test("valor fora do padrão fica fora do TXT e vai para as pendências", () => {
+    const d = I.distribuirPorUnidade(I.coletarTransacoes([fonte([
+      L({ unidade: "Passo Fundo", valorNum: 2.29598, valorInvalido: true, valorOriginal: "2.29598C" }),
+      L({ unidade: "Passo Fundo", data: "2026-09-02" })
+    ])]));
+    const [arq] = I.gerarTxtsUnico(d, unidades, [], { ignorarSemConta: true });
+    assert.equal(arq.conteudo.replace("\uFEFF", "").trim().split("\r\n").length, 1);
+    assert.match(I.pendenciasCSV(d), /Valor digitado fora do padrão na planilha: 2\.29598C/);
+  });
+
   test("toda linha do Único tem 16 campos (sem centro de custo)", () => {
     const [arq] = I.gerarTxtsUnico(dist, unidades, []);
-    arq.conteudo.trim().split("\r\n").forEach((l) => {
+    arq.conteudo.replace("\uFEFF", "").trim().split("\r\n").forEach((l) => {
       assert.equal(l.match(/("[^"]*"|[^,]*)(,|$)/g).length - 1, 16);
     });
   });

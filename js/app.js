@@ -286,7 +286,9 @@
     return escapeHtml(e.desc || e.nome || "") + (sub && sub !== e.desc ? "<span class='cell-sub'>" + escapeHtml(sub) + "</span>" : "");
   }
   function celulaValor(e){
-    return '<span class="' + (e.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(e.valorNum) + (e.sign || "") + '</span>';
+    if (e.valorInvalido) return "<span class='pill conc-diff' title='Valor digitado fora do padrão. Corrija para não ir errado ao Único.'>" + escapeHtml(e.valorOriginal || "inválido") + "</span>";
+    return '<span class="' + (e.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(e.valorNum) + (e.sign || "") + '</span>' +
+      (e.bloqueado ? "<span class='cell-sub'>bloqueado</span>" : "");
   }
 
   function renderLedger(){
@@ -428,6 +430,7 @@
 
     var entries = loadEntries(currentTab);
     if(editingId){
+      dados.valorInvalido = false; dados.valorOriginal = "";   // valor redigitado no formulário
       entries = entries.map(function(x){ return x.id === editingId ? Object.assign({}, x, dados) : x; });
       editingId = null;
       $("cancel-edit").style.display = "none";
@@ -591,7 +594,7 @@
     var semConta = 0;
     dist.forEach(function(d){ semConta += I.semConta(d.linhas).length; });
     var msg = tx.length.toLocaleString("pt-BR") + " lançamentos distribuídos para " + dist.length + " unidade(s), ordenados por Despesa, Pagamento e Recebimento.";
-    if (semConta) msg += " Atenção: " + semConta + " sem conta de débito ou crédito (veja a coluna Débito / crédito).";
+    if (semConta) msg += " Atenção: " + semConta + " com pendência (sem conta de débito/crédito ou valor fora do padrão).";
     if (!silencioso) { $("master-status").textContent = msg; toast("Distribuição concluída."); }
     return { dist: dist, semConta: semConta };
   }
@@ -618,7 +621,7 @@
       return;
     }
     if (r.semConta && !confirm(
-      r.semConta + " lançamento(s) estão sem conta de débito ou crédito e seriam recusados pelo Único.\n\n" +
+      r.semConta + " lançamento(s) estão sem conta de débito/crédito ou com valor fora do padrão e seriam recusados ou gravados errado no Único.\n\n" +
       "OK = gerar os TXTs só com os lançamentos completos e baixar a lista de pendências para corrigir.\n" +
       "Cancelar = não gerar agora.")) return;
 
@@ -688,7 +691,8 @@
               data: isoDate,
               dataMov: item.hasDataMov ? Core.toIsoDate(col.dataMov !== undefined ? row[col.dataMov] : "") : "",
               desc: desc, doc: get(row, "doc"), modelo: limpaPlaceholder(get(row, "modelo")),
-              valorNum: v.valorNum, sign: v.sign,
+              valorNum: v.valorNum, sign: v.sign, bloqueado: !!v.bloqueado,
+              valorInvalido: !!v.invalido, valorOriginal: v.invalido ? String(row[col.valor]).trim() : "",
               categoria: limpaPlaceholder(get(row, "categoria")), unidade: limpaPlaceholder(get(row, "unidade")),
               natureza: limpaPlaceholder(get(row, "natureza")), conta: get(row, "conta"),
               nome: get(row, "nome"), cpf: get(row, "cpf")

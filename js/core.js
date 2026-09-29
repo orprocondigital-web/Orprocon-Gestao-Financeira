@@ -36,10 +36,16 @@
     return isNaN(n) ? NaN : n;
   }
 
-  /** Célula de extrato/planilha → { valorNum, sign } ou null. Aceita "5.514,70C", "-1,20D", -1.2 */
+  /**
+   * Célula de extrato/planilha → { valorNum, sign } ou null. Aceita "5.514,70C", "-1,20D", -1.2.
+   * Valor terminado em "*" ("3.640,00*") é depósito bloqueado no Sicoob: volta com bloqueado: true.
+   */
   function parseValorCell(v) {
     if (v === null || v === undefined || v === "") return null;
     var s = String(v).trim().replace(/["']/g, "");
+    var bloqueado = /\*$/.test(s);
+    if (bloqueado) s = s.replace(/\*+$/, "").trim();
+    var invalido = typeof v === "string" && !valorBemFormado(s);
     var sign = null;
     var ultimo = s.slice(-1).toUpperCase();
     if (ultimo === "C" || ultimo === "D") {
@@ -49,7 +55,20 @@
     var n = parseValor(s);
     if (isNaN(n)) return null;
     if (!sign) sign = n < 0 ? "D" : "C";
-    return { valorNum: Math.abs(n), sign: sign };
+    var r = { valorNum: Math.abs(n), sign: sign };
+    if (bloqueado) r.bloqueado = true;
+    if (invalido) r.invalido = true;
+    return r;
+  }
+
+  /**
+   * Texto de valor digitado dentro de um padrão reconhecível: "1.234,56", "1234,56", "1234.56", "-0,12".
+   * Fora do padrão ("2.29598", "8,934,48", "-0,12,00"): a planilha antiga gravava esses como 0 ou
+   * 100× maiores no TXT. Aqui eles são marcados como inválidos para alguém corrigir.
+   */
+  function valorBemFormado(texto) {
+    var s = String(texto).trim().replace(/^R\$\s*/i, "").replace(/[CD]$/i, "").replace(/\s+/g, "");
+    return /^-?\d+(,\d+)?$/.test(s) || /^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) || /^-?\d+\.\d{1,2}$/.test(s);
   }
 
   function toCents(n) { return Math.round(Number(n) * 100); }
@@ -399,7 +418,7 @@
   }
 
   return {
-    parseValor: parseValor, parseValorCell: parseValorCell, toCents: toCents, formatBR: formatBR,
+    parseValor: parseValor, parseValorCell: parseValorCell, valorBemFormado: valorBemFormado, toCents: toCents, formatBR: formatBR,
     toIsoDate: toIsoDate, brDate: brDate, diasEntre: diasEntre,
     HEADER_MAP: HEADER_MAP, detectHeaderRow: detectHeaderRow, buildColumnMap: buildColumnMap,
     findSheet: findSheet, parseExtratoRows: parseExtratoRows,
