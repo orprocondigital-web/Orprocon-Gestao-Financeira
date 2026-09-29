@@ -1052,6 +1052,28 @@
     $("dl-nomes").innerHTML = nomes.sort().map(function(n){ return '<option value="' + escapeHtml(n) + '">'; }).join("");
   }
 
+  // ---------- tema claro/escuro ----------
+  var mqEscuro = window.matchMedia("(prefers-color-scheme: dark)");
+  function temaAtual(){
+    var t = document.documentElement.getAttribute("data-theme");
+    return t || (mqEscuro.matches ? "dark" : "light");
+  }
+  function atualizarBotaoTema(){
+    var escuro = temaAtual() === "dark";
+    document.documentElement.classList.toggle("escuro", escuro);
+    var rotulo = escuro ? "Ativar tema claro" : "Ativar tema escuro";
+    $("theme-toggle").setAttribute("aria-label", rotulo);
+    $("theme-toggle").title = rotulo;
+  }
+  $("theme-toggle").addEventListener("click", function(){
+    var novo = temaAtual() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", novo);
+    try { localStorage.setItem("tema", novo); } catch(e) {}
+    atualizarBotaoTema();
+  });
+  if (mqEscuro.addEventListener) mqEscuro.addEventListener("change", atualizarBotaoTema);
+  atualizarBotaoTema();
+
   // ---------- início ----------
   Store.init().then(function(ok){
     if (!ok) toast("Este navegador não permite gravar dados. Nada será salvo.");

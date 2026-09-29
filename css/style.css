@@ -34,6 +34,7 @@
   --sidebar-w: 256px;
 }
 
+/* Tema escuro: segue o sistema, a menos que a pessoa escolha no botão (data-theme). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --canvas: #0F1513; --surface: #161E1B; --surface-2: #1B2521; --line: #26322D; --line-strong: #33423C;
@@ -43,7 +44,18 @@
     --warn: #E0A64A; --warn-soft: #36291A; --info: #8E96F0; --info-soft: #23264A; --ok-soft: #173229;
     --on-brand: #06140F;
     --shadow-pop: 0 12px 32px rgba(0,0,0,.45);
+  
   }
+}
+:root[data-theme="dark"] {
+    --canvas: #0F1513; --surface: #161E1B; --surface-2: #1B2521; --line: #26322D; --line-strong: #33423C;
+    --ink: #E7EEEB; --ink-2: #C3CEC9; --muted: #8C9A95;
+    --brand: #3DB38D; --brand-hover: #56C4A0; --brand-soft: #173229;
+    --credit: #4CC39A; --debit: #F07D6C; --debit-soft: #3A1E1A;
+    --warn: #E0A64A; --warn-soft: #36291A; --info: #8E96F0; --info-soft: #23264A; --ok-soft: #173229;
+    --on-brand: #06140F;
+    --shadow-pop: 0 12px 32px rgba(0,0,0,.45);
+  
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -374,3 +386,16 @@ tr.clicavel:hover td:first-child { color: var(--brand); }
 
 table.ledger td.col-desc { min-width: 240px; }
 table.ledger td.col-curta { max-width: 180px; }
+
+/* botão de tema */
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.theme-toggle {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-2); cursor: pointer;
+}
+.theme-toggle:hover { color: var(--brand); border-color: var(--line-strong); }
+.theme-toggle:focus-visible { outline: none; box-shadow: var(--focus); }
+.theme-toggle .ico { width: 17px; height: 17px; }
+.theme-toggle .sol { display: none; }
+.escuro .theme-toggle .sol { display: block; }
+.escuro .theme-toggle .lua { display: none; }
