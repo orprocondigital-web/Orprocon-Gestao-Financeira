@@ -103,7 +103,9 @@
     unidade: '<path d="M4 20V8l8-4 8 4v12M9 20v-6h6v6"/>',
     mov: '<path d="M4 7h16M4 12h10M4 17h7"/>',
     cadastro: '<path d="M8 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8zM4 8h4M4 12h4M4 16h4"/>',
-    mais: '<path d="M12 5v14M5 12h14"/>'
+    mais: '<path d="M12 5v14M5 12h14"/>',
+    menos: '<path d="M5 12h14"/>',
+    lixeira: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>'
   };
   var EMPTY_SECTION = { "Bancos": "Nenhuma conta cadastrada", "Unidades": "Criadas ao distribuir por unidade" };
 
@@ -134,7 +136,20 @@
         add.setAttribute("aria-label", add.title);
         add.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.mais + '</svg>';
         add.addEventListener("click", acao);
-        secTitle.appendChild(add);
+        var botoes = document.createElement("span");
+        botoes.className = "nav-title-acoes";
+        if (sec.title === "Unidades" && sec.items.length) {
+          var zerar = document.createElement("button");
+          zerar.className = "nav-add nav-danger";
+          zerar.type = "button";
+          zerar.title = "Excluir todas as unidades";
+          zerar.setAttribute("aria-label", zerar.title);
+          zerar.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.lixeira + '</svg>';
+          zerar.addEventListener("click", zerarUnidades);
+          botoes.appendChild(zerar);
+        }
+        botoes.appendChild(add);
+        secTitle.appendChild(botoes);
       }
       secEl.appendChild(secTitle);
 
@@ -170,7 +185,22 @@
             '<span class="acct-count" id="count-' + item.id + '"></span>';
           btn.title = sec.title === "Bancos" ? nomeDaFonte(item) : item.label;
           btn.addEventListener("click", function(){ selectTab(item.id); });
-          group.appendChild(btn);
+          if (sec.title === "Unidades") {
+            var linha = document.createElement("div");
+            linha.className = "nav-item";
+            linha.appendChild(btn);
+            var rem = document.createElement("button");
+            rem.className = "nav-remove";
+            rem.type = "button";
+            rem.title = "Excluir a unidade " + item.label;
+            rem.setAttribute("aria-label", rem.title);
+            rem.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + ICONS.menos + '</svg>';
+            rem.addEventListener("click", function(ev){ ev.stopPropagation(); excluirUnidade(item.id); });
+            linha.appendChild(rem);
+            group.appendChild(linha);
+          } else {
+            group.appendChild(btn);
+          }
         });
         secEl.appendChild(group);
       });
@@ -516,8 +546,12 @@
     return DEFAULT_UNIDADES;
   }
 
+  function chaveNome(s){
+    return String(s || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+  }
+
   function idUnidade(nome){
-    var achou = unidades.filter(function(u){ return u.label.toLowerCase() === nome.toLowerCase(); })[0];
+    var achou = unidades.filter(function(u){ return chaveNome(u.label) === chaveNome(nome); })[0];
     return achou ? achou.id : null;
   }
 
@@ -567,16 +601,35 @@
     });
   }
 
+  function statusMaster(msg, aviso){
+    var el = $("master-status");
+    el.textContent = msg;
+    el.classList.toggle("aviso", !!aviso);
+    if (aviso) toast(msg.length > 90 ? msg.slice(0, 87) + "…" : msg);
+  }
+
   function distribuirPorUnidade(silencioso){
     var tx = I.coletarTransacoes(fontesIntegracao());
     if (!tx.length) {
-      if (!silencioso) $("master-status").textContent = "Nenhum lançamento classificado. Preencha categoria e unidade nas contas bancárias.";
+      if (!silencioso) statusMaster("Nenhum lançamento classificado. Preencha categoria e unidade nas contas bancárias.", true);
       return null;
     }
     var dist = I.distribuirPorUnidade(tx);
     var criadas = 0;
+
+    // unidades digitadas duas vezes com grafias diferentes ("chapeco" e "Chapecó") viram uma só
+    var vistas = {}, duplicadas = [];
+    unidades = unidades.filter(function(u){
+      var k = chaveNome(u.label);
+      if (vistas[k]) { duplicadas.push(u); return false; }
+      vistas[k] = true; return true;
+    });
+    duplicadas.forEach(function(u){ Store.remove(storageKey(u.id)); });
+    var renomeadas = false;
     dist.forEach(function(d){
       var id = idUnidade(d.unidade);
+      var existente = id && unidades.filter(function(u){ return u.id === id; })[0];
+      if (existente && existente.label !== d.unidade) { existente.label = d.unidade; existente.sheetName = d.unidade; renomeadas = true; }
       if (!id) {
         id = "unid-" + Date.now() + "-" + criadas;
         unidades.push({ id: id, label: d.unidade, type: "ledger", bank: "Unidade", sheetName: d.unidade, hasDataMov: false });
@@ -586,16 +639,16 @@
     });
     // unidades sem lançamento nesta rodada ficam vazias (igual à planilha)
     unidades.forEach(function(u){
-      if (!dist.some(function(d){ return d.unidade.toLowerCase() === u.label.toLowerCase(); })) saveEntries(u.id, []);
+      if (!dist.some(function(d){ return chaveNome(d.unidade) === chaveNome(u.label); })) saveEntries(u.id, []);
     });
-    if (criadas) { gravarLista("system_units", unidades); montarMenu(); buildSidebar(); populateConcSelect(); }
+    if (criadas || renomeadas || duplicadas.length) { gravarLista("system_units", unidades); montarMenu(); buildSidebar(); populateConcSelect(); }
     refreshCounts();
 
     var semConta = 0;
     dist.forEach(function(d){ semConta += I.semConta(d.linhas).length; });
     var msg = tx.length.toLocaleString("pt-BR") + " lançamentos distribuídos para " + dist.length + " unidade(s), ordenados por Despesa, Pagamento e Recebimento.";
     if (semConta) msg += " Atenção: " + semConta + " com pendência (sem conta de débito/crédito ou valor fora do padrão).";
-    if (!silencioso) { $("master-status").textContent = msg; toast("Distribuição concluída."); }
+    if (!silencioso) { statusMaster(msg, false); toast("Distribuição concluída."); }
     return { dist: dist, semConta: semConta };
   }
 
@@ -614,10 +667,10 @@
 
   function gerarTxts(formato){
     var r = distribuirPorUnidade(true);
-    if (!r) { $("master-status").textContent = "Nenhum lançamento classificado para gerar TXT."; return; }
+    if (!r) { statusMaster("Nenhum lançamento classificado para gerar TXT.", true); return; }
     var tabela = tabelaUnidades();
     if (!tabela.length) {
-      $("master-status").textContent = "Importe a Tabela de unidades (em Cadastros) antes: ela traz o CNPJ e o código SCI de cada unidade.";
+      statusMaster("Falta a Tabela de unidades: abra Cadastros > Tabela de unidades e importe a planilha. Ela traz o CNPJ e o código SCI de cada unidade, que vão no TXT.", true);
       return;
     }
     if (r.semConta && !confirm(
@@ -629,7 +682,7 @@
     var arquivos = formato === "unico"
       ? I.gerarTxtsUnico(r.dist, tabela, loadEntries("cad-custos"), opcoes)
       : I.gerarTxts(r.dist, tabela, opcoes);
-    if (!arquivos.length) { $("master-status").textContent = "Nenhuma unidade da Tabela de unidades tem lançamentos completos."; return; }
+    if (!arquivos.length) { statusMaster("Nenhuma unidade da Tabela de unidades tem lançamentos completos.", true); return; }
     if (r.semConta) arquivos.push({ nome: "PENDENCIAS_" + (formato === "unico" ? "UNICO" : "TXT") + ".csv", conteudo: I.pendenciasCSV(r.dist, nomesUnidades()) });
     baixarArquivos(arquivos);
 
@@ -645,8 +698,32 @@
     if (formato === "unico") msg += " Importe cada arquivo no Único com a empresa indicada.";
     if (r.semConta) msg += " " + r.semConta + " lançamento(s) ficaram de fora: veja o arquivo de pendências.";
     if (foraDaTabela.length) msg += " Sem arquivo por não estarem na Tabela de unidades: " + foraDaTabela.join(", ") + ".";
-    $("master-status").textContent = msg;
+    statusMaster(msg, false);
     renderMaster();
+  }
+
+  // ---------- excluir unidades ----------
+  function excluirUnidade(id){
+    var u = unidades.filter(function(x){ return x.id === id; })[0];
+    if (!u) return;
+    if (!confirm("Excluir a unidade \"" + u.label + "\"?\n\nOs lançamentos das contas bancárias não são apagados. Se ainda houver lançamentos classificados com essa unidade, ela volta ao distribuir de novo.")) return;
+    Store.remove(storageKey(id));
+    unidades = unidades.filter(function(x){ return x.id !== id; });
+    gravarLista("system_units", unidades);
+    montarMenu(); buildSidebar(); populateConcSelect();
+    if (currentTab === id) selectTab("master"); else if (currentTab === "master") renderMaster();
+    toast("Unidade excluída.");
+  }
+
+  function zerarUnidades(){
+    if (!unidades.length) { toast("Não há unidades para excluir."); return; }
+    if (!confirm("Excluir todas as " + unidades.length + " unidades?\n\nOs lançamentos das contas bancárias não são apagados. Depois use Distribuir por unidade: as unidades são criadas de novo com os nomes certos da planilha.")) return;
+    unidades.forEach(function(u){ Store.remove(storageKey(u.id)); });
+    unidades = [];
+    gravarLista("system_units", unidades);
+    montarMenu(); buildSidebar(); populateConcSelect();
+    selectTab("master");
+    toast("Unidades excluídas.");
   }
 
   // ---------- importação de planilhas ----------
@@ -987,6 +1064,7 @@
   $("btn-master-distribuir").addEventListener("click", function(){
     if (distribuirPorUnidade(false)) renderMaster();
   });
+  $("btn-excluir-unidade").addEventListener("click", function(){ excluirUnidade(currentTab); });
   $("btn-redistribuir").addEventListener("click", function(){
     distribuirPorUnidade(false);
     renderLedger();
