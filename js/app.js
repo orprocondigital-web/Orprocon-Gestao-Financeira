@@ -1109,6 +1109,37 @@
     extratosLidos = [];
   }
 
+  // ---------- zerar ----------
+  function zerarMes(){
+    var nome = Importacao.nomeCompetencia(competencia);
+    var chaves = Store.keys().filter(function(k){ return k.indexOf("lancamentos:" + competencia + ":") === 0; });
+    var qtd = 0;
+    chaves.forEach(function(k){ qtd += (Store.get(k) || []).length; });
+    if (!qtd) { toast(nome + " já está vazio."); return; }
+    if (!confirm("Apagar os " + qtd.toLocaleString("pt-BR") + " lançamentos de " + nome + "?\n\n" +
+      "Vale para todas as contas, movimentos e unidades deste mês. Contas bancárias, cadastros e os outros meses continuam.\n\n" +
+      "Dica: se quiser guardar como está, clique em Cancelar e baixe o backup antes.")) return;
+    Promise.all(chaves.map(function(k){ return Store.remove(k); })).then(function(){
+      ultimaConc = null;
+      $("conc-results-panel").style.display = "none";
+      preencherCompetencias(); refreshCounts();
+      selectTab("master");
+      statusMaster(nome + " foi zerado. Pode importar outra planilha ou os extratos do mês.", false);
+    });
+  }
+
+  function apagarTudo(){
+    var r = prompt("Isto apaga TUDO deste navegador: todos os meses, contas, unidades e cadastros.\n" +
+      "Baixe o backup antes se quiser guardar.\n\nPara confirmar, digite APAGAR:");
+    if (r === null) return;
+    if (r.trim().toUpperCase() !== "APAGAR") { alert("Nada foi apagado."); return; }
+    Promise.all(Store.keys().map(function(k){ return Store.remove(k); })).then(function(){
+      ["system_banks", "system_units", "system_mov_contas", "competencia"].forEach(function(k){ localStorage.removeItem(k); });
+      alert("Tudo apagado. A página vai recarregar.");
+      location.reload();
+    });
+  }
+
   // ---------- backup ----------
   var CHAVES_CONFIG = ["system_banks", "system_units", "system_mov_contas", "competencia", "tema"];
 
@@ -1505,6 +1536,8 @@
   $("imp-cancelar").addEventListener("click", function(){ $("modal-importar").style.display = "none"; planoImportacao = null; });
   $("imp-confirmar").addEventListener("click", confirmarImportacao);
   $("btn-backup").addEventListener("click", baixarBackup);
+  $("btn-zerar-mes").addEventListener("click", zerarMes);
+  $("btn-apagar-tudo").addEventListener("click", apagarTudo);
   $("file-restaurar").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) restaurarBackup(ev.target.files[0]); this.value = ""; });
 
   $("btn-master-distribuir").addEventListener("click", function(){

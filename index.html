@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.6.0">
+<link rel="stylesheet" href="css/style.css?v=0.6.1">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -226,6 +226,8 @@
             <button type="button" class="btn btn-outline" id="btn-backup">Baixar backup</button>
             <label class="btn btn-ghost" for="file-restaurar">Restaurar backup</label>
             <input type="file" id="file-restaurar" accept=".json,application/json" hidden>
+            <button type="button" class="btn btn-danger-ghost" id="btn-zerar-mes">Zerar mês</button>
+            <button type="button" class="btn btn-danger-ghost" id="btn-apagar-tudo">Apagar tudo</button>
           </div>
         </div>
       </section>
@@ -438,12 +440,12 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.6.0"></script>
-<script src="js/core.js?v=0.6.0"></script>
-<script src="js/integracao.js?v=0.6.0"></script>
-<script src="js/importacao.js?v=0.6.0"></script>
-<script src="js/extratos.js?v=0.6.0"></script>
-<script src="js/pdfextrato.js?v=0.6.0"></script>
-<script src="js/app.js?v=0.6.0"></script>
+<script src="js/storage.js?v=0.6.1"></script>
+<script src="js/core.js?v=0.6.1"></script>
+<script src="js/integracao.js?v=0.6.1"></script>
+<script src="js/importacao.js?v=0.6.1"></script>
+<script src="js/extratos.js?v=0.6.1"></script>
+<script src="js/pdfextrato.js?v=0.6.1"></script>
+<script src="js/app.js?v=0.6.1"></script>
 </body>
 </html>
