@@ -304,6 +304,7 @@
       $("import-filename-ledger").textContent = "nenhum arquivo escolhido";
       $("file-import-ledger").value = "";
       $("delete-acct").style.display = item.section === "Bancos" ? "" : "none";
+      $("btn-extrato-conta").style.display = item.section === "Bancos" ? "" : "none";
       var temContabil = item.section === "Bancos" || item.entraNaIntegracao;
       $("edit-contabil").style.display = temContabil ? "" : "none";
       $("edit-contabil").textContent = item.contaContabil ? "Conta contábil " + item.contaContabil : "Definir conta contábil";
@@ -412,7 +413,8 @@
           case "desc": return "<td class='col-desc'>" + celulaDesc(e) + "</td>";
           case "doc": return "<td>" + escapeHtml(e.doc || "") + (e.modelo ? "<span class='cell-sub'>" + escapeHtml(e.modelo) + "</span>" : "") + "</td>";
           case "valor": return "<td class='num'>" + celulaValor(e) + "</td>";
-          case "categoria": return "<td>" + (pendente ? "<span class='pill pendente'>Pendente</span>" : escapeHtml(e.categoria)) + "</td>";
+          case "categoria": return "<td>" + (pendente ? "<span class='pill pendente'>Pendente</span>" : escapeHtml(e.categoria) +
+              (e.sugerido ? "<span class='pill sugerida' title='Classificação sugerida pelo histórico: confira e confirme'>sugerida</span>" : "")) + "</td>";
           case "unidade": return "<td>" + escapeHtml(e.unidade || "") + "</td>";
           case "natureza":
             return "<td class='col-curta'>" + escapeHtml(e.natureza || "") + (e.conta && !derivada ? "<span class='cell-sub'>conta " + escapeHtml(e.conta) + "</span>" : "") + "</td>";
@@ -437,6 +439,9 @@
     });
     body.appendChild(frag);
 
+    var nSug = entries.filter(function(e){ return e.sugerido; }).length;
+    $("btn-confirmar-sugestoes").hidden = derivada || !nSug;
+    $("btn-confirmar-sugestoes").textContent = "Confirmar " + nSug + " sugestão(ões)";
     var totC = 0, totD = 0, pend = 0;
     entries.forEach(function(e){
       if(e.sign === "D") totD += e.valorNum; else totC += e.valorNum;
@@ -520,6 +525,7 @@
     var entries = loadEntries(currentTab);
     if(editingId){
       dados.valorInvalido = false; dados.valorOriginal = "";   // valor redigitado no formulário
+      dados.sugerido = false;                                  // quem editou conferiu
       entries = entries.map(function(x){ return x.id === editingId ? Object.assign({}, x, dados) : x; });
       editingId = null;
       $("cancel-edit").style.display = "none";
@@ -620,12 +626,14 @@
     var fontes = fontesIntegracao();
     var st = I.estatisticasMaster(fontes, nomesUnidades());
 
-    var tot = 0, cls = 0;
+    var tot = 0, cls = 0, sug = 0;
     st.bancos.forEach(function(b){ tot += b.total; cls += b.classificados; });
+    fontes.forEach(function(f){ f.lancamentos.forEach(function(e){ if (e.sugerido) sug++; }); });
     var pct = tot ? Math.round(cls / tot * 100) : 0;
     $("master-resumo").innerHTML = tot
       ? '<div class="conc-headline"><h2>' + cls.toLocaleString("pt-BR") + ' de ' + tot.toLocaleString("pt-BR") + ' lançamentos classificados</h2>' +
-        '<div class="diff">Pendentes<strong class="' + (tot - cls ? "val-d" : "val-c") + '">' + (tot - cls).toLocaleString("pt-BR") + '</strong></div></div>' +
+        '<div class="diff">' + (sug ? 'Sugeridas para conferir<strong class="val-d">' + sug.toLocaleString("pt-BR") + '</strong> · ' : '') +
+        'Pendentes<strong class="' + (tot - cls ? "val-d" : "val-c") + '">' + (tot - cls).toLocaleString("pt-BR") + '</strong></div></div>' +
         '<div class="conc-bar" role="img" aria-label="' + pct + '% classificado"><span class="b-ok" style="flex:' + cls + '"></span>' +
         (tot - cls ? '<span class="b-miss" style="flex:' + (tot - cls) + '"></span>' : '') + '</div>'
       : '<div class="conc-headline"><h2>Nenhum lançamento ainda</h2></div><p class="muted small">Cadastre as contas bancárias, importe as abas da planilha e classifique categoria e unidade.</p>';
@@ -734,6 +742,9 @@
       statusMaster("Falta a Tabela de unidades: abra Cadastros > Tabela de unidades e importe a planilha. Ela traz o CNPJ e o código SCI de cada unidade, que vão no TXT.", true);
       return;
     }
+    var nSug = 0;
+    fontesIntegracao().forEach(function(f){ f.lancamentos.forEach(function(e){ if (e.sugerido) nSug++; }); });
+    if (nSug && !confirm(nSug + " lançamento(s) estão com classificação sugerida pelo histórico e ainda não foram conferidos.\n\nOK = gerar assim mesmo.\nCancelar = conferir antes.")) return;
     if (r.semConta && !confirm(
       r.semConta + " lançamento(s) estão sem conta de débito/crédito ou com valor fora do padrão e seriam recusados ou gravados errado no Único.\n\n" +
       "OK = gerar os TXTs só com os lançamentos completos e baixar a lista de pendências para corrigir.\n" +
@@ -906,6 +917,196 @@
       ", já distribuídos por unidade. Confira as pendências e gere os TXTs." +
       (p.avisos.length ? " Atenção: " + p.avisos.join(" ") : ""), p.avisos.length > 0);
     planoImportacao = null;
+  }
+
+  // ---------- importar extratos do banco (PDF, OFX, TXT, CSV, planilha) ----------
+  var PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  var PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  var extratosLidos = [];
+
+  function carregarPdfJs(){
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise(function(ok, erro){
+      var sc = document.createElement("script");
+      sc.src = PDFJS_URL;
+      sc.onload = function(){ window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; ok(window.pdfjsLib); };
+      sc.onerror = function(){ erro(new Error("o leitor de PDF não carregou (verifique a internet)")); };
+      document.head.appendChild(sc);
+    });
+  }
+
+  function itensDoPdf(buffer){
+    return carregarPdfJs().then(function(pdfjs){
+      return pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    }).then(function(doc){
+      var paginas = [];
+      var proxima = function(n){
+        if (n > doc.numPages) return Promise.resolve(paginas);
+        return doc.getPage(n).then(function(pg){ return pg.getTextContent(); }).then(function(tc){
+          paginas.push(tc.items.filter(function(i){ return i.str && i.str.trim(); }).map(function(i){
+            return { s: i.str, x: i.transform[4], y: i.transform[5], w: i.width };
+          }));
+          return proxima(n + 1);
+        });
+      };
+      return proxima(1);
+    });
+  }
+
+  function lerBuffer(file){
+    return new Promise(function(ok, erro){
+      var r = new FileReader();
+      r.onload = function(ev){ ok(ev.target.result); };
+      r.onerror = function(){ erro(new Error("falha ao ler o arquivo")); };
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  /** Arquivo → { arquivo, formato, banco, numeroConta, itens, conferencia, erro }. */
+  function lerArquivoExtrato(file){
+    var nome = file.name, ext = (nome.split(".").pop() || "").toLowerCase();
+    return lerBuffer(file).then(function(buf){
+      if (ext === "pdf") {
+        return itensDoPdf(buf).then(function(paginas){
+          var r = PdfExtrato.lerExtratoPdf(paginas);
+          if (r.semTexto) return { arquivo: nome, erro: "Este PDF é uma imagem (digitalizado ou foto): não tem texto para ler. Peça ao banco o extrato em OFX, ou um PDF gerado direto pelo internet banking." };
+          return { arquivo: nome, formato: "PDF " + r.banco.nome, banco: r.banco.nome, numeroConta: r.numeroConta, itens: r.itens, conferencia: r.conferencia };
+        });
+      }
+      if (ext === "xlsx" || ext === "xls") {
+        if (typeof XLSX === "undefined") throw new Error("o leitor de planilhas não carregou");
+        var wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
+        var r = Core.parseExtratoRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" }));
+        if (!r.ok) return { arquivo: nome, erro: r.erro };
+        return { arquivo: nome, formato: "Planilha", numeroConta: "", itens: r.itens };
+      }
+      var e = Extratos.lerExtrato(Core.decodeText(new Uint8Array(buf)));
+      if (e.ok === false) return { arquivo: nome, erro: e.erro || "Formato não reconhecido." };
+      return { arquivo: nome, formato: e.formato === "genérico" ? "CSV/TXT" : e.formato, numeroConta: e.numeroConta || "", itens: e.itens || [] };
+    }).catch(function(err){ return { arquivo: nome, erro: "Não consegui ler: " + (err.message || err) }; });
+  }
+
+  function abrirExtratos(contaPreSelecionada){
+    extratosLidos = [];
+    abrirExtratos.conta = contaPreSelecionada || "";
+    $("file-extratos").value = "";
+    $("ext-status").textContent = "";
+    $("ext-lista").innerHTML = "";
+    $("ext-confirmar").disabled = true;
+    $("modal-extratos").style.display = "flex";
+  }
+
+  function analisarExtratos(files){
+    $("ext-status").textContent = "Lendo " + files.length + " arquivo(s)…";
+    $("ext-confirmar").disabled = true;
+    Promise.all(Array.prototype.map.call(files, lerArquivoExtrato)).then(function(lidos){
+      lidos.forEach(function(l){
+        if (l.erro) return;
+        var cand = Extratos.contasCandidatas(l.numeroConta, bancos);
+        l.contaId = abrirExtratos.conta || (cand.length === 1 ? cand[0].id : "");
+        l.candidatas = cand;
+      });
+      extratosLidos = lidos;
+      $("ext-status").textContent = "";
+      mostrarExtratos();
+    });
+  }
+
+  function lancamentosDoMes(mes, id){ return Store.get("lancamentos:" + mes + ":" + id) || []; }
+
+  function previaExtrato(l){
+    var novos = 0, repetidos = 0, porMes = {};
+    l.itens.forEach(function(i){ var m = String(i.data).slice(0, 7); (porMes[m] = porMes[m] || []).push(i); });
+    Object.keys(porMes).forEach(function(m){
+      var r = Extratos.mesclar(l.contaId ? lancamentosDoMes(m, l.contaId) : [], porMes[m]);
+      novos += r.adicionados.length; repetidos += r.repetidos;
+    });
+    return { novos: novos, repetidos: repetidos, meses: Object.keys(porMes).sort() };
+  }
+
+  function mostrarExtratos(){
+    var n = function(x){ return Number(x).toLocaleString("pt-BR"); };
+    $("ext-lista").innerHTML = extratosLidos.map(function(l, i){
+      if (l.erro) return "<div class='ext-item'><div class='ext-topo'><strong>" + escapeHtml(l.arquivo) + "</strong></div><div class='ext-erro'>" + escapeHtml(l.erro) + "</div></div>";
+      var p = previaExtrato(l);
+      var datas = l.itens.map(function(x){ return x.data; }).sort();
+      var conf = l.conferencia && l.conferencia.total
+        ? (l.conferencia.conferidos === l.conferencia.total
+            ? "<span class='val-c'>✓ saldos conferidos em " + l.conferencia.total + " dia(s)</span>"
+            : "<span class='val-d'>⚠ saldo não fecha em " + (l.conferencia.total - l.conferencia.conferidos) + " de " + l.conferencia.total + " dia(s): confira o extrato</span>")
+        : "";
+      var opcoes = '<option value="">Escolha a conta…</option>' + bancos.map(function(b){
+        var marca = l.candidatas.indexOf(b) > -1 ? " (número bate)" : "";
+        return '<option value="' + b.id + '"' + (b.id === l.contaId ? " selected" : "") + ">" + escapeHtml(nomeDaFonte(b)) + marca + "</option>";
+      }).join("");
+      return "<div class='ext-item'>" +
+        "<div class='ext-topo'><strong>" + escapeHtml(l.arquivo) + "</strong><span class='muted small'>" + escapeHtml(l.formato || "") +
+          (l.numeroConta ? " · conta " + escapeHtml(l.numeroConta) : "") + "</span></div>" +
+        "<div class='ext-info'><span>" + n(l.itens.length) + " lançamentos</span>" +
+          (datas.length ? "<span>" + brDate(datas[0]) + " a " + brDate(datas[datas.length - 1]) + "</span>" : "") +
+          (l.contaId ? "<span><strong>" + n(p.novos) + "</strong> novos" + (p.repetidos ? ", " + n(p.repetidos) + " já importados" : "") + "</span>" : "") +
+          conf + "</div>" +
+        "<label class='ext-conta'>Conta no sistema <select data-ext='" + i + "'>" + opcoes + "</select></label>" +
+        (l.candidatas.length > 1 ? "<span class='muted small'>Mais de uma conta tem esse número: escolha a certa.</span>" : "") +
+        (!l.candidatas.length && l.numeroConta ? "<span class='muted small'>Nenhuma conta cadastrada com o número " + escapeHtml(l.numeroConta) + ". Escolha a conta ou cadastre-a antes.</span>" : "") +
+      "</div>";
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("[data-ext]"), function(sel){
+      sel.addEventListener("change", function(){ extratosLidos[+sel.dataset.ext].contaId = sel.value; mostrarExtratos(); });
+    });
+    $("ext-confirmar").disabled = !extratosLidos.some(function(l){ return !l.erro && l.contaId && l.itens.length; });
+  }
+
+  /** Tudo o que uma pessoa já classificou, em todos os meses: base das sugestões. */
+  function indiceDeSugestoes(){
+    var todos = [];
+    Store.keys().forEach(function(k){
+      var m = /^lancamentos:\d{4}-\d{2}:(.+)$/.exec(k);
+      if (m && m[1].indexOf("unid-") !== 0) todos = todos.concat(Store.get(k) || []);
+    });
+    return Extratos.criarIndice(todos);
+  }
+
+  function confirmarExtratos(){
+    var idx = indiceDeSugestoes();
+    var total = 0, repetidos = 0, sugeridos = 0, meses = {}, contas = {};
+    var stamp = Date.now();
+    extratosLidos.forEach(function(l, n){
+      if (l.erro || !l.contaId) return;
+      var porMes = {};
+      l.itens.forEach(function(i){ var m = String(i.data).slice(0, 7); (porMes[m] = porMes[m] || []).push(i); });
+      Object.keys(porMes).forEach(function(m){
+        var atuais = lancamentosDoMes(m, l.contaId);
+        var r = Extratos.mesclar(atuais, porMes[m]);
+        repetidos += r.repetidos;
+        var novos = r.adicionados.map(function(i, k){
+          var e = { id: "x" + stamp + "-" + n + "-" + m + "-" + k, data: i.data, dataMov: "", desc: i.desc || "", doc: i.doc || "",
+            modelo: "", valorNum: i.valorNum, sign: i.sign, nome: i.nome || "", cpf: i.cpf || "",
+            categoria: "", unidade: "", natureza: "", conta: "", origem: "extrato" };
+          if (i.fitid) e.fitid = i.fitid;
+          if (i.bloqueado) e.bloqueado = true;
+          var sug = Extratos.sugerir(e, idx);
+          if (sug) { Object.assign(e, sug); e.sugerido = true; sugeridos++; }
+          return e;
+        });
+        contas[l.contaId] = true;
+        if (novos.length) { Store.set("lancamentos:" + m + ":" + l.contaId, atuais.concat(novos)); meses[m] = (meses[m] || 0) + novos.length; }
+        total += novos.length;
+      });
+    });
+    $("modal-extratos").style.display = "none";
+    var mesPrincipal = Object.keys(meses).sort(function(a, b){ return meses[b] - meses[a]; })[0];
+    if (mesPrincipal && mesPrincipal !== competencia) { competencia = mesPrincipal; localStorage.setItem("competencia", mesPrincipal); }
+    preencherCompetencias(); refreshCounts();
+    var unicaConta = Object.keys(contas).length === 1 ? Object.keys(contas)[0] : null;
+    selectTab(unicaConta || "master");
+    var msg = total.toLocaleString("pt-BR") + " lançamento(s) novos importados" +
+      (repetidos ? ", " + repetidos.toLocaleString("pt-BR") + " já existiam e não foram duplicados" : "") +
+      (sugeridos ? ". " + sugeridos.toLocaleString("pt-BR") + " vieram com classificação sugerida pelo histórico: confira e confirme" : "") + ".";
+    toast(msg.length > 110 ? msg.slice(0, 107) + "…" : msg);
+    if (!unicaConta) statusMaster(msg, false);
+    else $("import-status-ledger").textContent = msg;
+    extratosLidos = [];
   }
 
   // ---------- backup ----------
@@ -1288,6 +1489,18 @@
     trocarCompetencia(this.value);
   });
   $("btn-importar-planilha").addEventListener("click", abrirImportacao);
+  $("btn-importar-extratos").addEventListener("click", function(){ abrirExtratos(""); });
+  $("btn-extrato-conta").addEventListener("click", function(){ abrirExtratos(itemIndex[currentTab] && itemIndex[currentTab].section === "Bancos" ? currentTab : ""); });
+  $("file-extratos").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files.length) analisarExtratos(ev.target.files); });
+  $("ext-cancelar").addEventListener("click", function(){ $("modal-extratos").style.display = "none"; extratosLidos = []; });
+  $("ext-confirmar").addEventListener("click", confirmarExtratos);
+  $("btn-confirmar-sugestoes").addEventListener("click", function(){
+    var entries = loadEntries(currentTab), n = 0;
+    entries.forEach(function(e){ if (e.sugerido) { delete e.sugerido; n++; } });
+    saveEntries(currentTab, entries);
+    renderLedger();
+    toast(n + " classificação(ões) confirmada(s).");
+  });
   $("file-planilha").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) analisarArquivoPlanilha(ev.target.files[0]); });
   $("imp-cancelar").addEventListener("click", function(){ $("modal-importar").style.display = "none"; planoImportacao = null; });
   $("imp-confirmar").addEventListener("click", confirmarImportacao);

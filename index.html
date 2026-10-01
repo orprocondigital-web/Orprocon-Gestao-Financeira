@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.5.0">
+<link rel="stylesheet" href="css/style.css?v=0.6.0">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -76,6 +76,8 @@
           <span class="muted small" id="import-filename-ledger">nenhum arquivo escolhido</span>
         </div>
         <div class="toolbar-side">
+          <button type="button" class="btn btn-outline" id="btn-extrato-conta">Importar extrato</button>
+          <button type="button" class="btn btn-ghost" id="btn-confirmar-sugestoes" hidden>Confirmar sugestões</button>
           <button type="button" class="btn btn-ghost" id="edit-contabil"></button>
           <button type="button" class="btn btn-ghost" id="clear-acct-top">Limpar lançamentos</button>
           <button type="button" class="btn btn-danger-ghost" id="delete-acct">Excluir conta</button>
@@ -213,13 +215,14 @@
         <div class="panel-body entrada">
           <div>
             <h2 id="master-mes">Mês</h2>
-            <p class="muted small">Importe a planilha do mês inteira: o sistema reconhece as contas bancárias, os movimentos e os cadastros.</p>
+            <p class="muted small">Importe a planilha do mês inteira, ou direto os extratos do banco (PDF, OFX, TXT, CSV): cada lançamento vai para a conta certa, sem duplicar, já com a classificação sugerida pelo histórico.</p>
           </div>
           <div class="entrada-acoes">
             <button type="button" class="btn btn-primary" id="btn-importar-planilha">
               <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
               Importar planilha do mês
             </button>
+            <button type="button" class="btn btn-outline" id="btn-importar-extratos">Importar extratos do banco</button>
             <button type="button" class="btn btn-outline" id="btn-backup">Baixar backup</button>
             <label class="btn btn-ghost" for="file-restaurar">Restaurar backup</label>
             <input type="file" id="file-restaurar" accept=".json,application/json" hidden>
@@ -401,6 +404,24 @@
   </div>
 </div>
 
+<!-- Modal: importar extratos do banco -->
+<div id="modal-extratos" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-extratos-titulo">
+  <div class="modal-card modal-largo">
+    <h3 id="modal-extratos-titulo">Importar extratos do banco</h3>
+    <p class="muted small">PDF, OFX, TXT do Sicoob, CSV ou planilha. Pode escolher vários arquivos. O sistema identifica a conta pelo número do extrato, não duplica o que já foi importado e sugere a classificação pelo que já foi feito nos meses anteriores.</p>
+    <div class="imp-arquivo">
+      <label class="btn btn-outline" for="file-extratos">Escolher arquivos</label>
+      <input type="file" id="file-extratos" accept=".pdf,.ofx,.txt,.csv,.xlsx,.xls" multiple hidden>
+      <span class="muted small" id="ext-status"></span>
+    </div>
+    <div id="ext-lista"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="ext-cancelar">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="ext-confirmar" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: nova unidade -->
 <div id="modal-add-unit" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-unit-title">
   <div class="modal-card">
@@ -417,10 +438,12 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.5.0"></script>
-<script src="js/core.js?v=0.5.0"></script>
-<script src="js/integracao.js?v=0.5.0"></script>
-<script src="js/importacao.js?v=0.5.0"></script>
-<script src="js/app.js?v=0.5.0"></script>
+<script src="js/storage.js?v=0.6.0"></script>
+<script src="js/core.js?v=0.6.0"></script>
+<script src="js/integracao.js?v=0.6.0"></script>
+<script src="js/importacao.js?v=0.6.0"></script>
+<script src="js/extratos.js?v=0.6.0"></script>
+<script src="js/pdfextrato.js?v=0.6.0"></script>
+<script src="js/app.js?v=0.6.0"></script>
 </body>
 </html>

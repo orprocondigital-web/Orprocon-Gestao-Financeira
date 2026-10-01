@@ -23,6 +23,27 @@ macros VBA (versão de referência: v30). O sistema faz o mesmo fluxo:
    *Distribuir por unidade*, *Gerar TXTs (formato atual)* e *Gerar TXTs (SCI Único)*.
 4. **Conciliação** do extrato do banco (`.xlsx`, `.csv` ou `.txt` do Sicoob).
 
+### Importar extratos do banco
+
+No Master (ou na tela de uma conta), *Importar extratos do banco* aceita vários
+arquivos de uma vez: **PDF**, **OFX**, **TXT do Sicoob**, CSV ou planilha.
+
+- A conta é reconhecida pelo número que vem no extrato. Se nenhuma ou mais de
+  uma conta bater, a pessoa escolhe.
+- Cada lançamento vai para o mês da sua data. Importar o mesmo extrato de novo
+  não duplica nada (no OFX, pelo código único de cada lançamento).
+- Categoria, unidade, natureza e conta são **sugeridas** pelo que já foi
+  classificado antes (primeiro pelo CPF/CNPJ, depois pelo nome, por último
+  pelo histórico, só quando ele é sempre classificado igual). Sugestões ficam
+  marcadas até alguém confirmar, e o sistema avisa ao gerar o TXT.
+- **Conferência de saldos (PDF):** para cada dia, saldo anterior + lançamentos
+  lidos = saldo informado pelo banco. Se fechar, nada ficou de fora.
+
+PDFs testados (saldos conferidos em 100% dos dias): Banco do Brasil, Caixa,
+Itaú, Santander, Sicoob, Sicredi, Unicred, Ailos (Acentra), Banrisul, Inter,
+Nubank e C6. PDF que é imagem (digitalizado, como o do Bradesco enviado) não
+tem texto: nesse caso, use o OFX do banco.
+
 ### Competência (mês)
 
 Cada mês tem os seus lançamentos, escolhido no seletor *Competência* do topo.
@@ -86,6 +107,8 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/core.js` | Valores, datas, leitura de planilhas e extratos, conciliação, exportação. |
 | `js/integracao.js` | Porte das macros VBA: coleta, contas contábeis, distribuição, TXTs, Master. |
 | `js/importacao.js` | Leitura da planilha inteira: reconhece as abas, a competência e os problemas. |
+| `js/extratos.js` | OFX, TXT do Sicoob e CSV; conta do extrato, sem duplicar, sugestão de classificação. |
+| `js/pdfextrato.js` | Extratos em PDF (texto com posição, via pdf.js) e conferência de saldos. |
 | `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
 | `js/app.js` | Tela. |
 | `tests/` | Testes automatizados e um extrato Sicoob fictício. |

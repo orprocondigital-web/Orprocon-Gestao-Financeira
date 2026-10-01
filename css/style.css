@@ -442,3 +442,13 @@ table.ledger td.col-curta { max-width: 180px; }
 .check input { width: auto; height: auto; }
 .tag-nova { font-size: 11px; font-weight: 650; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
 @media (max-width: 900px) { .comp-select span { display: none; } }
+
+/* importar extratos */
+.ext-item { border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-top: 10px; display: grid; gap: 8px; }
+.ext-topo { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.ext-topo strong { font-weight: 650; }
+.ext-info { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
+.ext-conta { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ext-conta select { height: 32px; max-width: 360px; }
+.ext-erro { color: var(--debit); font-size: 13px; }
+.pill.sugerida { background: var(--info-soft); color: var(--info); margin-left: 6px; }
