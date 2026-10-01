@@ -61,7 +61,12 @@
   var editingId = null;
 
   // ---------- dados (IndexedDB via js/storage.js) ----------
-  function storageKey(id){ return "lancamentos:agosto:" + id; }
+  // Cada mês (competência) tem os seus lançamentos; os cadastros valem para todos os meses.
+  function mesAtual(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  var competencia = localStorage.getItem("competencia") || mesAtual();
+  function storageKey(id){
+    return id.indexOf("cad-") === 0 ? "cadastro:" + id : "lancamentos:" + competencia + ":" + id;
+  }
   function loadEntries(id){ return Store.get(storageKey(id)) || []; }
   function saveEntries(id, entries){
     Store.set(storageKey(id), entries).then(function(ok){
@@ -70,6 +75,60 @@
     return true;
   }
   function cabecalhoCadastro(id){ return Store.get("cabecalho:" + id) || []; }
+
+  /** Versões até 0.4 guardavam tudo em "lancamentos:agosto:*", sem mês. Move para a competência certa, uma vez. */
+  function migrarParaCompetencias(){
+    var antigas = Store.keys().filter(function(k){ return k.indexOf("lancamentos:agosto:") === 0; });
+    if (!antigas.length) return Promise.resolve(null);
+    var datas = [];
+    antigas.forEach(function(k){
+      var id = k.slice("lancamentos:agosto:".length);
+      if (id.indexOf("cad-") !== 0 && id.indexOf("unid-") !== 0) datas = datas.concat(Store.get(k) || []);
+    });
+    var mes = Importacao.competenciaDominante(datas) || mesAtual();
+    return Promise.all(antigas.map(function(k){
+      var id = k.slice("lancamentos:agosto:".length);
+      var nova = id.indexOf("cad-") === 0 ? "cadastro:" + id : "lancamentos:" + mes + ":" + id;
+      var valor = Store.get(k);
+      return (Store.get(nova) ? Promise.resolve() : Store.set(nova, valor)).then(function(){ return Store.remove(k); });
+    })).then(function(){ return mes; });
+  }
+
+  function competenciasComDados(){
+    var meses = {};
+    Store.keys().forEach(function(k){
+      var m = /^lancamentos:(\d{4}-\d{2}):/.exec(k);
+      if (m && (Store.get(k) || []).length) meses[m[1]] = true;
+    });
+    return meses;
+  }
+
+  function preencherCompetencias(){
+    var sel = $("competencia");
+    var meses = competenciasComDados();
+    meses[competencia] = true;
+    meses[mesAtual()] = true;
+    var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+    meses[d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")] = true;
+    var lista = Object.keys(meses).sort().reverse();
+    var comDados = competenciasComDados();
+    sel.innerHTML = lista.map(function(m){
+      return '<option value="' + m + '"' + (m === competencia ? " selected" : "") + ">" +
+        Importacao.nomeCompetencia(m) + (comDados[m] ? "" : " (vazio)") + "</option>";
+    }).join("") + '<option value="outro">Outro mês…</option>';
+  }
+
+  function trocarCompetencia(nova){
+    if (!/^\d{4}-\d{2}$/.test(nova)) return;
+    competencia = nova;
+    localStorage.setItem("competencia", nova);
+    ultimaConc = null;
+    $("conc-results-panel").style.display = "none";
+    preencherCompetencias();
+    refreshCounts();
+    selectTab(currentTab || "master");
+    toast("Competência: " + Importacao.nomeCompetencia(nova));
+  }
 
   // ---------- helpers ----------
   var brDate = Core.brDate;
@@ -532,7 +591,8 @@
       return { id: b.id, nome: nomeDaFonte(b), contaBanco: b.contaContabil || "", lancamentos: loadEntries(b.id) };
     });
     MOVIMENTOS.filter(function(m){ return m.entraNaIntegracao; }).forEach(function(m){
-      fontes.push({ id: m.id, nome: m.sheetName, contaBanco: m.contaContabil || "", lancamentos: loadEntries(m.id) });
+      // v28: sem conta definida, usa a conta do Caixa da Tabela de bancos (padrão 5)
+      fontes.push({ id: m.id, nome: m.sheetName, contaBanco: m.contaContabil || I.contaCaixa(loadEntries("cad-bancos")), lancamentos: loadEntries(m.id) });
     });
     return fontes;
   }
@@ -556,6 +616,7 @@
   }
 
   function renderMaster() {
+    $("master-mes").textContent = Importacao.nomeCompetencia(competencia);
     var fontes = fontesIntegracao();
     var st = I.estatisticasMaster(fontes, nomesUnidades());
 
@@ -724,6 +785,161 @@
     montarMenu(); buildSidebar(); populateConcSelect();
     selectTab("master");
     toast("Unidades excluídas.");
+  }
+
+  // ---------- importação da planilha completa ----------
+  var planoImportacao = null;
+
+  function abrirImportacao(){
+    planoImportacao = null;
+    $("file-planilha").value = "";
+    $("imp-arquivo-nome").textContent = "nenhum arquivo escolhido";
+    $("imp-status").textContent = "";
+    $("imp-resumo").hidden = true;
+    $("imp-opcoes").hidden = true;
+    $("imp-confirmar").disabled = true;
+    $("modal-importar").style.display = "flex";
+  }
+
+  function analisarArquivoPlanilha(file){
+    $("imp-arquivo-nome").textContent = file.name;
+    if (typeof XLSX === "undefined") { $("imp-status").textContent = "O leitor de planilhas não carregou. Verifique a internet e recarregue a página."; return; }
+    $("imp-status").textContent = "Lendo a planilha… pode levar alguns segundos.";
+    $("imp-resumo").hidden = true; $("imp-opcoes").hidden = true; $("imp-confirmar").disabled = true;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      setTimeout(function(){   // deixa a mensagem aparecer antes do trabalho pesado
+        try {
+          var wb = XLSX.read(new Uint8Array(ev.target.result), { type: "array", cellDates: true });
+          var abas = wb.SheetNames.map(function(n){
+            return { nome: n, rows: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: "" }) };
+          });
+          planoImportacao = Importacao.analisarPlanilha(abas);
+          mostrarPlano(planoImportacao);
+        } catch(err) {
+          console.error(err);
+          $("imp-status").textContent = "Não consegui ler a planilha: " + (err.message || "erro desconhecido");
+        }
+      }, 30);
+    };
+    reader.onerror = function(){ $("imp-status").textContent = "Falha ao ler o arquivo."; };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function bancoExistente(b){
+    return bancos.filter(function(x){ return x.contaContabil === b.contabil; })[0] ||
+           bancos.filter(function(x){ return chaveNome(x.sheetName) === chaveNome(b.nomeAba); })[0] || null;
+  }
+
+  function mostrarPlano(p){
+    if (!p.bancos.length && !p.movimentos.length) {
+      $("imp-status").textContent = "Não encontrei abas de banco (nome terminando em \"Conta <número>\") nesta planilha.";
+      return;
+    }
+    $("imp-status").textContent = "";
+    var n = function(x){ return Number(x).toLocaleString("pt-BR"); };
+    var linhas = p.bancos.map(function(b){
+      return "<tr><td>" + escapeHtml(b.nomeAba) + (bancoExistente(b) ? "" : "<span class='tag-nova'>nova conta</span>") +
+        "</td><td>" + n(b.lancamentos.length) + " lançamentos</td></tr>";
+    });
+    p.movimentos.forEach(function(m){
+      linhas.push("<tr><td>" + escapeHtml(itemIndex[m.id].label) + "</td><td>" + n(m.lancamentos.length) + " lançamentos</td></tr>");
+    });
+    Object.keys(p.cadastros).forEach(function(id){
+      linhas.push("<tr><td>Cadastro: " + escapeHtml(itemIndex[id].label) + "</td><td>" + n(p.cadastros[id].itens.length) + " itens</td></tr>");
+    });
+    $("imp-resumo").innerHTML = "<table class='imp-tabela'>" + linhas.join("") + "</table>" +
+      (p.avisos.length ? "<ul class='imp-avisos'>" + p.avisos.map(function(a){ return "<li><strong>Atenção:</strong> " + escapeHtml(a) + "</li>"; }).join("") + "</ul>" : "") +
+      (p.ignoradas.length ? "<p class='muted small'>Abas ignoradas: " + escapeHtml(p.ignoradas.map(function(i){ return i.nome.trim(); }).join(", ")) + ".</p>" : "");
+    $("imp-competencia").value = p.competencia || competencia;
+    $("imp-resumo").hidden = false;
+    $("imp-opcoes").hidden = false;
+    $("imp-confirmar").disabled = false;
+  }
+
+  function confirmarImportacao(){
+    var p = planoImportacao;
+    if (!p) return;
+    var mes = $("imp-competencia").value;
+    if (!/^\d{4}-\d{2}$/.test(mes)) { alert("Escolha a competência (mês)."); return; }
+    var jaTem = Object.keys(competenciasComDados()).indexOf(mes) > -1;
+    if (jaTem && !confirm(Importacao.nomeCompetencia(mes) + " já tem lançamentos neste navegador.\n\nOK = substituir pelos da planilha.\nCancelar = voltar.")) return;
+
+    competencia = mes;
+    localStorage.setItem("competencia", mes);
+
+    // contas bancárias: cria as que faltam e deixa na mesma ordem das abas da planilha
+    // (a ordem decide o desempate dentro do mesmo dia no TXT, como na macro)
+    var ordem = [], novas = 0;
+    p.bancos.forEach(function(b){
+      var conta = bancoExistente(b);
+      if (!conta) {
+        conta = { id: "banco-" + Date.now() + "-" + novas, type: "ledger", bank: b.banco,
+          label: (b.numero ? b.numero + " " : "") + "Conta " + b.contabil, sheetName: b.nomeAba,
+          agencia: "", conta: b.numero, contaContabil: b.contabil, hasDataMov: true };
+        novas++;
+      } else if (!conta.contaContabil) conta.contaContabil = b.contabil;
+      ordem.push(conta);
+      saveEntries(conta.id, b.lancamentos);
+    });
+    bancos = ordem.concat(bancos.filter(function(x){ return ordem.indexOf(x) < 0; }));
+    gravarLista("system_banks", bancos);
+
+    p.movimentos.forEach(function(m){ saveEntries(m.id, m.lancamentos); });
+
+    if ($("imp-cadastros").checked) {
+      Object.keys(p.cadastros).forEach(function(id){
+        saveEntries(id, p.cadastros[id].itens);
+        Store.set("cabecalho:" + id, p.cadastros[id].cabecalho);
+      });
+    }
+
+    // abas de unidade deste mês: refeitas a partir dos lançamentos importados
+    unidades.forEach(function(u){ saveEntries(u.id, []); });
+    montarMenu(); buildSidebar(); populateConcSelect(); preencherCompetencias(); refreshFormOptions();
+    distribuirPorUnidade(true);
+
+    $("modal-importar").style.display = "none";
+    selectTab("master");
+    statusMaster("Planilha importada em " + Importacao.nomeCompetencia(mes) + ": " + p.totalLancamentos.toLocaleString("pt-BR") +
+      " lançamentos de " + p.bancos.length + " contas" + (novas ? " (" + novas + " novas)" : "") +
+      ", já distribuídos por unidade. Confira as pendências e gere os TXTs." +
+      (p.avisos.length ? " Atenção: " + p.avisos.join(" ") : ""), p.avisos.length > 0);
+    planoImportacao = null;
+  }
+
+  // ---------- backup ----------
+  var CHAVES_CONFIG = ["system_banks", "system_units", "system_mov_contas", "competencia", "tema"];
+
+  function baixarBackup(){
+    var dados = {};
+    Store.keys().forEach(function(k){ dados[k] = Store.get(k); });
+    var config = {};
+    CHAVES_CONFIG.forEach(function(k){ var v = localStorage.getItem(k); if (v !== null) config[k] = v; });
+    var backup = { app: "gestao-financeira", formato: 1, geradoEm: new Date().toISOString(), config: config, dados: dados };
+    var hoje = new Date().toISOString().slice(0, 10);
+    baixarArquivos([{ nome: "backup-gestao-financeira-" + hoje + ".json", conteudo: JSON.stringify(backup) }]);
+    toast("Backup baixado. Guarde o arquivo numa pasta da rede ou no Drive.");
+  }
+
+  function restaurarBackup(file){
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var b;
+      try { b = JSON.parse(ev.target.result); } catch(e) { alert("Este arquivo não é um backup válido."); return; }
+      if (!b || b.app !== "gestao-financeira" || !b.dados) { alert("Este arquivo não é um backup deste sistema."); return; }
+      var quando = b.geradoEm ? new Date(b.geradoEm).toLocaleString("pt-BR") : "data desconhecida";
+      if (!confirm("Restaurar o backup de " + quando + "?\n\nTodos os dados deste navegador serão substituídos pelos do backup.")) return;
+      Promise.all(Store.keys().map(function(k){ return Store.remove(k); })).then(function(){
+        return Promise.all(Object.keys(b.dados).map(function(k){ return Store.set(k, b.dados[k]); }));
+      }).then(function(){
+        CHAVES_CONFIG.forEach(function(k){ localStorage.removeItem(k); });
+        Object.keys(b.config || {}).forEach(function(k){ localStorage.setItem(k, b.config[k]); });
+        alert("Backup restaurado. A página vai recarregar.");
+        location.reload();
+      });
+    };
+    reader.readAsText(file);
   }
 
   // ---------- importação de planilhas ----------
@@ -1061,6 +1277,23 @@
   $("export-csv").addEventListener("click", exportarCSV);
   $("export-clip").addEventListener("click", copiarParaExcel);
 
+  $("competencia").addEventListener("change", function(){
+    if (this.value === "outro") {
+      var r = prompt("Qual mês? (MM/AAAA)", "");
+      var m = r && /^\s*(\d{1,2})\/(\d{4})\s*$/.exec(r);
+      if (m && +m[1] >= 1 && +m[1] <= 12) trocarCompetencia(m[2] + "-" + String(+m[1]).padStart(2, "0"));
+      else { if (r) alert("Use o formato MM/AAAA, por exemplo 08/2026."); preencherCompetencias(); }
+      return;
+    }
+    trocarCompetencia(this.value);
+  });
+  $("btn-importar-planilha").addEventListener("click", abrirImportacao);
+  $("file-planilha").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) analisarArquivoPlanilha(ev.target.files[0]); });
+  $("imp-cancelar").addEventListener("click", function(){ $("modal-importar").style.display = "none"; planoImportacao = null; });
+  $("imp-confirmar").addEventListener("click", confirmarImportacao);
+  $("btn-backup").addEventListener("click", baixarBackup);
+  $("file-restaurar").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) restaurarBackup(ev.target.files[0]); this.value = ""; });
+
   $("btn-master-distribuir").addEventListener("click", function(){
     if (distribuirPorUnidade(false)) renderMaster();
   });
@@ -1159,6 +1392,12 @@
   // ---------- início ----------
   Store.init().then(function(ok){
     if (!ok) toast("Este navegador não permite gravar dados. Nada será salvo.");
+    return migrarParaCompetencias().then(function(mesMigrado){
+      if (mesMigrado && !localStorage.getItem("competencia")) { competencia = mesMigrado; localStorage.setItem("competencia", mesMigrado); }
+      return ok;
+    });
+  }).then(function(ok){
+    preencherCompetencias();
     refreshFormOptions();
     buildSidebar();
     populateConcSelect();

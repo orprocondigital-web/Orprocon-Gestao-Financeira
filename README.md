@@ -7,25 +7,39 @@ para integrar a movimentação bancária do cliente ao **SCI Único**.
 
 Todo mês, cada movimentação de cada conta bancária do cliente precisa ser
 classificada (categoria, unidade/filial, natureza do gasto, fornecedor ou
-cliente) e virar lançamento contábil no Único, com conta de débito, conta de
-crédito e histórico padrão. Na planilha isso é feito com macros VBA. O sistema
-reproduz o mesmo fluxo:
+cliente) e virar lançamento contábil no SCI Único. Na planilha isso é feito com
+macros VBA (versão de referência: v30). O sistema faz o mesmo fluxo:
 
-1. **Contas bancárias** — cada conta tem a sua conta contábil no Único (ex.: 643).
-   Os lançamentos são digitados ou importados da aba da planilha.
-2. **Classificação** — categoria, unidade, natureza e conta. O que falta
-   classificar aparece como *Pendente*.
-3. **Master** — acompanha classificados e pendentes por unidade e por banco e tem os três botões da planilha:
-   - *Distribuir por unidade*: agrupa por filial, ordena (Despesa, Pagamento,
-     Recebimento, Aplicações) e calcula débito, crédito e HP.
-   - *Gerar TXTs (formato atual)*: um arquivo por unidade e categoria, separado por tabulação.
-   - *Gerar TXTs (SCI Único)*: um arquivo por unidade no layout de importação do Único.
-4. **Conciliação** — cruza o extrato do banco (`.xlsx`, `.csv` ou o `.txt` do
-   Sicoob) com os lançamentos e aponta o que falta de cada lado.
+1. **Importar a planilha do mês** (Master → *Importar planilha do mês*): lê a
+   pasta de trabalho inteira e reconhece sozinho as contas bancárias (abas
+   terminadas em "Conta <número>", que vira a conta contábil), Pagamento em
+   dinheiro, Juros recebidos e os cadastros (clientes, fornecedores, plano de
+   contas, tabelas). As abas de unidade e o Master da planilha são ignorados:
+   o sistema gera essas informações. Antes de importar, mostra o que vai entrar
+   e os problemas encontrados (ex.: unidade repetida na Tabela de unidades).
+2. **Conferir e ajustar** os lançamentos nas contas. O que falta classificar
+   aparece como *Pendente*.
+3. **Master**: classificados e pendentes por unidade e por banco, e os botões
+   *Distribuir por unidade*, *Gerar TXTs (formato atual)* e *Gerar TXTs (SCI Único)*.
+4. **Conciliação** do extrato do banco (`.xlsx`, `.csv` ou `.txt` do Sicoob).
+
+### Competência (mês)
+
+Cada mês tem os seus lançamentos, escolhido no seletor *Competência* do topo.
+Os cadastros e as contas bancárias valem para todos os meses. Ao importar a
+planilha, o mês é sugerido pelas datas dos lançamentos.
+
+### Backup
+
+Os dados ficam no navegador. *Baixar backup* (no Master) gera um arquivo `.json`
+com tudo — todos os meses, cadastros e configurações. Guarde numa pasta da rede
+ou no Drive. *Restaurar backup* substitui os dados do navegador pelos do arquivo
+(serve também para levar os dados para outro computador).
 
 ### Regras contábeis
 
-Conferidas linha a linha com os TXTs de agosto/2026 que foram importados no Único.
+Iguais às da macro v30 e conferidas linha a linha com os TXTs de agosto/2026
+(4.510 de 4.510 linhas idênticas). O HP pela natureza vale para qualquer categoria.
 
 | Categoria | Débito | Crédito | HP |
 |---|---|---|---|
@@ -71,6 +85,7 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 |---|---|
 | `js/core.js` | Valores, datas, leitura de planilhas e extratos, conciliação, exportação. |
 | `js/integracao.js` | Porte das macros VBA: coleta, contas contábeis, distribuição, TXTs, Master. |
+| `js/importacao.js` | Leitura da planilha inteira: reconhece as abas, a competência e os problemas. |
 | `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
 | `js/app.js` | Tela. |
 | `tests/` | Testes automatizados e um extrato Sicoob fictício. |

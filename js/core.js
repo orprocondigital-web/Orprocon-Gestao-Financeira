@@ -52,9 +52,9 @@
       sign = ultimo;
       s = s.slice(0, -1);
     }
-    var n = parseValor(s);
+    var n = typeof v === "number" ? v : valorPlanilha(s);
     if (isNaN(n)) return null;
-    if (!sign) sign = n < 0 ? "D" : "C";
+    if (!sign) sign = (typeof v === "number" ? v < 0 : /^\s*\(?\s*-/.test(s)) ? "D" : "C";
     var r = { valorNum: Math.abs(n), sign: sign };
     if (bloqueado) r.bloqueado = true;
     if (invalido) r.invalido = true;
@@ -69,6 +69,28 @@
   function valorBemFormado(texto) {
     var s = String(texto).trim().replace(/^R\$\s*/i, "").replace(/[CD]$/i, "").replace(/\s+/g, "");
     return /^-?\d+(,\d+)?$/.test(s) || /^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) || /^-?\d+\.\d{1,2}$/.test(s);
+  }
+
+  /**
+   * Texto de valor da planilha → número positivo. Porte do FormatValor da macro v30 (v26):
+   * tolera "1.234,56C", "1,234,56C", "836.71C", "1;307,78C", "19,26CC", "(1.234,56)".
+   * O último separador seguido de até 2 dígitos (ou a última vírgula) é o decimal.
+   * Texto que não vira número → 0, como na macro. Texto vazio → NaN.
+   */
+  function valorPlanilha(texto) {
+    var s = String(texto === null || texto === undefined ? "" : texto).toUpperCase().trim();
+    s = s.replace(/R\$/g, "").replace(/\s+/g, "").replace(/;/g, ",").replace(/[()\-]/g, "");
+    while (s.length && /[CD*]$/.test(s)) s = s.slice(0, -1);
+    if (!s) return NaN;
+    var pc = s.lastIndexOf(","), pd = s.lastIndexOf("."), p = Math.max(pc, pd);
+    var inteiro, dec;
+    if (p < 0) { inteiro = s; dec = ""; }
+    else if (p === pc || s.length - p - 1 <= 2) { inteiro = s.slice(0, p); dec = s.slice(p + 1); }
+    else { inteiro = s; dec = ""; }
+    inteiro = inteiro.replace(/[.,]/g, "") || "0";
+    dec = dec || "0";
+    if (!/^\d+$/.test(inteiro) || !/^\d+$/.test(dec)) return 0;
+    return Math.round(Number(inteiro + "." + dec) * 100) / 100;
   }
 
   function toCents(n) { return Math.round(Number(n) * 100); }
@@ -418,7 +440,7 @@
   }
 
   return {
-    parseValor: parseValor, parseValorCell: parseValorCell, valorBemFormado: valorBemFormado, toCents: toCents, formatBR: formatBR,
+    parseValor: parseValor, parseValorCell: parseValorCell, valorBemFormado: valorBemFormado, valorPlanilha: valorPlanilha, toCents: toCents, formatBR: formatBR,
     toIsoDate: toIsoDate, brDate: brDate, diasEntre: diasEntre,
     HEADER_MAP: HEADER_MAP, detectHeaderRow: detectHeaderRow, buildColumnMap: buildColumnMap,
     findSheet: findSheet, parseExtratoRows: parseExtratoRows,

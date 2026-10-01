@@ -195,14 +195,30 @@ describe("arquivos TXT", () => {
     assert.equal(csv.trim().split("\r\n").length, 2);
   });
 
-  test("valor fora do padrão fica fora do TXT e vai para as pendências", () => {
+  test("valor fora do padrão vai para o TXT (como na v30) e aparece na lista para conferir", () => {
     const d = I.distribuirPorUnidade(I.coletarTransacoes([fonte([
-      L({ unidade: "Passo Fundo", valorNum: 2.29598, valorInvalido: true, valorOriginal: "2.29598C" }),
+      L({ unidade: "Passo Fundo", valorNum: 229598, valorInvalido: true, valorOriginal: "2.29598C" }),
       L({ unidade: "Passo Fundo", data: "2026-09-02" })
     ])]));
     const [arq] = I.gerarTxtsUnico(d, unidades, [], { ignorarSemConta: true });
-    assert.equal(arq.conteudo.replace("\uFEFF", "").trim().split("\r\n").length, 1);
-    assert.match(I.pendenciasCSV(d), /Valor digitado fora do padrão na planilha: 2\.29598C/);
+    assert.equal(arq.conteudo.replace("\uFEFF", "").trim().split("\r\n").length, 2);
+    assert.match(I.pendenciasCSV(d), /CONFERIR \(foi para o TXT\): valor digitado 2\.29598C lido como 229598,00/);
+  });
+
+  test("coleta da v30: pula saldo, bloqueado e valor zero", () => {
+    const tx = I.coletarTransacoes([fonte([
+      L({ categoria: "Saldo do dia" }), L({ categoria: "Crédito Bloqueado" }), L({ valorNum: 0 }), L({})
+    ])]);
+    assert.equal(tx.length, 1);
+  });
+
+  test("HP pela natureza vale em qualquer categoria; texto limpo como na v28", () => {
+    const m = (o) => I.mapeamentoContabil(Object.assign({ contaBanco: "627", conta: "", natureza: "" }, o));
+    assert.equal(m({ categoria: "Pagamento", natureza: "Transferência Banco - Sicredi" }).hp, "2020");
+    assert.equal(m({ categoria: "Recebimento", natureza: "Despesas Bancárias" }).hp, "3712");
+    assert.equal(I.cleanTxt('A  "B"\tC\nD'), "A 'B' C D");
+    assert.equal(I.contaCaixa([{ linha: ["BB", "Banco do Brasil", 715] }, { linha: ["Caixa", "Caixa", 5] }]), "5");
+    assert.equal(I.contaCaixa([]), "5");
   });
 
   test("toda linha do Único tem 16 campos (sem centro de custo)", () => {

@@ -35,6 +35,21 @@ describe("valores", () => {
     assert.deepEqual(Core.parseValorCell("3.640,00*"), { valorNum: 3640, sign: "C", bloqueado: true });
   });
 
+  test("leitor de valores igual ao da macro v30", () => {
+    const v = (t) => Core.parseValorCell(t).valorNum;
+    assert.equal(v("1.234,56C"), 1234.56);
+    assert.equal(v("8,934,48C"), 8934.48);
+    assert.equal(v("836.71C"), 836.71);
+    assert.equal(v("1;307,78C"), 1307.78);
+    assert.equal(v("19,26CC"), 19.26);
+    assert.equal(v("3.658.88C"), 3658.88);
+    assert.equal(v("-65.12,72D"), 6512.72);
+    assert.equal(v("2.29598C"), 229598);      // a macro lê assim; o sistema marca para conferir
+    assert.equal(v("1.234"), 1234);
+    assert.equal(v("abc"), 0);
+    assert.equal(Core.parseValorCell("-1,20").sign, "D");
+  });
+
   test("valor digitado fora do padrão é marcado como inválido", () => {
     for (const ok of ["1.234,56C", "1234,56", "- 109.618,91D", "0,00C", "1234.56", "R$ 86.461,48", "-1,20D"])
       assert.ok(!Core.parseValorCell(ok).invalido, ok);

@@ -90,7 +90,7 @@
    * vazio vira "0"; número no formato brasileiro ("9.393.740") vira inteiro; vírgulas saem.
    */
   function docUnico(doc) {
-    var s = limpa(doc);
+    var s = cleanTxt(doc);
     if (!s) return "0";
     if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = String(Math.round(Number(s.replace(/\./g, "").replace(",", "."))));
     else if (!isNaN(Number(s.replace(",", ".")))) s = String(Math.round(Number(s.replace(",", "."))));
@@ -98,14 +98,29 @@
   }
 
   /** Nome no complemento: junta espaços repetidos e depois troca vírgula por espaço (nessa ordem, como no gabarito). */
-  function nomeUnico(nome) { return limpa(nome).replace(/\s+/g, " ").replace(/,/g, " "); }
+  function nomeUnico(nome) { return cleanTxt(nome).replace(/,/g, " "); }
 
-  /** HP das despesas pela natureza do gasto (gabarito de agosto/2026). */
+  /** HP pela natureza do gasto — macro v30: "despesa* banc*" → 3712, "transfer*" → 2020. */
   function hpDespesa(natureza) {
     var k = chave(natureza);
-    if (k === "despesas bancarias") return REGRAS.HP_DESPESA_BANCARIA;
-    if (k.indexOf("transferencia banco") === 0) return REGRAS.HP_TRANSFERENCIA;
+    if (/^despesa.* banc/.test(k)) return REGRAS.HP_DESPESA_BANCARIA;
+    if (k.indexOf("transfer") === 0) return REGRAS.HP_TRANSFERENCIA;
     return "";
+  }
+
+  /** v28 CleanTxt: quebras de linha e tabs viram espaço, aspas viram apóstrofo, espaços repetidos viram um. */
+  function cleanTxt(s) { return limpa(s).replace(/[\r\n\t]/g, " ").replace(/"/g, "'").replace(/ {2,}/g, " ").trim(); }
+
+  /**
+   * Conta contábil do Caixa (v28): linha "Caixa" da Tabela de bancos (1ª ou 2ª coluna), 3ª coluna; padrão 5.
+   * Usada pela aba "Pagamento em dinheiro", que não tem número de conta no nome.
+   */
+  function contaCaixa(tabelaBancos) {
+    for (var i = 0; i < (tabelaBancos || []).length; i++) {
+      var l = tabelaBancos[i].linha || [];
+      if (chave(l[0]) === "caixa" || chave(l[1]) === "caixa") return limpa(l[2]) || "5";
+    }
+    return "5";
   }
 
   function ehChequeBloqueado(l) { return /CHEQUE BLOQ/i.test(limpa(l.desc)) || /CHEQUE BLOQ/i.test(limpa(l.nome)); }
@@ -135,6 +150,9 @@
         var cat = ehVazioOuPlaceholder(e.categoria) ? "" : limpa(e.categoria);
         var uni = ehVazioOuPlaceholder(e.unidade) ? "" : normalizaUnidade(e.unidade);
         if (!e.data || !cat || e.valorNum === undefined || e.valorNum === null || e.valorNum === "") return;
+        // v30 (v24): saldo e bloqueado não são lançamento contábil; valor zero também não vai
+        if (/^saldo/i.test(cat) || /bloqueado/i.test(cat)) return;
+        if (Math.round(Math.abs(Number(e.valorNum)) * 100) === 0) return;
         if (!uni) {
           if (ehAplicacao(cat)) uni = "Matriz";
           else return;
@@ -154,6 +172,14 @@
   // ---------------------------------------------- contas contábeis (VBA GetLineMappings)
 
   function mapeamentoContabil(tx) {
+    var m = mapeamentoBase(tx);
+    // v30: histórico padrão do Único pela natureza do gasto, em qualquer categoria
+    var hp = hpDespesa(tx.natureza);
+    if (hp) m.hp = hp;
+    return m;
+  }
+
+  function mapeamentoBase(tx) {
     var banco = limpa(tx.contaBanco), contaM = limpa(tx.conta), nat = chave(tx.natureza);
     switch (tx.categoria) {
       case "Recebimento":
@@ -161,7 +187,7 @@
       case "Pagamento":
         return { ctaDeb: REGRAS.DEB_PAGAMENTO_DEFAULT, ctaCred: banco, hp: REGRAS.HP_PAGAMENTO };
       case "Despesa":
-        return { ctaDeb: contaM || REGRAS.DEB_PAGAMENTO_DEFAULT, ctaCred: banco, hp: hpDespesa(tx.natureza) };
+        return { ctaDeb: contaM || REGRAS.DEB_PAGAMENTO_DEFAULT, ctaCred: banco, hp: "" };
       case "Resgate":
         // gabarito de agosto/2026: debita o banco, credita 148
         return { ctaDeb: banco, ctaCred: contaM || REGRAS.DEB_PAGAMENTO_DEFAULT, hp: "" };
@@ -212,9 +238,14 @@
       .map(function (t) { return Object.assign({}, t, mapeamentoContabil(t)); });
   }
 
-  /** Lançamentos que não podem ir para o Único: sem conta de débito/crédito ou com valor digitado fora do padrão. */
+  /** Lançamentos que não podem ir para o Único: sem conta de débito ou crédito. */
   function semConta(linhas) {
-    return linhas.filter(function (l) { return !l.ctaDeb || !l.ctaCred || l.valorInvalido; });
+    return linhas.filter(function (l) { return !l.ctaDeb || !l.ctaCred; });
+  }
+
+  /** Lançamentos que vão para o Único, mas com valor digitado fora do padrão: conferir. */
+  function paraConferir(linhas) {
+    return linhas.filter(function (l) { return l.ctaDeb && l.ctaCred && l.valorInvalido; });
   }
 
   // ------------------------------------------------ tabelas de referência
@@ -263,7 +294,7 @@
    * Conteúdo: cabeçalho + linhas separadas por TAB, fim de linha CRLF, UTF-8 sem BOM.
    */
   function soCompletas(linhas, opcoes) {
-    return opcoes && opcoes.ignorarSemConta ? linhas.filter(function (l) { return l.ctaDeb && l.ctaCred && !l.valorInvalido; }) : linhas;
+    return opcoes && opcoes.ignorarSemConta ? linhas.filter(function (l) { return l.ctaDeb && l.ctaCred; }) : linhas;
   }
 
   function gerarTxts(distribuicao, tabelaUnidades, opcoes) {
@@ -335,8 +366,9 @@
     var cab = ["Unidade", "Banco", "Data", "Doc.", "Descrição", "Fornecedor/Cliente", "Categoria", "Natureza", "Valor", "Motivo"];
     var linhas = [cab.join(";")];
     distribuicao.forEach(function (d) {
-      semConta(d.linhas).forEach(function (l) {
-        var motivo = l.valorInvalido ? "Valor digitado fora do padrão na planilha: " + (l.valorOriginal || valorTxt(l.valorNum)) + " (corrija na conta bancária)"
+      semConta(d.linhas).concat(paraConferir(d.linhas)).forEach(function (l) {
+        var motivo = (l.ctaDeb && l.ctaCred && l.valorInvalido)
+          ? "CONFERIR (foi para o TXT): valor digitado " + (l.valorOriginal || "?") + " lido como " + valorTxt(l.valorNum)
           : CATEGORIAS.indexOf(l.categoria) < 0 && !ehAplicacao(l.categoria)
           ? "Categoria sem regra contábil: " + l.categoria +
             (unis.indexOf(chave(l.categoria)) > -1 ? " (é o nome de uma unidade: foi digitada na coluna errada?)" :
@@ -385,7 +417,7 @@
     valorTxt: valorTxt, docTxt: docTxt, docUnico: docUnico, hpDespesa: hpDespesa, ehVazioOuPlaceholder: ehVazioOuPlaceholder,
     coletarTransacoes: coletarTransacoes, mapeamentoContabil: mapeamentoContabil,
     ordenarTransacoes: ordenarTransacoes, distribuirPorUnidade: distribuirPorUnidade,
-    jurosRecebidos: jurosRecebidos, semConta: semConta,
+    jurosRecebidos: jurosRecebidos, semConta: semConta, paraConferir: paraConferir, contaCaixa: contaCaixa, cleanTxt: cleanTxt,
     infoUnidade: infoUnidade, centroDeCusto: centroDeCusto,
     linhaTxt: linhaTxt, gerarTxts: gerarTxts, pendenciasCSV: pendenciasCSV, linhaUnico: linhaUnico, gerarTxtsUnico: gerarTxtsUnico,
     estatisticasMaster: estatisticasMaster
