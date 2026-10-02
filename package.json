@@ -1,6 +1,6 @@
 {
   "name": "gestao-financeira",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "Integração contábil (SCI Único) e conciliação bancária",
   "scripts": {

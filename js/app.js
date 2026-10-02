@@ -1295,45 +1295,49 @@
     so_sistema:     { classe: "conc-miss",  texto: "Só no sistema", barra: "b-miss" }
   };
 
+  /** Lê o extrato (PDF, OFX, TXT, CSV ou planilha) com o mesmo leitor da importação e cruza com os lançamentos. */
   function runConciliacao(file) {
-    var acctId = document.getElementById("conc-acct").value;
-    var statusEl = document.getElementById("import-status-conc");
-    if (!acctId) {
-      statusEl.textContent = "Por favor, selecione a conta antes de importar o arquivo.";
-      document.getElementById("file-import-conc").value = "";
-      return;
-    }
-    document.getElementById("import-filename-conc").textContent = file.name;
-    statusEl.textContent = "Processando " + file.name + "...";
+    var statusEl = $("import-status-conc");
+    $("import-filename-conc").textContent = file.name;
+    statusEl.textContent = "Lendo " + file.name + "…";
+    $("file-import-conc").value = "";
 
-    var ehTexto = /\.(csv|txt|ofx)$/i.test(file.name);
-    var reader = new FileReader();
-    reader.onload = function(ev){
-      try {
-        var bytes = new Uint8Array(ev.target.result);
-        var r;
-        if (ehTexto) {
-          r = Core.parseExtratoTexto(Core.decodeText(bytes));
-        } else {
-          var wb = XLSX.read(bytes, { type: "array", cellDates: true });
-          r = Core.parseExtratoRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" }));
-          r.formato = "planilha";
-        }
-        if (!r.ok) { statusEl.textContent = r.erro; return; }
-        if (r.itens.length === 0) { statusEl.textContent = "Nenhuma movimentação reconhecida no arquivo."; return; }
+    lerArquivoExtrato(file).then(function(l){
+      if (l.erro) { statusEl.textContent = l.erro; return; }
+      if (!l.itens.length) { statusEl.textContent = "Nenhuma movimentação reconhecida no arquivo."; return; }
 
-        ultimaConc = { acctId: acctId, extrato: r.itens, formato: r.formato, arquivo: file.name };
-        renderConciliacao();
-        statusEl.textContent = r.itens.length + " movimentação(ões) lidas (formato " + r.formato + ").";
-      } catch(e) {
-        console.error(e);
-        statusEl.textContent = "Erro ao processar o arquivo: " + e.message;
-      } finally {
-        document.getElementById("file-import-conc").value = "";
+      var sel = $("conc-acct"), avisos = [];
+      var candidatas = Extratos.contasCandidatas(l.numeroConta, bancos);
+      if (!sel.value && candidatas.length === 1) sel.value = candidatas[0].id;
+      if (!sel.value) {
+        statusEl.textContent = (l.numeroConta ? "O extrato é da conta " + l.numeroConta + ", que não está cadastrada" + (candidatas.length > 1 ? " de forma única" : "") + ". " : "") +
+          "Escolha a conta na lista e importe o arquivo de novo.";
+        return;
       }
-    };
-    reader.onerror = function(){ statusEl.textContent = "Falha ao ler o arquivo."; };
-    reader.readAsArrayBuffer(file);
+      if (l.numeroConta && candidatas.length && candidatas.indexOf(itemIndex[sel.value]) < 0) {
+        avisos.push("Atenção: o extrato é da conta " + l.numeroConta + ", e a conta escolhida é outra.");
+      }
+
+      l.itens.forEach(function(i){ i.texto = [i.desc, i.nome, i.cpf || i.cpfCnpj, i.doc].concat(i.detalhes || []).join(" "); });
+      ultimaConc = { acctId: sel.value, extrato: l.itens, formato: l.formato, arquivo: file.name };
+      renderConciliacao();
+
+      var conf = l.conferencia && l.conferencia.total
+        ? (l.conferencia.conferidos === l.conferencia.total ? " Saldos do extrato conferidos em " + l.conferencia.total + " dia(s)."
+                                                             : " Atenção: o saldo do extrato não fecha em " + (l.conferencia.total - l.conferencia.conferidos) + " dia(s).")
+        : "";
+      statusEl.textContent = l.itens.length + " movimentação(ões) lidas (" + l.formato + (l.numeroConta ? ", conta " + l.numeroConta : "") + ")." + conf +
+        (avisos.length ? " " + avisos.join(" ") : "");
+    });
+  }
+
+  /** Lançamentos da conta nos meses que o extrato cobre (não só o mês selecionado no topo). */
+  function lancamentosParaConciliar(){
+    var meses = {};
+    ultimaConc.extrato.forEach(function(e){ meses[String(e.data).slice(0, 7)] = true; });
+    var lista = [];
+    Object.keys(meses).forEach(function(m){ lista = lista.concat(lancamentosDoMes(m, ultimaConc.acctId)); });
+    return lista;
   }
 
   function renderConciliacao() {
@@ -1343,7 +1347,7 @@
     if (isNaN(tolerancia) || tolerancia < 0) tolerancia = 0;
 
     var extrato = ultimaConc.extrato;
-    var sistema = loadEntries(ultimaConc.acctId);
+    var sistema = lancamentosParaConciliar();
     if (filtro) {
       extrato = extrato.filter(function(e){ return String(e.texto || e.desc).toLowerCase().indexOf(filtro) > -1; });
       sistema = sistema.filter(function(s){

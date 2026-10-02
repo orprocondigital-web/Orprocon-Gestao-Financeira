@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.6.1">
+<link rel="stylesheet" href="css/style.css?v=0.6.2">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -278,7 +278,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Importar extrato</h2>
-          <p class="muted small">Aceita .xlsx, .csv e o .txt do Sicoob. Cada movimentação do banco é cruzada com os lançamentos da conta pelo valor, pelo sinal (C/D) e pela data.</p>
+          <p class="muted small">Aceita PDF, OFX, TXT do Sicoob, CSV e planilha. Se nenhuma conta estiver escolhida, ela é reconhecida pelo número do extrato. Cada movimentação do banco é cruzada com os lançamentos da conta pelo valor, pelo sinal (C/D) e pela data.</p>
         </div>
         <div class="panel-body conc-controls">
           <div class="field">
@@ -297,7 +297,7 @@
               <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg>
               Escolher extrato
             </label>
-            <input type="file" id="file-import-conc" accept=".xlsx,.xlsm,.xls,.csv,.txt,.ofx" hidden>
+            <input type="file" id="file-import-conc" accept=".pdf,.ofx,.txt,.csv,.xlsx,.xlsm,.xls" hidden>
             <span class="muted small" id="import-filename-conc">nenhum arquivo escolhido</span>
           </div>
         </div>
@@ -440,12 +440,12 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.6.1"></script>
-<script src="js/core.js?v=0.6.1"></script>
-<script src="js/integracao.js?v=0.6.1"></script>
-<script src="js/importacao.js?v=0.6.1"></script>
-<script src="js/extratos.js?v=0.6.1"></script>
-<script src="js/pdfextrato.js?v=0.6.1"></script>
-<script src="js/app.js?v=0.6.1"></script>
+<script src="js/storage.js?v=0.6.2"></script>
+<script src="js/core.js?v=0.6.2"></script>
+<script src="js/integracao.js?v=0.6.2"></script>
+<script src="js/importacao.js?v=0.6.2"></script>
+<script src="js/extratos.js?v=0.6.2"></script>
+<script src="js/pdfextrato.js?v=0.6.2"></script>
+<script src="js/app.js?v=0.6.2"></script>
 </body>
 </html>
