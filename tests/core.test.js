@@ -114,7 +114,7 @@ describe("planilhas", () => {
     const map = Core.buildColumnMap(["Data", "Doc.", "Descrição/Histórico", "Valor", "Saldo", "Última Trasação do dia",
       "Modelo DOC", "Nome do Fornecedor/Cliente (não usar nome de fantasia)", "CPF/CNPJ", "Categoria", "Unidade",
       "Natureza do gasto", "Conta", "", "Índice Diário"]);
-    assert.deepEqual(map, { data: 0, doc: 1, desc: 2, valor: 3, modelo: 6, nome: 7, cpf: 8, categoria: 9, unidade: 10, natureza: 11, conta: 12 });
+    assert.deepEqual(map, { data: 0, doc: 1, desc: 2, valor: 3, saldo: 4, modelo: 6, nome: 7, cpf: 8, categoria: 9, unidade: 10, natureza: 11, conta: 12 });
   });
 
   test("nome: coluna com razão social vence coluna genérica de cliente", () => {
@@ -135,6 +135,22 @@ describe("planilhas", () => {
     assert.equal(r.itens.length, 2);
     assert.deepEqual(r.itens.map((i) => [i.data, i.valorNum, i.sign]),
       [["2026-08-03", 167.23, "C"], ["2026-08-03", 1.2, "D"]]);
+  });
+
+  test("extrato em planilha no formato do Sicredi: conta do cabeçalho, saldo inicial, CNPJ e nome do histórico", () => {
+    const rows = [
+      ["Associado:", "EMPRESA TESTE LTDA"], ["Cooperativa:", "2604"], ["Conta:", "14752-4"], [],
+      ["Data", "Descrição", "Documento", "Valor (R$)", "Saldo (R$)"],
+      ["", "Saldo Anterior", "", "", 100],
+      ["03/08/2026", "PAGAMENTO PIX 32756790000126 VILLA PARK EVENTOS", "CX451231", -30, 70],
+      ["03/08/2026", "RECEBIMENTO PIX 04739720000124 USINA TERMELETRIC", "PIX_CRED", 50, 120],
+      [], ["Lançamentos Futuros (Próximos 30 dias)"], ["Data", "Descrição", "Valor (R$)"], ["05/09/2026", "Juros Cheque Especial", -38.45]
+    ];
+    const r = Core.parseExtratoRows(rows);
+    assert.equal(r.numeroConta, "14752-4");
+    assert.equal(r.saldoInicial, 100);
+    assert.equal(r.itens.length, 2);                       // lançamentos futuros ficam fora
+    assert.deepEqual([r.itens[0].sign, r.itens[0].cpf, r.itens[0].nome, r.itens[0].saldoLinha], ["D", "32756790000126", "VILLA PARK EVENTOS", 70]);
   });
 
   test("sem colunas de data/valor devolve erro legível", () => {

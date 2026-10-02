@@ -58,6 +58,14 @@ Dois modos, no topo da tela:
 
 Nos dois: tolerância de data, filtro, **Exportar resultado** (CSV) e **Limpar**.
 
+**Balancete de fornecedores do Único** (Saldo anterior / Débito / Crédito / Saldo atual por
+fornecedor) também é aceito no Extrato × planilha: o sistema reconhece o formato e confere por
+**total pago a cada fornecedor** (soma das saídas do extrato × Débito do balancete). O pagamento
+é ligado ao fornecedor pela raiz do CNPJ (MEI) ou pelo nome, mesmo cortado e abreviado pelo
+banco ("DELUPO COM DE F"). O que não for reconhecido a pessoa liga uma vez (ou marca "não é
+fornecedor"); a escolha fica salva pelo CNPJ e vale nos meses seguintes. Aceita vários extratos
+juntos e avisa quando o período do balancete não é o mesmo dos extratos.
+
 **Conciliação manual** — o que ficou pendente mas está certo: marque as caixinhas e
 - *Conciliar selecionados*: junta um ou mais itens do banco com um ou mais da planilha/sistema
   (ex.: um débito que pagou vários boletos). Se as somas não batem, pede o motivo;

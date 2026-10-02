@@ -194,6 +194,147 @@
     };
   }
 
+  // ------------------------------------------------------------- balancete de fornecedores (totais)
+
+  function norm(s) { return limpa(s).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
+  var IGNORA = { DE: 1, DA: 1, DO: 1, DOS: 1, DAS: 1, E: 1 };
+
+  /** É o "Balancete Consolidado" do Único (Saldo anterior / Débito / Crédito / Saldo atual por conta)? */
+  function ehBalancete(rows) {
+    return rows.slice(0, 40).some(function (r) {
+      var t = (r || []).map(chave).join("|");
+      return t.indexOf("saldo anterior") > -1 && t.indexOf("debito") > -1 && t.indexOf("credito") > -1 && t.indexOf("saldo atual") > -1;
+    });
+  }
+
+  /**
+   * Balancete → fornecedores: { classif, conta, nome, nomeNorm, raiz (8 dígitos, quando o nome começa pelo CNPJ),
+   * saldoAnterior, debito (pago no período), credito (comprado no período), saldoAtual }. Também o período do cabeçalho.
+   */
+  function lerBalanceteFornecedores(rows) {
+    var h = -1, col = {};
+    for (var i = 0; i < Math.min(rows.length, 40) && h < 0; i++) {
+      var cab = (rows[i] || []).map(chave);
+      var ia = cab.indexOf("saldo anterior"), id = cab.indexOf("debito"), ic = cab.indexOf("credito"), is = cab.indexOf("saldo atual");
+      if (ia > -1 && id > -1 && ic > -1 && is > -1) { h = i; col = { anterior: ia, debito: id, credito: ic, atual: is, classif: cab.indexOf("classificacao") }; }
+    }
+    if (h < 0) return { ok: false, erro: "Não reconheci o balancete (faltam as colunas Saldo anterior, Débito, Crédito e Saldo atual).", fornecedores: [] };
+    var per = null;
+    rows.slice(0, h).some(function (r) {
+      var m = /(\d{2}\/\d{2}\/\d{4})\s+a\s+(\d{2}\/\d{2}\/\d{4})/.exec((r || []).join(" "));
+      if (m) per = { inicio: Core.toIsoDate(m[1]), fim: Core.toIsoDate(m[2]) };
+      return !!m;
+    });
+    var forn = [], vistos = {};
+    rows.forEach(function (r, idx) {
+      r = r || [];
+      var classif = limpa(r[col.classif >= 0 ? col.classif : 1]);
+      if (!/^\d[\d.]{5,}$/.test(classif) || vistos[classif]) return;
+      var nome = "";
+      for (var c = (col.classif >= 0 ? col.classif : 1) + 1; c < col.anterior; c++) { if (limpa(r[c])) { nome = limpa(r[c]); break; } }
+      if (!nome) return;
+      var v = function (k) { var n = Core.parseValor(r[col[k]]); return isNaN(n) ? 0 : n; };
+      var raiz = (/^(\d{2})\.(\d{3})\.(\d{3})\b/.exec(nome) || []).slice(1).join("");
+      vistos[classif] = true;
+      forn.push({ classif: classif, conta: limpa(r[0]), nome: nome, nomeNorm: norm(nome.replace(/^\d[\d.]*\s*-?\s*/, "")), raiz: raiz,
+        saldoAnterior: v("anterior"), debito: v("debito"), credito: v("credito"), saldoAtual: v("atual"), linha: idx + 1 });
+    });
+    return { ok: forn.length > 0, erro: forn.length ? "" : "O balancete não tem contas de fornecedores.", periodo: per, fornecedores: forn };
+  }
+
+  /** Nome do extrato (cortado/abreviado) bate com o do cadastro? "DELUPO COM DE F" → "DELUPO COMERCIO DE FERRAMENTAS…" */
+  function nomeBate(nomeExtrato, nomeCadastro) {
+    var a = norm(nomeExtrato).split(" ").filter(function (w) { return w && !IGNORA[w]; });
+    var b = nomeCadastro.split(" ").filter(function (w) { return w && !IGNORA[w]; });
+    if (!a.length || a.join("").length < 4) return false;
+    var j = 0;
+    for (var i = 0; i < a.length; i++) {
+      while (j < b.length && b[j].indexOf(a[i]) !== 0) { if (i === 0) return false; j++; }
+      if (j >= b.length) return false;
+      j++;
+    }
+    return true;
+  }
+
+  /** Chave para lembrar a escolha da pessoa: CNPJ/CPF do histórico, ou o nome. */
+  function chaveVinculo(e) {
+    var d = soDigitos(e.cpf || e.cpfCnpj);
+    if (d.length === 14 || d.length === 11) return "doc:" + d;
+    return "nome:" + norm(e.nome || e.desc);
+  }
+
+  /**
+   * De quem é este pagamento? 1) o que a pessoa já escolheu (vínculo); 2) raiz do CNPJ no nome do cadastro
+   * (MEI: "18.663.698 DIOVANA SOUZA"); 3) nome com abreviações. Entre vários, prefere quem teve débito no período.
+   */
+  function identificarFornecedor(e, fornecedores, vinculos) {
+    var v = vinculos && vinculos[chaveVinculo(e)];
+    if (v && v.ignorar) return { ignorado: true };
+    if (v && v.classif) {
+      var f = fornecedores.filter(function (x) { return x.classif === v.classif; })[0];
+      if (f) return { fornecedor: f, via: "vinculo" };
+    }
+    var d = soDigitos(e.cpf || e.cpfCnpj);
+    if (d.length === 14) {
+      var porRaiz = fornecedores.filter(function (x) { return x.raiz && x.raiz === d.slice(0, 8); });
+      if (porRaiz.length === 1) return { fornecedor: porRaiz[0], via: "cnpj" };
+    }
+    var nome = e.nome || "";
+    if (!nome) return { candidatos: [] };
+    var c = fornecedores.filter(function (x) { return nomeBate(nome, x.nomeNorm); });
+    if (c.length > 1) {
+      var comDebito = c.filter(function (x) { return x.debito > 0; });
+      if (comDebito.length === 1) c = comDebito;
+    }
+    if (c.length === 1) return { fornecedor: c[0], via: "nome" };
+    return { candidatos: c };
+  }
+
+  /**
+   * Extrato × balancete, por fornecedor: soma o que saiu no banco para cada um e compara com o Débito do balancete.
+   * Só entram as saídas (D) do extrato. Devolve linhas por fornecedor, pagamentos sem fornecedor e os ignorados.
+   */
+  function conciliarPorFornecedor(extrato, balancete, vinculos) {
+    var porClassif = {}, semFornecedor = [], ignorados = [];
+    extrato.filter(function (e) { return e.sign === "D"; }).forEach(function (e) {
+      var r = identificarFornecedor(e, balancete.fornecedores, vinculos);
+      if (r.ignorado) { ignorados.push(e); return; }
+      if (!r.fornecedor) { semFornecedor.push({ item: e, candidatos: r.candidatos || [] }); return; }
+      var g = porClassif[r.fornecedor.classif] = porClassif[r.fornecedor.classif] || { fornecedor: r.fornecedor, pagos: [], vias: {} };
+      g.pagos.push(e); g.vias[r.via] = true;
+    });
+    var linhas = [];
+    balancete.fornecedores.forEach(function (f) {
+      var g = porClassif[f.classif];
+      var banco = g ? g.pagos.reduce(function (a, x) { return a + cents(x.valorNum); }, 0) : 0;
+      var deb = cents(f.debito);
+      if (!banco && !deb) return;
+      var status = !banco ? "so_balancete" : !deb ? "so_banco" : banco === deb ? "bate" : "diferenca";
+      linhas.push({ fornecedor: f, pagos: g ? g.pagos : [], totalBancoCents: banco, debitoCents: deb, diferencaCents: banco - deb, status: status,
+        via: g ? Object.keys(g.vias) : [] });
+    });
+    var r = { bate: 0, diferenca: 0, so_banco: 0, so_balancete: 0, semFornecedor: semFornecedor.length, ignorados: ignorados.length };
+    linhas.forEach(function (l) { r[l.status]++; });
+    r.semFornecedorCents = semFornecedor.reduce(function (a, s) { return a + cents(s.item.valorNum); }, 0);
+    return { linhas: linhas, semFornecedor: semFornecedor, ignorados: ignorados, resumo: r };
+  }
+
+  var NOME_STATUS_F = { bate: "Bate", diferenca: "Diferença", so_banco: "Só no banco", so_balancete: "Só no balancete" };
+
+  function csvPorFornecedor(res) {
+    var esc = function (c) { c = limpa(c); return /[;"\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; };
+    var f2 = function (c) { return Core.formatBR(c / 100); };
+    var out = [["Situação", "Classificação", "Fornecedor", "Pagamentos no banco", "Pago no banco", "Débito no balancete", "Diferença"].join(";")];
+    res.linhas.forEach(function (l) {
+      out.push([NOME_STATUS_F[l.status], l.fornecedor.classif, l.fornecedor.nome, l.pagos.length, f2(l.totalBancoCents), f2(l.debitoCents), f2(l.diferencaCents)].map(esc).join(";"));
+    });
+    if (res.semFornecedor.length) {
+      out.push(""); out.push(["Pagamentos sem fornecedor identificado", "Data", "Histórico", "Valor"].join(";"));
+      res.semFornecedor.forEach(function (s) { out.push(["", Core.brDate(s.item.data), s.item.desc, Core.formatBR(s.item.valorNum)].map(esc).join(";")); });
+    }
+    return "\uFEFF" + out.join("\r\n");
+  }
+
   // ------------------------------------------------------------- exportação
 
   var NOME_STATUS = { ok: "Conciliado", data_diferente: "Data diferente", so_extrato: "Só no banco", so_sistema: "Só na planilha",
@@ -228,6 +369,8 @@
   return {
     lerPlanilhaTitulos: lerPlanilhaTitulos, escolherColunas: escolherColunas, detectarCabecalho: detectarCabecalho,
     nomeConfere: nomeConfere, conciliarAvulso: conciliarAvulso, csvResultado: csvResultado,
-    chaveExtrato: chaveExtrato, chaveSistema: chaveSistema, chavesUnicas: chavesUnicas, separarManuais: separarManuais
+    chaveExtrato: chaveExtrato, chaveSistema: chaveSistema, chavesUnicas: chavesUnicas, separarManuais: separarManuais,
+    ehBalancete: ehBalancete, lerBalanceteFornecedores: lerBalanceteFornecedores, nomeBate: nomeBate, chaveVinculo: chaveVinculo,
+    identificarFornecedor: identificarFornecedor, conciliarPorFornecedor: conciliarPorFornecedor, csvPorFornecedor: csvPorFornecedor
   };
 });

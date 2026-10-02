@@ -117,3 +117,60 @@ describe("conciliação manual", () => {
     assert.equal(C.chaveSistema({ id: "e123", data: "2026-07-01", valorNum: 1, sign: "C" }), "S|id:e123");
   });
 });
+
+describe("balancete de fornecedores (totais por fornecedor)", () => {
+  const V = (x) => x;
+  const rows = [
+    ["Balancete Consolidado de 01/08/2026 a 31/08/2026", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "Página: 1", ""],
+    ["Empresa: 995 - EMPRESA TESTE LTDA"], [],
+    ["Conta", "Classificação", "Nome da conta contábil", "", "", "", "", "Saldo anterior", "", "", "", "Débito", "", "", "", "Crédito", "", "Saldo atual", ""],
+    [],
+    ["148", "02.1.1.01.000001", "", "", "DELUPO COMERCIO DE FERRAMENTAS E MAQUINAS LTDA", "", "", "1.000,00", "", "", "", "800,00", "", "", "", "500,00", "", "700,00", ""],
+    ["148", "02.1.1.01.000002", "", "", "18.663.698 DIOVANA SOUZA", "", "", "0,00", "", "", "", "300,00", "", "", "", "300,00", "", "0,00", ""],
+    ["148", "02.1.1.01.000003", "", "", "SHERWIN-WILLIAMS DO BRASIL INDUSTRIA E COMERCIO LTDA", "", "", "0,00", "", "", "", "0,00", "", "", "", "0,00", "", "0,00", ""],
+    ["148", "02.1.1.01.000004", "", "", "SHERWIN WILLIAMS DO BRASIL IND E COM LT", "", "", "0,00", "", "", "", "1.500,00", "", "", "", "0,00", "", "0,00", ""],
+    ["148", "02.1.1.01.000005", "", "", "ACOSUL LTDA", "", "", "0,00", "", "", "", "999,00", "", "", "", "0,00", "", "0,00", ""],
+    ["148", "02.1.1.01.000006", "", "", "ZENAIR TEREZINHA NUNES FELIPPE LTDA", "", "", "0,00", "", "", "", "120,00", "", "", "", "0,00", "", "0,00", ""],
+    ["Total de débitos", "", "", "", "", "", "0,00"]
+  ];
+  const ext = [
+    { data: "2026-08-03", valorNum: 500, sign: "D", desc: "LIQUIDACAO BOLETO 86448941000108 DELUPO COM DE F", cpf: "86448941000108", nome: "DELUPO COM DE F" },
+    { data: "2026-08-10", valorNum: 300, sign: "D", desc: "LIQUIDACAO BOLETO 86448941000108 DELUPO COM DE F", cpf: "86448941000108", nome: "DELUPO COM DE F" },
+    { data: "2026-08-05", valorNum: 300, sign: "D", desc: "PAGAMENTO PIX 18663698000155 DIOVANA SOUZA", cpf: "18663698000155", nome: "DIOVANA SOUZA" },
+    { data: "2026-08-06", valorNum: 1500, sign: "D", desc: "LIQUIDACAO BOLETO 61067161000197 SHERWIN WILLIAM", cpf: "61067161000197", nome: "SHERWIN WILLIAM" },
+    { data: "2026-08-07", valorNum: 120, sign: "D", desc: "LIQUIDACAO BOLETO 20906868000162 ZENAIR TERESINH", cpf: "20906868000162", nome: "ZENAIR TERESINH" },
+    { data: "2026-08-08", valorNum: 50, sign: "D", desc: "TARIFA COBRANCA", cpf: "", nome: "" },
+    { data: "2026-08-09", valorNum: 7000, sign: "C", desc: "RECEBIMENTO PIX 04739720000124 USINA", cpf: "04739720000124", nome: "USINA" }
+  ];
+  const b = C.lerBalanceteFornecedores(rows);
+
+  test("reconhece o balancete, o período e os valores", () => {
+    assert.ok(C.ehBalancete(rows));
+    assert.deepEqual(b.periodo, { inicio: "2026-08-01", fim: "2026-08-31" });
+    assert.equal(b.fornecedores.length, 6);
+    assert.deepEqual([b.fornecedores[0].debito, b.fornecedores[0].saldoAtual, b.fornecedores[1].raiz], [800, 700, "18663698"]);
+  });
+  test("nome cortado e abreviado do banco", () => {
+    assert.ok(C.nomeBate("DELUPO COM DE F", "DELUPO COMERCIO DE FERRAMENTAS E MAQUINAS LTDA"));
+    assert.ok(!C.nomeBate("ZENAIR TERESINH", "ZENAIR TEREZINHA NUNES FELIPPE LTDA"));   // grafia diferente: precisa de vínculo
+  });
+  test("soma por fornecedor e compara com o Débito; cadastro duplicado desempata por quem teve débito", () => {
+    const r = C.conciliarPorFornecedor(ext, b, {});
+    const por = (n) => r.linhas.find((l) => l.fornecedor.nome.startsWith(n));
+    assert.deepEqual([por("DELUPO").status, por("DELUPO").totalBancoCents, por("DELUPO").pagos.length], ["bate", 80000, 2]);
+    assert.deepEqual([por("18.663.698").status, por("18.663.698").via], ["bate", ["cnpj"]]);
+    assert.equal(por("SHERWIN WILLIAMS DO BRASIL IND").status, "bate");
+    assert.equal(por("ACOSUL").status, "so_balancete");
+    assert.deepEqual(r.semFornecedor.map((s) => s.item.nome), ["ZENAIR TERESINH", ""]);
+    assert.equal(r.resumo.semFornecedorCents, 17000);
+  });
+  test("vínculo escolhido pela pessoa e 'não é fornecedor' ficam valendo", () => {
+    const vinc = {};
+    vinc[C.chaveVinculo(ext[4])] = { classif: "02.1.1.01.000006" };
+    vinc[C.chaveVinculo(ext[5])] = { ignorar: true };
+    const r = C.conciliarPorFornecedor(ext, b, vinc);
+    assert.equal(r.linhas.find((l) => l.fornecedor.nome.startsWith("ZENAIR")).status, "bate");
+    assert.deepEqual([r.semFornecedor.length, r.ignorados.length], [0, 1]);
+    assert.match(C.csvPorFornecedor(r), /Bate;02\.1\.1\.01\.000006;ZENAIR TEREZINHA NUNES FELIPPE LTDA;1;120,00;120,00;0,00/);
+  });
+});

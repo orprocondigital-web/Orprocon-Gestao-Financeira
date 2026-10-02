@@ -978,7 +978,10 @@
         var wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
         var r = Core.parseExtratoRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" }));
         if (!r.ok) return { arquivo: nome, erro: r.erro };
-        return { arquivo: nome, formato: "Planilha", numeroConta: "", itens: r.itens };
+        var conf = r.itens.some(function(i){ return i.saldoLinha !== undefined; })
+          ? PdfExtrato.conferirSaldos(r.itens, r.saldoInicial !== undefined ? [{ tipo: "inicio", saldo: r.saldoInicial }] : [])
+          : null;
+        return { arquivo: nome, formato: "Planilha", numeroConta: r.numeroConta || "", itens: r.itens, conferencia: conf };
       }
       var e = Extratos.lerExtrato(Core.decodeText(new Uint8Array(buf)));
       if (e.ok === false) return { arquivo: nome, erro: e.erro || "Formato não reconhecido." };
@@ -1387,8 +1390,9 @@
     atualizarBotaoSalvar();
     if (modo === "avulso") { preencherSalvas(); if (avulsa.extrato || avulsa.rows) statusAvulsa(); }
     $("import-status-conc").textContent = "";
-    var tem = modo === "avulso" ? (avulsa.extrato && avulsa.titulos) : ultimaConc;
-    if (tem) renderConciliacao(); else $("conc-results-panel").style.display = "none";
+    var tem = modo === "avulso" ? (avulsa.extrato && (avulsa.titulos || avulsa.balancete)) : ultimaConc;
+    esconderResultados();
+    if (tem) renderConciliacao();
   }
 
   function lerPlanilhaComoLinhas(file){
@@ -1400,40 +1404,67 @@
     });
   }
 
+  function esconderResultados(){
+    $("conc-results-panel").style.display = "none";
+    $("conc-forn-panel").style.display = "none";
+  }
+
   function statusAvulsa(){
     var partes = [];
     if (avulsa.salvaNome) partes.push("Conciliação: " + avulsa.salvaNome + (trabalhoNaoSalvo() ? " (com alterações não salvas)" : " (salva)") + ".");
     if (avulsa.extrato) partes.push("Extrato: " + avulsa.extrato.length + " movimentação(ões) (" + avulsa.formato + ")" + avulsa.conferencia + ".");
+    if (avulsa.balancete) {
+      var per = avulsa.balancete.periodo;
+      partes.push("Planilha: balancete de fornecedores, " + avulsa.balancete.fornecedores.length.toLocaleString("pt-BR") + " contas" +
+        (per ? ", de " + brDate(per.inicio) + " a " + brDate(per.fim) : "") + ". A conferência é pelo total pago a cada fornecedor.");
+    }
     if (avulsa.titulos) {
       var c = avulsa.colunas, nomes = { data: "data", valor: "valor", doc: "documento", nome: "fornecedor/cliente", cpf: "CNPJ" };
       partes.push("Planilha: " + avulsa.titulos.length + " título(s). Colunas usadas: " +
         Object.keys(nomes).filter(function(k){ return c[k]; }).map(function(k){ return nomes[k] + " = \"" + c[k] + "\""; }).join(", ") + ".");
     }
-    if (avulsa.extrato && !avulsa.titulos) partes.push("Agora escolha a planilha.");
-    if (!avulsa.extrato && avulsa.titulos) partes.push("Agora escolha o extrato.");
+    if (avulsa.extrato && !avulsa.titulos && !avulsa.balancete) partes.push("Agora escolha a planilha.");
+    if (!avulsa.extrato && (avulsa.titulos || avulsa.balancete)) partes.push("Agora escolha o extrato.");
     $("import-status-conc").textContent = partes.join(" ");
   }
 
-  function carregarExtratoAvulso(file){
-    $("av-extrato-nome").textContent = file.name;
-    $("import-status-conc").textContent = "Lendo " + file.name + "…";
+  function carregarExtratoAvulso(files){
+    files = Array.prototype.slice.call(files);
+    $("av-extrato-nome").textContent = files.map(function(f){ return f.name; }).join(", ");
+    $("import-status-conc").textContent = "Lendo " + files.length + " arquivo(s)…";
     $("file-av-extrato").value = "";
-    lerArquivoExtrato(file).then(function(l){
-      if (l.erro) { $("import-status-conc").textContent = l.erro; return; }
-      l.itens.forEach(function(i){ i.texto = [i.desc, i.nome, i.cpf || i.cpfCnpj, i.doc].concat(i.detalhes || []).join(" "); });
-      avulsa.extrato = l.itens;
-      avulsa.formato = l.formato;
-      avulsa.conferencia = l.conferencia && l.conferencia.total
-        ? (l.conferencia.conferidos === l.conferencia.total ? ", saldos conferidos em " + l.conferencia.total + " dia(s)" : ", atenção: saldo não fecha em " + (l.conferencia.total - l.conferencia.conferidos) + " dia(s)")
-        : "";
+    Promise.all(files.map(lerArquivoExtrato)).then(function(lidos){
+      var erros = lidos.filter(function(l){ return l.erro; });
+      var ok = lidos.filter(function(l){ return !l.erro; });
+      if (!ok.length) { $("import-status-conc").textContent = erros.map(function(l){ return l.arquivo + ": " + l.erro; }).join(" "); return; }
+      var itens = [], confs = [];
+      ok.forEach(function(l){
+        l.itens.forEach(function(i){ i.texto = [i.desc, i.nome, i.cpf || i.cpfCnpj, i.doc].concat(i.detalhes || []).join(" "); i.origem = l.arquivo; });
+        itens = itens.concat(l.itens);
+        if (l.conferencia && l.conferencia.total) confs.push(l.conferencia.conferidos === l.conferencia.total);
+      });
+      avulsa.extrato = itens;
+      avulsa.formato = ok.length === 1 ? ok[0].formato : ok.length + " arquivos";
+      avulsa.conferencia = confs.length ? (confs.every(Boolean) ? ", saldos conferidos" : ", atenção: saldo de algum extrato não fecha") : "";
+      if (erros.length) avulsa.conferencia += ". Não li: " + erros.map(function(l){ return l.arquivo; }).join(", ");
       statusAvulsa(); autosaveAvulsa();
-      if (avulsa.titulos) renderConciliacao();
+      if (avulsa.titulos || avulsa.balancete) renderConciliacao();
     });
   }
 
   function aplicarPlanilhaAvulsa(){
+    if (Conciliacao.ehBalancete(avulsa.rows)) {
+      var b = Conciliacao.lerBalanceteFornecedores(avulsa.rows);
+      if (!b.ok) { avulsa.balancete = null; $("import-status-conc").textContent = b.erro; esconderResultados(); return; }
+      avulsa.balancete = b; avulsa.titulos = null; avulsa.colunas = null;
+      $("av-tipo").value = "pagamentos"; $("av-tipo").disabled = true;
+      statusAvulsa(); autosaveAvulsa();
+      if (avulsa.extrato) renderConciliacao();
+      return;
+    }
+    avulsa.balancete = null; $("av-tipo").disabled = false;
     var r = Conciliacao.lerPlanilhaTitulos(avulsa.rows, $("av-tipo").value);
-    if (!r.ok) { avulsa.titulos = null; $("import-status-conc").textContent = r.erro; $("conc-results-panel").style.display = "none"; return; }
+    if (!r.ok) { avulsa.titulos = null; $("import-status-conc").textContent = r.erro; esconderResultados(); return; }
     avulsa.titulos = r.itens;
     avulsa.colunas = r.colunas;
     statusAvulsa(); autosaveAvulsa();
@@ -1506,7 +1537,7 @@
   }
 
   function salvarConciliacaoAvulsa(){
-    if (!(avulsa.extrato && avulsa.titulos)) { toast("Escolha o extrato e a planilha antes de salvar."); return; }
+    if (!(avulsa.extrato && (avulsa.titulos || avulsa.balancete))) { toast("Escolha o extrato e a planilha antes de salvar."); return; }
     var meses = {};
     avulsa.extrato.forEach(function(x){ meses[String(x.data).slice(0, 7)] = (meses[String(x.data).slice(0, 7)] || 0) + 1; });
     var mes = Object.keys(meses).sort(function(a, b){ return meses[b] - meses[a]; })[0];
@@ -1546,7 +1577,8 @@
         !confirm("Há itens conciliados à mão que não foram salvos. Limpar mesmo assim?\n\nDica: Cancelar e usar \"Salvar conciliação\".")) return;
     limparSelecao();
     if (concModo === "avulso") {
-      avulsa = { extrato: null, rows: null, titulos: null, colunas: null, manuais: [] };
+      avulsa = { extrato: null, rows: null, titulos: null, colunas: null, balancete: null, manuais: [] };
+      fornAbertos = {};
       Store.remove(CHAVE_AV_ATUAL);
       atualizarBotaoSalvar(); preencherSalvas();
       $("av-extrato-nome").textContent = "nenhum arquivo escolhido";
@@ -1558,7 +1590,8 @@
     ultimoResultado = null;
     $("conc-filter").value = "";
     $("import-status-conc").textContent = "";
-    $("conc-results-panel").style.display = "none";
+    $("av-tipo").disabled = false;
+    esconderResultados();
     toast("Conciliação limpa. Pode começar outra.");
   }
 
@@ -1567,6 +1600,112 @@
     var hoje = new Date().toISOString().slice(0, 10);
     baixarArquivos([{ nome: "conciliacao-" + hoje + ".csv",
       conteudo: Conciliacao.csvResultado(ultimoResultado, concModo === "avulso" ? "Planilha" : "Sistema") }]);
+  }
+
+  // ---------- conciliação por fornecedor (balancete do Único) ----------
+  var CHAVE_VINCULOS = "vinculos-fornecedores";
+  var fornAbertos = {}, ultimoResFornecedor = null;
+  function vinculos(){ return Store.get(CHAVE_VINCULOS) || {}; }
+  function salvarVinculo(item, valor){
+    var v = Object.assign({}, vinculos());
+    v[Conciliacao.chaveVinculo(item)] = valor;
+    Store.set(CHAVE_VINCULOS, v);
+  }
+
+  function renderPorFornecedor(){
+    var b = avulsa.balancete;
+    var res = Conciliacao.conciliarPorFornecedor(avulsa.extrato, b, vinculos());
+    ultimoResFornecedor = res;
+    var r = res.resumo, f2 = function(c){ return formatBRNumber(c / 100); };
+    var filtro = ($("forn-filtro").value || "").toLowerCase().trim();
+    var mostrar = $("forn-mostrar").value;
+    var ordem = { diferenca: 0, so_banco: 1, so_balancete: 2, bate: 3 };
+    var linhas = res.linhas.filter(function(l){
+      if (mostrar === "pendentes" && l.status === "bate") return false;
+      if (mostrar === "bate" && l.status !== "bate") return false;
+      if (!filtro) return true;
+      return (l.fornecedor.nome + " " + l.fornecedor.classif + " " + l.pagos.map(function(p){ return p.cpf || ""; }).join(" ")).toLowerCase().indexOf(filtro) > -1;
+    }).sort(function(a, b){ return ordem[a.status] - ordem[b.status] || Math.abs(b.diferencaCents) - Math.abs(a.diferencaCents); });
+
+    var CL = { bate: ["bate", "Bate"], diferenca: ["dif", "Diferença"], so_banco: ["sobanco", "Só no banco"], so_balancete: ["sobal", "Só no balancete"] };
+    var LIMITE = 300;
+    $("forn-body").innerHTML = linhas.slice(0, LIMITE).map(function(l){
+      var f = l.fornecedor, aberto = fornAbertos[f.classif];
+      var linha = "<tr class='clicavel' data-classif='" + escapeHtml(f.classif) + "'>" +
+        "<td>" + escapeHtml(f.nome) + "<span class='cell-sub'>" + escapeHtml(f.classif) + (l.pagos.length ? " · " + l.pagos.length + " pagamento(s) " + (aberto ? "▴" : "▾") : "") + "</span></td>" +
+        "<td class='num'>" + (l.totalBancoCents ? f2(l.totalBancoCents) : "<span class='muted'>—</span>") + "</td>" +
+        "<td class='num'>" + (l.debitoCents ? f2(l.debitoCents) : "<span class='muted'>—</span>") + "</td>" +
+        "<td class='num'>" + (l.status === "bate" ? "<span class='val-c'>0,00</span>" : "<span class='val-d'>" + f2(l.diferencaCents) + "</span>") + "</td>" +
+        "<td><span class='pill " + CL[l.status][0] + "'>" + CL[l.status][1] + "</span></td></tr>";
+      if (aberto && l.pagos.length) {
+        linha += "<tr class='forn-pagos'><td colspan='5'><ul>" + l.pagos.map(function(p){
+          return "<li>" + brDate(p.data) + " · " + formatBRNumber(p.valorNum) + " · " + escapeHtml(p.desc) + "</li>";
+        }).join("") + "</ul></td></tr>";
+      }
+      return linha;
+    }).join("") + (linhas.length > LIMITE ? "<tr><td colspan='5' class='empty'>Mostrando " + LIMITE + " de " + linhas.length + ". Use o filtro para achar um fornecedor.</td></tr>" : "") +
+      (!linhas.length ? "<tr><td colspan='5' class='empty'>Nenhum fornecedor nesta seleção.</td></tr>" : "");
+    Array.prototype.forEach.call($("forn-body").querySelectorAll("tr[data-classif]"), function(tr){
+      tr.addEventListener("click", function(){ var k = tr.dataset.classif; fornAbertos[k] = !fornAbertos[k]; renderPorFornecedor(); });
+    });
+
+    // pagamentos sem fornecedor: escolher ou marcar como "não é fornecedor"
+    if (!$("dl-forn").dataset.preenchido || $("dl-forn").dataset.preenchido !== String(b.fornecedores.length)) {
+      $("dl-forn").innerHTML = b.fornecedores.map(function(f){ return '<option value="' + escapeHtml(f.nome + " · " + f.classif) + '">'; }).join("");
+      $("dl-forn").dataset.preenchido = String(b.fornecedores.length);
+    }
+    $("sem-forn-titulo").textContent = "Pagamentos sem fornecedor identificado (" + r.semFornecedor + ", " + f2(r.semFornecedorCents) + ")";
+    $("sem-forn-body").innerHTML = res.semFornecedor.slice(0, 200).map(function(sf, i){
+      var e = sf.item;
+      var sug = sf.candidatos.length ? "Pode ser: " + sf.candidatos.slice(0, 2).map(function(c){ return c.nome; }).join(" ou ") : "Digite o nome do fornecedor";
+      return "<tr><td>" + brDate(e.data) + "</td><td>" + escapeHtml(e.desc) + "</td><td class='num'><span class='val-d'>" + formatBRNumber(e.valorNum) + "</span></td>" +
+        "<td><input class='vinc-input' list='dl-forn' data-i='" + i + "' placeholder='" + escapeHtml(sug) + "'></td>" +
+        "<td class='row-actions'><button type='button' data-vinc='" + i + "'>Vincular</button><button type='button' data-ign='" + i + "'>Não é fornecedor</button></td></tr>";
+    }).join("") + (res.semFornecedor.length > 200 ? "<tr><td colspan='5' class='empty'>Mostrando 200 de " + res.semFornecedor.length + ".</td></tr>" : "") +
+      (!res.semFornecedor.length ? "<tr><td colspan='5' class='empty'>Todos os pagamentos foram ligados a um fornecedor (ou marcados como não sendo de fornecedor).</td></tr>" : "");
+    var porClassif = {};
+    b.fornecedores.forEach(function(f){ porClassif[f.nome + " · " + f.classif] = f.classif; });
+    Array.prototype.forEach.call($("sem-forn-body").querySelectorAll("[data-vinc]"), function(bt){
+      bt.addEventListener("click", function(){
+        var i = +bt.dataset.vinc, inp = $("sem-forn-body").querySelector("input[data-i='" + i + "']");
+        var classif = porClassif[inp.value];
+        if (!classif) { toast("Escolha um fornecedor da lista."); inp.focus(); return; }
+        salvarVinculo(res.semFornecedor[i].item, { classif: classif });
+        toast("Vinculado. Pagamentos com o mesmo CNPJ passam a ir para esse fornecedor.");
+        renderPorFornecedor();
+      });
+    });
+    Array.prototype.forEach.call($("sem-forn-body").querySelectorAll("[data-ign]"), function(bt){
+      bt.addEventListener("click", function(){
+        salvarVinculo(res.semFornecedor[+bt.dataset.ign].item, { ignorar: true });
+        renderPorFornecedor();
+      });
+    });
+
+    // resumo e aviso de período
+    var mesesExt = {};
+    avulsa.extrato.forEach(function(e){ mesesExt[String(e.data).slice(0, 7)] = true; });
+    var per = b.periodo, aviso = "";
+    if (per) {
+      var ini = Object.keys(mesesExt).sort()[0] + "-01", fimM = Object.keys(mesesExt).sort().slice(-1)[0];
+      var fimD = new Date(Date.UTC(+fimM.slice(0, 4), +fimM.slice(5, 7), 0)).toISOString().slice(0, 10);
+      if (per.inicio !== ini || per.fim !== fimD) {
+        aviso = "<p class='aviso-periodo'><strong>Atenção ao período:</strong> o balancete é de " + brDate(per.inicio) + " a " + brDate(per.fim) +
+          " e o extrato vai de " + brDate(ini) + " a " + brDate(fimD) + ". O Débito do balancete inclui pagamentos de fora do extrato, então as diferenças são esperadas. " +
+          "Para fechar, emita o balancete de " + brDate(ini) + " a " + brDate(fimD) + " e traga os extratos de todas as contas que pagam fornecedores.</p>";
+      }
+    }
+    var total = r.bate + r.diferenca + r.so_banco + r.so_balancete || 1;
+    var barra = [["bate", "b-ok"], ["diferenca", "b-diff"], ["so_banco", "b-miss"], ["so_balancete", "b-warn"]].filter(function(x){ return r[x[0]]; })
+      .map(function(x){ return '<span class="' + x[1] + '" style="flex:' + r[x[0]] + '"></span>'; }).join("");
+    $("forn-resumo").innerHTML =
+      '<div class="conc-headline"><h2>' + r.bate + ' de ' + total + ' fornecedores batendo</h2>' +
+      '<div class="diff">Pagamentos sem fornecedor<strong class="' + (r.semFornecedor ? "val-d" : "val-c") + '">' + r.semFornecedor + '</strong></div></div>' +
+      '<div class="conc-bar">' + barra + '</div>' +
+      '<div class="conc-legend"><span><i class="b-ok"></i>Bate <strong>' + r.bate + '</strong></span><span><i class="b-diff"></i>Diferença <strong>' + r.diferenca +
+      '</strong></span><span><i class="b-miss"></i>Só no banco <strong>' + r.so_banco + '</strong></span><span><i class="b-warn"></i>Só no balancete <strong>' + r.so_balancete +
+      '</strong></span>' + (r.ignorados ? '<span>Não são fornecedor <strong>' + r.ignorados + '</strong></span>' : '') + '</div>' + aviso;
+    $("conc-forn-panel").style.display = "block";
   }
 
   // ---------- conciliação manual ----------
@@ -1637,6 +1776,8 @@
 
   function renderConciliacao() {
     var avulso = concModo === "avulso";
+    if (avulso && avulsa.extrato && avulsa.balancete) { $("conc-results-panel").style.display = "none"; renderPorFornecedor(); return; }
+    $("conc-forn-panel").style.display = "none";
     if (avulso ? !(avulsa.extrato && avulsa.titulos) : !ultimaConc) return;
     var filtro = ($("conc-filter").value || "").toLowerCase().trim();
     var tolerancia = parseInt($("conc-tolerancia").value, 10);
@@ -1881,10 +2022,17 @@
   $("conc-filter").addEventListener("input", renderConciliacao);
   $("conc-modo-conta").addEventListener("click", function(){ trocarModoConc("conta"); });
   $("conc-modo-avulso").addEventListener("click", function(){ trocarModoConc("avulso"); });
-  $("file-av-extrato").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) carregarExtratoAvulso(ev.target.files[0]); });
+  $("file-av-extrato").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files.length) carregarExtratoAvulso(ev.target.files); });
   $("file-av-planilha").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) carregarPlanilhaAvulsa(ev.target.files[0]); });
   $("av-tipo").addEventListener("change", function(){ if (avulsa.rows) aplicarPlanilhaAvulsa(); });
   $("conc-limpar").addEventListener("click", limparConciliacao);
+  $("forn-limpar").addEventListener("click", limparConciliacao);
+  $("forn-filtro").addEventListener("input", function(){ if (avulsa.balancete) renderPorFornecedor(); });
+  $("forn-mostrar").addEventListener("change", function(){ if (avulsa.balancete) renderPorFornecedor(); });
+  $("forn-exportar").addEventListener("click", function(){
+    if (!ultimoResFornecedor) return;
+    baixarArquivos([{ nome: "conciliacao-fornecedores-" + new Date().toISOString().slice(0, 10) + ".csv", conteudo: Conciliacao.csvPorFornecedor(ultimoResFornecedor) }]);
+  });
   $("av-salvar").addEventListener("click", salvarConciliacaoAvulsa);
   $("av-abrir").addEventListener("click", abrirSalva);
   $("av-excluir").addEventListener("click", excluirSalva);

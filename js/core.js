@@ -158,6 +158,7 @@
     { field: "desc", tests: ["descrição", "descricao", "hist", "lança", "favorecido"] },
     { field: "doc", tests: ["doc.", "doc", "nro", "número"] },
     { field: "valor", tests: ["=valor", "valor", "saída", "entrada", "débito", "crédito"] },
+    { field: "saldo", tests: ["=saldo", "saldo (r$)", "saldo r$"] },
     { field: "categoria", tests: ["categoria"] },
     { field: "unidade", tests: ["unidade"] },
     { field: "conta", tests: ["=conta"] },
@@ -241,30 +242,63 @@
    * Linhas de planilha (array de arrays) → lançamentos do extrato.
    * Linhas de saldo ("SALDO DO DIA", "SALDO ANTERIOR") não são movimentação e ficam de fora.
    */
+  /** "Conta: 14752-4" nas linhas de cima de uma planilha de extrato (rótulo e número na mesma célula ou na seguinte). */
+  function contaNoCabecalho(rows, ate) {
+    for (var r = 0; r < Math.min(ate, rows.length); r++) {
+      var row = rows[r] || [];
+      for (var c = 0; c < row.length; c++) {
+        var t = String(row[c] || "").trim(), m = /^(?:conta(?: corrente)?|c\/c|cc)\s*:?\s*([\d][\d.\-\/]*\d)?\s*$/i.exec(t);
+        if (!m) continue;
+        if (m[1]) return m[1];
+        for (var k = c + 1; k < row.length; k++) {
+          var v = String(row[k] || "").trim();
+          if (/^\d[\d.\-\/]*\d$/.test(v)) return v;
+          if (v) break;
+        }
+      }
+    }
+    return "";
+  }
+
+  /** Histórico com CNPJ/CPF sem pontuação e o nome depois: "PAGAMENTO PIX 32756790000126 VILLA PARK EVENTOS". */
+  function docENomeDoHistorico(desc) {
+    var m = /\b(\d{14}|\d{11})\b\s*(.*)$/.exec(desc || "");
+    if (!m) return { cpf: "", nome: "" };
+    return { cpf: m[1], nome: m[2].replace(/\s+/g, " ").trim() };
+  }
+
   function parseExtratoRows(rows) {
     var headerIdx = detectHeaderRow(rows);
     var col = buildColumnMap(rows[headerIdx]);
     if (col.data === undefined || col.valor === undefined) {
       return { ok: false, erro: "Não encontrei colunas de Data e Valor no arquivo.", itens: [] };
     }
-    var itens = [];
+    var itens = [], saldoInicial;
     for (var r = headerIdx + 1; r < rows.length; r++) {
       var row = rows[r] || [];
       var data = toIsoDate(row[col.data]);
       var v = parseValorCell(row[col.valor]);
       var desc = col.desc !== undefined ? String(row[col.desc] || "").trim() : "";
+      var saldo = col.saldo !== undefined ? parseValorCell(row[col.saldo]) : null;
+      if (ehSaldo(desc) && /anterior|inicial/i.test(desc) && saldo && saldoInicial === undefined) {
+        saldoInicial = saldo.sign === "D" ? -saldo.valorNum : saldo.valorNum;
+      }
       if (!data || !v || ehSaldo(desc)) continue;
-      itens.push({
+      var dn = docENomeDoHistorico(desc);
+      var item = {
         data: data,
         doc: col.doc !== undefined ? String(row[col.doc] || "").trim() : "",
         desc: desc,
         valorNum: v.valorNum,
         sign: v.sign,
+        nome: dn.nome, cpf: dn.cpf,
         detalhes: [],
         texto: row.join(" ")
-      });
+      };
+      if (saldo) item.saldoLinha = saldo.sign === "D" ? -saldo.valorNum : saldo.valorNum;
+      itens.push(item);
     }
-    return { ok: true, itens: itens };
+    return { ok: true, itens: itens, numeroConta: contaNoCabecalho(rows, headerIdx), saldoInicial: saldoInicial };
   }
 
   // ----------------------------------------------------------- extrato Sicoob
@@ -443,7 +477,7 @@
     parseValor: parseValor, parseValorCell: parseValorCell, valorBemFormado: valorBemFormado, valorPlanilha: valorPlanilha, toCents: toCents, formatBR: formatBR,
     toIsoDate: toIsoDate, brDate: brDate, diasEntre: diasEntre,
     HEADER_MAP: HEADER_MAP, detectHeaderRow: detectHeaderRow, buildColumnMap: buildColumnMap,
-    findSheet: findSheet, parseExtratoRows: parseExtratoRows,
+    findSheet: findSheet, parseExtratoRows: parseExtratoRows, contaNoCabecalho: contaNoCabecalho, docENomeDoHistorico: docENomeDoHistorico,
     pareceSicoobTxt: pareceSicoobTxt, parseSicoobTxt: parseSicoobTxt,
     decodeText: decodeText, textToRows: textToRows, parseExtratoTexto: parseExtratoTexto,
     conciliar: conciliar, toCSV: toCSV, toTSV: toTSV

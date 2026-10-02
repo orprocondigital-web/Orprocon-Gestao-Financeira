@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.9.0">
+<link rel="stylesheet" href="css/style.css?v=0.10.0">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -303,7 +303,7 @@
         </div>
 
         <div id="conc-bloco-avulso" hidden>
-          <p class="muted small inset-texto">Cruza um extrato com uma planilha (contas pagas a fornecedores ou recebidas de clientes), sem precisar de conta cadastrada. Nada é gravado no sistema. Valores iguais no mesmo período são desempatados pelo CNPJ ou pelo nome do fornecedor no histórico do banco.</p>
+          <p class="muted small inset-texto">Cruza o extrato (pode ser mais de um) com uma planilha de contas pagas a fornecedores, recebidas de clientes, ou com o <strong>balancete de fornecedores</strong> do Único (aí a conferência é pelo total pago a cada fornecedor). Valores iguais são desempatados pelo CNPJ ou pelo nome do fornecedor no histórico do banco.</p>
           <div class="salvas" id="av-salvas-bloco" hidden>
             <label for="av-salvas">Conciliações salvas</label>
             <select id="av-salvas"></select>
@@ -320,7 +320,7 @@
             </div>
             <div class="field conc-upload">
               <label class="btn btn-outline" for="file-av-extrato">1. Extrato do banco</label>
-              <input type="file" id="file-av-extrato" accept=".pdf,.ofx,.txt,.csv,.xlsx,.xlsm,.xls" hidden>
+              <input type="file" id="file-av-extrato" accept=".pdf,.ofx,.txt,.csv,.xlsx,.xlsm,.xls" multiple hidden>
               <span class="muted small" id="av-extrato-nome">nenhum arquivo escolhido</span>
             </div>
             <div class="field conc-upload">
@@ -341,6 +341,43 @@
           </div>
         </div>
         <div id="import-status-conc" class="status-line inset"></div>
+      </section>
+
+      <section class="panel" id="conc-forn-panel" style="display:none;">
+        <div class="conc-summary" id="forn-resumo"></div>
+        <div class="panel-head row">
+          <h2>Por fornecedor</h2>
+          <div class="panel-actions">
+            <div class="search">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+              <input type="search" id="forn-filtro" placeholder="Filtrar fornecedor ou CNPJ" aria-label="Filtrar fornecedores">
+            </div>
+            <select id="forn-mostrar" aria-label="Mostrar">
+              <option value="pendentes">Com diferença</option>
+              <option value="todos">Todos</option>
+              <option value="bate">Só os que batem</option>
+            </select>
+            <button type="button" class="btn btn-outline btn-sm" id="forn-exportar">Exportar resultado</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="forn-limpar">Limpar</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="ledger forn-table">
+            <thead><tr><th>Fornecedor</th><th class="num">Pago no banco</th><th class="num">Débito no balancete</th><th class="num">Diferença</th><th>Situação</th></tr></thead>
+            <tbody id="forn-body"></tbody>
+          </table>
+        </div>
+        <div class="panel-head row sem-forn-head">
+          <h2 id="sem-forn-titulo">Pagamentos sem fornecedor identificado</h2>
+          <span class="muted small">Escolha o fornecedor uma vez: o sistema guarda pelo CNPJ e reconhece nos próximos meses.</span>
+        </div>
+        <div class="table-wrap">
+          <table class="ledger">
+            <thead><tr><th>Data</th><th>Histórico</th><th class="num">Valor</th><th>Fornecedor</th><th class="col-actions"></th></tr></thead>
+            <tbody id="sem-forn-body"></tbody>
+          </table>
+        </div>
+        <datalist id="dl-forn"></datalist>
       </section>
 
       <section class="panel" id="conc-results-panel" style="display:none;">
@@ -492,13 +529,13 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.9.0"></script>
-<script src="js/core.js?v=0.9.0"></script>
-<script src="js/integracao.js?v=0.9.0"></script>
-<script src="js/importacao.js?v=0.9.0"></script>
-<script src="js/extratos.js?v=0.9.0"></script>
-<script src="js/pdfextrato.js?v=0.9.0"></script>
-<script src="js/conciliacao.js?v=0.9.0"></script>
-<script src="js/app.js?v=0.9.0"></script>
+<script src="js/storage.js?v=0.10.0"></script>
+<script src="js/core.js?v=0.10.0"></script>
+<script src="js/integracao.js?v=0.10.0"></script>
+<script src="js/importacao.js?v=0.10.0"></script>
+<script src="js/extratos.js?v=0.10.0"></script>
+<script src="js/pdfextrato.js?v=0.10.0"></script>
+<script src="js/conciliacao.js?v=0.10.0"></script>
+<script src="js/app.js?v=0.10.0"></script>
 </body>
 </html>
