@@ -452,3 +452,14 @@ table.ledger td.col-curta { max-width: 180px; }
 .ext-conta select { height: 32px; max-width: 360px; }
 .ext-erro { color: var(--debit); font-size: 13px; }
 .pill.sugerida { background: var(--info-soft); color: var(--info); margin-left: 6px; }
+
+/* conciliação: modos */
+.segmentado { display: inline-flex; padding: 3px; gap: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); }
+.segmentado button { border: 0; background: transparent; color: var(--ink-2); font-weight: 550; font-size: 13px; padding: 6px 12px; border-radius: var(--r-sm); cursor: pointer; }
+.segmentado button.ativo { background: var(--surface); color: var(--brand); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.segmentado button:focus-visible { outline: none; box-shadow: var(--focus); }
+.inset-texto { margin: 0; padding: 0 20px; max-width: 80ch; }
+.conc-avulso { display: grid; grid-template-columns: minmax(200px, 260px) 1fr 1fr; gap: 16px; align-items: end; }
+.conc-comum { padding-top: 0; }
+.nome-ok { color: var(--credit); font-size: 12px; font-weight: 600; margin-left: 6px; }
+@media (max-width: 1100px) { .conc-avulso { grid-template-columns: 1fr; } }

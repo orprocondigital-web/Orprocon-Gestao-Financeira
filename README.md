@@ -44,6 +44,20 @@ Itaú, Santander, Sicoob, Sicredi, Unicred, Ailos (Acentra), Banrisul, Inter,
 Nubank e C6. PDF que é imagem (digitalizado, como o do Bradesco enviado) não
 tem texto: nesse caso, use o OFX do banco.
 
+### Conciliação
+
+Dois modos, no topo da tela:
+
+- **Conta do sistema** — o extrato (PDF, OFX, TXT, CSV ou planilha) é cruzado com os
+  lançamentos da conta, nos meses que o extrato cobre. A conta é reconhecida pelo número.
+- **Extrato × planilha** — avulso, sem conta cadastrada e sem gravar nada: cruza o extrato
+  com uma planilha de contas pagas a fornecedores (ou recebidas de clientes). As colunas são
+  reconhecidas pelo nome (data de pagamento, valor pago, NF, fornecedor, CNPJ) e mostradas na
+  tela. Valores iguais no mesmo período são desempatados pelo CNPJ ou pelo nome do
+  fornecedor no histórico do banco.
+
+Nos dois: tolerância de data, filtro, **Exportar resultado** (CSV) e **Limpar**.
+
 ### Competência (mês)
 
 Cada mês tem os seus lançamentos, escolhido no seletor *Competência* do topo.
@@ -109,6 +123,7 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/importacao.js` | Leitura da planilha inteira: reconhece as abas, a competência e os problemas. |
 | `js/extratos.js` | OFX, TXT do Sicoob e CSV; conta do extrato, sem duplicar, sugestão de classificação. |
 | `js/pdfextrato.js` | Extratos em PDF (texto com posição, via pdf.js) e conferência de saldos. |
+| `js/conciliacao.js` | Conciliação avulsa: planilha de fornecedores/clientes × extrato. |
 | `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
 | `js/app.js` | Tela. |
 | `tests/` | Testes automatizados e um extrato Sicoob fictício. |

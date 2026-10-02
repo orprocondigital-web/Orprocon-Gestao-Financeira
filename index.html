@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.6.2">
+<link rel="stylesheet" href="css/style.css?v=0.7.0">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -276,29 +276,62 @@
     <!-- CONCILIAÇÃO -->
     <div id="view-conciliacao" style="display:none;">
       <section class="panel">
-        <div class="panel-head">
-          <h2>Importar extrato</h2>
-          <p class="muted small">Aceita PDF, OFX, TXT do Sicoob, CSV e planilha. Se nenhuma conta estiver escolhida, ela é reconhecida pelo número do extrato. Cada movimentação do banco é cruzada com os lançamentos da conta pelo valor, pelo sinal (C/D) e pela data.</p>
-        </div>
-        <div class="panel-body conc-controls">
-          <div class="field">
-            <label for="conc-acct">Conta</label>
-            <select id="conc-acct"></select>
+        <div class="panel-head row">
+          <h2>Conciliar</h2>
+          <div class="segmentado" role="group" aria-label="Tipo de conciliação">
+            <button type="button" id="conc-modo-conta" class="ativo" aria-pressed="true">Conta do sistema</button>
+            <button type="button" id="conc-modo-avulso" aria-pressed="false">Extrato × planilha</button>
           </div>
+        </div>
+
+        <div id="conc-bloco-conta">
+          <p class="muted small inset-texto">Aceita PDF, OFX, TXT do Sicoob, CSV e planilha. Se nenhuma conta estiver escolhida, ela é reconhecida pelo número do extrato. Cada movimentação do banco é cruzada com os lançamentos da conta pelo valor, pelo sinal (C/D) e pela data.</p>
+          <div class="panel-body conc-controls">
+            <div class="field">
+              <label for="conc-acct">Conta</label>
+              <select id="conc-acct"></select>
+            </div>
+            <div class="field conc-upload">
+              <label class="btn btn-primary" for="file-import-conc">
+                <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg>
+                Escolher extrato
+              </label>
+              <input type="file" id="file-import-conc" accept=".pdf,.ofx,.txt,.csv,.xlsx,.xlsm,.xls" hidden>
+              <span class="muted small" id="import-filename-conc">nenhum arquivo escolhido</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="conc-bloco-avulso" hidden>
+          <p class="muted small inset-texto">Cruza um extrato com uma planilha (contas pagas a fornecedores ou recebidas de clientes), sem precisar de conta cadastrada. Nada é gravado no sistema. Valores iguais no mesmo período são desempatados pelo CNPJ ou pelo nome do fornecedor no histórico do banco.</p>
+          <div class="panel-body conc-avulso">
+            <div class="field">
+              <label for="av-tipo">A planilha é de</label>
+              <select id="av-tipo">
+                <option value="pagamentos">Pagamentos a fornecedores</option>
+                <option value="recebimentos">Recebimentos de clientes</option>
+              </select>
+            </div>
+            <div class="field conc-upload">
+              <label class="btn btn-outline" for="file-av-extrato">1. Extrato do banco</label>
+              <input type="file" id="file-av-extrato" accept=".pdf,.ofx,.txt,.csv,.xlsx,.xlsm,.xls" hidden>
+              <span class="muted small" id="av-extrato-nome">nenhum arquivo escolhido</span>
+            </div>
+            <div class="field conc-upload">
+              <label class="btn btn-outline" for="file-av-planilha">2. Planilha</label>
+              <input type="file" id="file-av-planilha" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+              <span class="muted small" id="av-planilha-nome">nenhum arquivo escolhido</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-body conc-comum">
           <div class="field field-narrow">
             <label for="conc-tolerancia">Tolerância de data</label>
             <div class="input-suffix">
               <input type="number" id="conc-tolerancia" value="3" min="0" max="15">
               <span>dias</span>
             </div>
-          </div>
-          <div class="field conc-upload">
-            <label class="btn btn-primary" for="file-import-conc">
-              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg>
-              Escolher extrato
-            </label>
-            <input type="file" id="file-import-conc" accept=".pdf,.ofx,.txt,.csv,.xlsx,.xlsm,.xls" hidden>
-            <span class="muted small" id="import-filename-conc">nenhum arquivo escolhido</span>
           </div>
         </div>
         <div id="import-status-conc" class="status-line inset"></div>
@@ -308,9 +341,13 @@
         <div class="conc-summary" id="conc-totals"></div>
         <div class="panel-head row">
           <h2>Movimentações</h2>
-          <div class="search">
+          <div class="panel-actions">
+            <div class="search">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
             <input type="search" id="conc-filter" placeholder="Filtrar por CNPJ, nome ou histórico" aria-label="Filtrar movimentações">
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" id="conc-exportar">Exportar resultado</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="conc-limpar">Limpar</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -319,12 +356,12 @@
               <tr class="group-row">
                 <th colspan="3">Extrato do banco</th>
                 <th class="status-col"></th>
-                <th colspan="3">Lançado no sistema</th>
+                <th colspan="3" id="conc-col-sistema">Lançado no sistema</th>
               </tr>
               <tr>
                 <th>Data</th><th>Histórico</th><th class="num">Valor</th>
                 <th class="status-col">Situação</th>
-                <th>Data</th><th class="num">Valor</th><th>Descrição</th>
+                <th>Data</th><th class="num">Valor</th><th id="conc-col-desc">Descrição</th>
               </tr>
             </thead>
             <tbody id="conc-body"></tbody>
@@ -440,12 +477,13 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.6.2"></script>
-<script src="js/core.js?v=0.6.2"></script>
-<script src="js/integracao.js?v=0.6.2"></script>
-<script src="js/importacao.js?v=0.6.2"></script>
-<script src="js/extratos.js?v=0.6.2"></script>
-<script src="js/pdfextrato.js?v=0.6.2"></script>
-<script src="js/app.js?v=0.6.2"></script>
+<script src="js/storage.js?v=0.7.0"></script>
+<script src="js/core.js?v=0.7.0"></script>
+<script src="js/integracao.js?v=0.7.0"></script>
+<script src="js/importacao.js?v=0.7.0"></script>
+<script src="js/extratos.js?v=0.7.0"></script>
+<script src="js/pdfextrato.js?v=0.7.0"></script>
+<script src="js/conciliacao.js?v=0.7.0"></script>
+<script src="js/app.js?v=0.7.0"></script>
 </body>
 </html>

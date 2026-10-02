@@ -1340,41 +1340,146 @@
     return lista;
   }
 
+  // ---------- conciliação: modos, avulsa, exportar e limpar ----------
+  var concModo = "conta";
+  var avulsa = { extrato: null, rows: null, titulos: null, colunas: null };
+  var ultimoResultado = null;
+
+  function trocarModoConc(modo){
+    concModo = modo;
+    $("conc-modo-conta").classList.toggle("ativo", modo === "conta");
+    $("conc-modo-avulso").classList.toggle("ativo", modo === "avulso");
+    $("conc-modo-conta").setAttribute("aria-pressed", modo === "conta");
+    $("conc-modo-avulso").setAttribute("aria-pressed", modo === "avulso");
+    $("conc-bloco-conta").hidden = modo !== "conta";
+    $("conc-bloco-avulso").hidden = modo !== "avulso";
+    $("conc-col-sistema").textContent = modo === "avulso" ? "Planilha" : "Lançado no sistema";
+    $("conc-col-desc").textContent = modo === "avulso" ? "Fornecedor / documento" : "Descrição";
+    $("import-status-conc").textContent = "";
+    var tem = modo === "avulso" ? (avulsa.extrato && avulsa.titulos) : ultimaConc;
+    if (tem) renderConciliacao(); else $("conc-results-panel").style.display = "none";
+  }
+
+  function lerPlanilhaComoLinhas(file){
+    return lerBuffer(file).then(function(buf){
+      if (/\.csv$/i.test(file.name)) return Core.textToRows(Core.decodeText(new Uint8Array(buf)));
+      if (typeof XLSX === "undefined") throw new Error("o leitor de planilhas não carregou");
+      var wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
+      return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" });
+    });
+  }
+
+  function statusAvulsa(){
+    var partes = [];
+    if (avulsa.extrato) partes.push("Extrato: " + avulsa.extrato.length + " movimentação(ões) (" + avulsa.formato + ")" + avulsa.conferencia + ".");
+    if (avulsa.titulos) {
+      var c = avulsa.colunas, nomes = { data: "data", valor: "valor", doc: "documento", nome: "fornecedor/cliente", cpf: "CNPJ" };
+      partes.push("Planilha: " + avulsa.titulos.length + " título(s). Colunas usadas: " +
+        Object.keys(nomes).filter(function(k){ return c[k]; }).map(function(k){ return nomes[k] + " = \"" + c[k] + "\""; }).join(", ") + ".");
+    }
+    if (avulsa.extrato && !avulsa.titulos) partes.push("Agora escolha a planilha.");
+    if (!avulsa.extrato && avulsa.titulos) partes.push("Agora escolha o extrato.");
+    $("import-status-conc").textContent = partes.join(" ");
+  }
+
+  function carregarExtratoAvulso(file){
+    $("av-extrato-nome").textContent = file.name;
+    $("import-status-conc").textContent = "Lendo " + file.name + "…";
+    $("file-av-extrato").value = "";
+    lerArquivoExtrato(file).then(function(l){
+      if (l.erro) { $("import-status-conc").textContent = l.erro; return; }
+      l.itens.forEach(function(i){ i.texto = [i.desc, i.nome, i.cpf || i.cpfCnpj, i.doc].concat(i.detalhes || []).join(" "); });
+      avulsa.extrato = l.itens;
+      avulsa.formato = l.formato;
+      avulsa.conferencia = l.conferencia && l.conferencia.total
+        ? (l.conferencia.conferidos === l.conferencia.total ? ", saldos conferidos em " + l.conferencia.total + " dia(s)" : ", atenção: saldo não fecha em " + (l.conferencia.total - l.conferencia.conferidos) + " dia(s)")
+        : "";
+      statusAvulsa();
+      if (avulsa.titulos) renderConciliacao();
+    });
+  }
+
+  function aplicarPlanilhaAvulsa(){
+    var r = Conciliacao.lerPlanilhaTitulos(avulsa.rows, $("av-tipo").value);
+    if (!r.ok) { avulsa.titulos = null; $("import-status-conc").textContent = r.erro; $("conc-results-panel").style.display = "none"; return; }
+    avulsa.titulos = r.itens;
+    avulsa.colunas = r.colunas;
+    statusAvulsa();
+    if (avulsa.extrato) renderConciliacao();
+  }
+
+  function carregarPlanilhaAvulsa(file){
+    $("av-planilha-nome").textContent = file.name;
+    $("file-av-planilha").value = "";
+    lerPlanilhaComoLinhas(file).then(function(rows){ avulsa.rows = rows; aplicarPlanilhaAvulsa(); })
+      .catch(function(err){ $("import-status-conc").textContent = "Não consegui ler a planilha: " + (err.message || err); });
+  }
+
+  function limparConciliacao(){
+    if (concModo === "avulso") {
+      avulsa = { extrato: null, rows: null, titulos: null, colunas: null };
+      $("av-extrato-nome").textContent = "nenhum arquivo escolhido";
+      $("av-planilha-nome").textContent = "nenhum arquivo escolhido";
+    } else {
+      ultimaConc = null;
+      $("import-filename-conc").textContent = "nenhum arquivo escolhido";
+    }
+    ultimoResultado = null;
+    $("conc-filter").value = "";
+    $("import-status-conc").textContent = "";
+    $("conc-results-panel").style.display = "none";
+    toast("Conciliação limpa. Pode começar outra.");
+  }
+
+  function exportarConciliacao(){
+    if (!ultimoResultado) return;
+    var hoje = new Date().toISOString().slice(0, 10);
+    baixarArquivos([{ nome: "conciliacao-" + hoje + ".csv",
+      conteudo: Conciliacao.csvResultado(ultimoResultado, concModo === "avulso" ? "Planilha" : "Sistema") }]);
+  }
+
   function renderConciliacao() {
-    if (!ultimaConc) return;
-    var filtro = (document.getElementById("conc-filter").value || "").toLowerCase().trim();
-    var tolerancia = parseInt(document.getElementById("conc-tolerancia").value, 10);
+    var avulso = concModo === "avulso";
+    if (avulso ? !(avulsa.extrato && avulsa.titulos) : !ultimaConc) return;
+    var filtro = ($("conc-filter").value || "").toLowerCase().trim();
+    var tolerancia = parseInt($("conc-tolerancia").value, 10);
     if (isNaN(tolerancia) || tolerancia < 0) tolerancia = 0;
 
-    var extrato = ultimaConc.extrato;
-    var sistema = lancamentosParaConciliar();
+    var extrato = avulso ? avulsa.extrato : ultimaConc.extrato;
+    var sistema = avulso ? avulsa.titulos : lancamentosParaConciliar();
     if (filtro) {
       extrato = extrato.filter(function(e){ return String(e.texto || e.desc).toLowerCase().indexOf(filtro) > -1; });
-      sistema = sistema.filter(function(s){
-        return [s.desc, s.nome, s.cpf, s.doc].join(" ").toLowerCase().indexOf(filtro) > -1;
-      });
+      sistema = sistema.filter(function(s){ return [s.desc, s.nome, s.cpf, s.doc].join(" ").toLowerCase().indexOf(filtro) > -1; });
     }
 
-    var res = Core.conciliar(extrato, sistema, { toleranciaDias: tolerancia });
+    var res = avulso ? Conciliacao.conciliarAvulso(extrato, sistema, { toleranciaDias: tolerancia })
+                     : Core.conciliar(extrato, sistema, { toleranciaDias: tolerancia });
     var ordem = { so_extrato: 0, so_sistema: 1, data_diferente: 2, ok: 3 };
     var linhas = res.linhas.slice().sort(function(a, b){
       var da = (a.extrato || a.sistema).data, db = (b.extrato || b.sistema).data;
       return ordem[a.status] - ordem[b.status] || da.localeCompare(db);
     });
+    ultimoResultado = linhas;
 
+    var rotulo = function(k){ return k === "so_sistema" && avulso ? "Só na planilha" : STATUS_CONC[k].texto; };
     var valor = function(l){ return l ? '<span class="' + (l.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(l.valorNum) + l.sign + "</span>" : '<span class="muted">—</span>'; };
-    document.getElementById("conc-body").innerHTML = linhas.map(function(l){
+    $("conc-body").innerHTML = linhas.map(function(l){
       var st = STATUS_CONC[l.status];
       var e = l.extrato, s = l.sistema;
-      var descBanco = e ? escapeHtml(e.desc) + (e.nome || e.cpfCnpj ? "<span class='cell-sub'>" + escapeHtml([e.nome, e.cpfCnpj].filter(Boolean).join(", ")) + "</span>" : "") : "";
+      var cpfE = e ? (e.cpfCnpj || e.cpf) : "";
+      var descBanco = e ? escapeHtml(e.desc) + (e.nome || cpfE ? "<span class='cell-sub'>" + escapeHtml([e.nome, cpfE].filter(Boolean).join(", ")) + "</span>" : "") : "";
+      var descSis = !s ? "<span class='muted'>" + (avulso ? "Não está na planilha" : "Não lançado") + "</span>"
+        : avulso ? escapeHtml(s.nome || "—") + (l.nomeConfere ? "<span class='nome-ok' title='O nome ou o CNPJ do fornecedor aparece no histórico do banco'>✓ no histórico</span>" : "") +
+                   "<span class='cell-sub'>" + escapeHtml(["Doc " + (s.doc || "—"), s.cpf, "linha " + s.linha].filter(Boolean).join(" · ")) + "</span>"
+        : escapeHtml(s.desc);
       return "<tr>" +
         "<td>" + (e ? brDate(e.data) : "") + "</td>" +
         "<td>" + descBanco + "</td>" +
         "<td class='num'>" + valor(e) + "</td>" +
-        "<td><span class='pill " + st.classe + "'>" + st.texto + "</span></td>" +
+        "<td><span class='pill " + st.classe + "'>" + rotulo(l.status) + "</span></td>" +
         "<td>" + (s ? brDate(s.data) : "") + "</td>" +
         "<td class='num'>" + valor(s) + "</td>" +
-        "<td>" + (s ? escapeHtml(s.desc) : "<span class='muted'>Não lançado</span>") + "</td>" +
+        "<td>" + descSis + "</td>" +
       "</tr>";
     }).join("");
 
@@ -1383,21 +1488,23 @@
     var total = res.linhas.length || 1;
     var partes = ["ok", "data_diferente", "so_extrato", "so_sistema"];
     var barra = partes.filter(function(k){ return r[k] > 0; }).map(function(k){
-      return '<span class="' + STATUS_CONC[k].barra + '" style="flex:' + r[k] + '" title="' + STATUS_CONC[k].texto + ': ' + r[k] + '"></span>';
+      return '<span class="' + STATUS_CONC[k].barra + '" style="flex:' + r[k] + '" title="' + rotulo(k) + ': ' + r[k] + '"></span>';
     }).join("");
     var legenda = partes.map(function(k){
-      return '<span><i class="' + STATUS_CONC[k].barra + '"></i>' + STATUS_CONC[k].texto + ' <strong>' + r[k] + '</strong></span>';
+      return '<span><i class="' + STATUS_CONC[k].barra + '"></i>' + rotulo(k) + ' <strong>' + r[k] + '</strong></span>';
     }).join("");
     var pendentes = r.so_extrato + r.so_sistema;
     var pct = Math.round((r.ok + r.data_diferente) / total * 100);
     var titulo = r.fechado ? "Conciliação fechada" :
       pendentes + (pendentes === 1 ? " pendência" : " pendências") + ", " + pct + "% conciliado";
-    document.getElementById("conc-totals").innerHTML =
+    var nota = avulso && r.ignorados ? '<p class="muted small">' + r.ignorados + " " + ($("av-tipo").value === "recebimentos" ? "saída(s)" : "entrada(s)") +
+      " do extrato ficaram fora, porque a planilha é de " + ($("av-tipo").value === "recebimentos" ? "recebimentos" : "pagamentos") + ".</p>" : "";
+    $("conc-totals").innerHTML =
       '<div class="conc-headline"><h2>' + titulo + '</h2>' +
-      '<div class="diff">Diferença de saldo, banco menos sistema<strong class="' + (dif === 0 ? "val-c" : "val-d") + '">' + formatBRNumber(dif) + '</strong></div></div>' +
+      '<div class="diff">Diferença, banco menos ' + (avulso ? "planilha" : "sistema") + '<strong class="' + (dif === 0 ? "val-c" : "val-d") + '">' + formatBRNumber(dif) + '</strong></div></div>' +
       '<div class="conc-bar" role="img" aria-label="' + pct + '% conciliado">' + barra + '</div>' +
-      '<div class="conc-legend">' + legenda + '</div>';
-    document.getElementById("conc-results-panel").style.display = "block";
+      '<div class="conc-legend">' + legenda + '</div>' + nota;
+    $("conc-results-panel").style.display = "block";
   }
 
   // ---------- Exportação ----------
@@ -1506,9 +1613,16 @@
     if(ev.target.files && ev.target.files[0]) runConciliacao(ev.target.files[0]);
   });
   $("conc-filter").addEventListener("input", renderConciliacao);
+  $("conc-modo-conta").addEventListener("click", function(){ trocarModoConc("conta"); });
+  $("conc-modo-avulso").addEventListener("click", function(){ trocarModoConc("avulso"); });
+  $("file-av-extrato").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) carregarExtratoAvulso(ev.target.files[0]); });
+  $("file-av-planilha").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) carregarPlanilhaAvulsa(ev.target.files[0]); });
+  $("av-tipo").addEventListener("change", function(){ if (avulsa.rows) aplicarPlanilhaAvulsa(); });
+  $("conc-limpar").addEventListener("click", limparConciliacao);
+  $("conc-exportar").addEventListener("click", exportarConciliacao);
   $("conc-tolerancia").addEventListener("input", renderConciliacao);
   $("conc-acct").addEventListener("change", function(){
-    if (ultimaConc) { ultimaConc.acctId = this.value; renderConciliacao(); }
+    if (ultimaConc && concModo === "conta") { ultimaConc.acctId = this.value; renderConciliacao(); }
   });
   $("export-csv").addEventListener("click", exportarCSV);
   $("export-clip").addEventListener("click", copiarParaExcel);
