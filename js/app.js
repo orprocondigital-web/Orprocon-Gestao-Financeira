@@ -1384,6 +1384,8 @@
     $("conc-bloco-avulso").hidden = modo !== "avulso";
     $("conc-col-sistema").textContent = modo === "avulso" ? "Planilha" : "Lançado no sistema";
     $("conc-col-desc").textContent = modo === "avulso" ? "Fornecedor / documento" : "Descrição";
+    atualizarBotaoSalvar();
+    if (modo === "avulso") { preencherSalvas(); if (avulsa.extrato || avulsa.rows) statusAvulsa(); }
     $("import-status-conc").textContent = "";
     var tem = modo === "avulso" ? (avulsa.extrato && avulsa.titulos) : ultimaConc;
     if (tem) renderConciliacao(); else $("conc-results-panel").style.display = "none";
@@ -1400,6 +1402,7 @@
 
   function statusAvulsa(){
     var partes = [];
+    if (avulsa.salvaNome) partes.push("Conciliação: " + avulsa.salvaNome + (trabalhoNaoSalvo() ? " (com alterações não salvas)" : " (salva)") + ".");
     if (avulsa.extrato) partes.push("Extrato: " + avulsa.extrato.length + " movimentação(ões) (" + avulsa.formato + ")" + avulsa.conferencia + ".");
     if (avulsa.titulos) {
       var c = avulsa.colunas, nomes = { data: "data", valor: "valor", doc: "documento", nome: "fornecedor/cliente", cpf: "CNPJ" };
@@ -1423,7 +1426,7 @@
       avulsa.conferencia = l.conferencia && l.conferencia.total
         ? (l.conferencia.conferidos === l.conferencia.total ? ", saldos conferidos em " + l.conferencia.total + " dia(s)" : ", atenção: saldo não fecha em " + (l.conferencia.total - l.conferencia.conferidos) + " dia(s)")
         : "";
-      statusAvulsa();
+      statusAvulsa(); autosaveAvulsa();
       if (avulsa.titulos) renderConciliacao();
     });
   }
@@ -1433,7 +1436,7 @@
     if (!r.ok) { avulsa.titulos = null; $("import-status-conc").textContent = r.erro; $("conc-results-panel").style.display = "none"; return; }
     avulsa.titulos = r.itens;
     avulsa.colunas = r.colunas;
-    statusAvulsa();
+    statusAvulsa(); autosaveAvulsa();
     if (avulsa.extrato) renderConciliacao();
   }
 
@@ -1444,10 +1447,108 @@
       .catch(function(err){ $("import-status-conc").textContent = "Não consegui ler a planilha: " + (err.message || err); });
   }
 
+  // ---------- conciliação externa: salvamento automático e conciliações salvas ----------
+  var CHAVE_AV_ATUAL = "conciliacao-avulsa:atual", PREFIXO_AV_SALVA = "conciliacao-salva:";
+
+  function estadoAvulsa(){
+    if (!avulsa.extrato && !avulsa.rows) return null;
+    return {
+      extrato: avulsa.extrato, formato: avulsa.formato, conferencia: avulsa.conferencia, extratoNome: $("av-extrato-nome").textContent,
+      rows: avulsa.rows, planilhaNome: $("av-planilha-nome").textContent, tipo: $("av-tipo").value,
+      tolerancia: $("conc-tolerancia").value, manuais: avulsa.manuais || [],
+      salvaId: avulsa.salvaId || null, salvaNome: avulsa.salvaNome || "", em: new Date().toISOString()
+    };
+  }
+
+  function autosaveAvulsa(){
+    var e = estadoAvulsa();
+    if (e) Store.set(CHAVE_AV_ATUAL, e); else Store.remove(CHAVE_AV_ATUAL);
+  }
+
+  function restaurarAvulsa(e){
+    avulsa = { extrato: e.extrato || null, formato: e.formato || "", conferencia: e.conferencia || "", rows: e.rows || null,
+      titulos: null, colunas: null, manuais: e.manuais || [], salvaId: e.salvaId || null, salvaNome: e.salvaNome || "" };
+    $("av-tipo").value = e.tipo || "pagamentos";
+    if (e.tolerancia !== undefined) $("conc-tolerancia").value = e.tolerancia;
+    $("av-extrato-nome").textContent = e.extratoNome || (e.extrato ? "extrato" : "nenhum arquivo escolhido");
+    $("av-planilha-nome").textContent = e.planilhaNome || (e.rows ? "planilha" : "nenhum arquivo escolhido");
+    limparSelecao();
+    if (avulsa.rows) aplicarPlanilhaAvulsa(); else statusAvulsa();
+    atualizarBotaoSalvar();
+  }
+
+  function listarSalvas(){
+    return Store.keys().filter(function(k){ return k.indexOf(PREFIXO_AV_SALVA) === 0; }).map(function(k){
+      var v = Store.get(k) || {};
+      return { id: k.slice(PREFIXO_AV_SALVA.length), nome: v.salvaNome || "(sem nome)", em: v.salvoEm || v.em || "" };
+    }).sort(function(a, b){ return String(b.em).localeCompare(String(a.em)); });
+  }
+
+  function preencherSalvas(){
+    var lista = listarSalvas();
+    $("av-salvas-bloco").hidden = !lista.length;
+    $("av-salvas").innerHTML = lista.map(function(s){
+      var quando = s.em ? new Date(s.em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      return '<option value="' + escapeHtml(s.id) + '"' + (s.id === avulsa.salvaId ? " selected" : "") + ">" + escapeHtml(s.nome) + (quando ? " — salva em " + quando : "") + "</option>";
+    }).join("");
+  }
+
+  function atualizarBotaoSalvar(){
+    $("av-salvar").hidden = concModo !== "avulso";
+    $("av-salvar").textContent = avulsa.salvaId ? "Salvar alterações" : "Salvar conciliação";
+  }
+
+  function trabalhoNaoSalvo(){
+    if (!avulsa.manuais || !avulsa.manuais.length) return false;
+    if (!avulsa.salvaId) return true;
+    var salva = Store.get(PREFIXO_AV_SALVA + avulsa.salvaId);
+    return !salva || JSON.stringify(salva.manuais || []) !== JSON.stringify(avulsa.manuais);
+  }
+
+  function salvarConciliacaoAvulsa(){
+    if (!(avulsa.extrato && avulsa.titulos)) { toast("Escolha o extrato e a planilha antes de salvar."); return; }
+    var meses = {};
+    avulsa.extrato.forEach(function(x){ meses[String(x.data).slice(0, 7)] = (meses[String(x.data).slice(0, 7)] || 0) + 1; });
+    var mes = Object.keys(meses).sort(function(a, b){ return meses[b] - meses[a]; })[0];
+    var sugestao = avulsa.salvaNome || (($("av-planilha-nome").textContent || "Conciliação").replace(/\.[^.]+$/, "") + " – " + Importacao.nomeCompetencia(mes));
+    var nome = prompt("Nome desta conciliação (ex.: Fan Metal – Julho de 2026):", sugestao);
+    if (nome === null) return;
+    nome = nome.trim() || sugestao;
+    var id = avulsa.salvaId && nome === avulsa.salvaNome ? avulsa.salvaId : "av" + Date.now();
+    avulsa.salvaId = id; avulsa.salvaNome = nome;
+    var e = estadoAvulsa(); e.salvoEm = new Date().toISOString();
+    Store.set(PREFIXO_AV_SALVA + id, e);
+    autosaveAvulsa(); preencherSalvas(); atualizarBotaoSalvar(); statusAvulsa();
+    toast("Conciliação salva: " + nome + ". Ela entra no backup do Master.");
+  }
+
+  function abrirSalva(){
+    var id = $("av-salvas").value;
+    var e = id && Store.get(PREFIXO_AV_SALVA + id);
+    if (!e) return;
+    if (trabalhoNaoSalvo() && avulsa.salvaId !== id &&
+        !confirm("A conciliação aberta agora tem itens feitos à mão que não foram salvos. Abrir outra mesmo assim?")) return;
+    restaurarAvulsa(e); autosaveAvulsa(); preencherSalvas();
+    toast("Aberta: " + (e.salvaNome || "conciliação"));
+  }
+
+  function excluirSalva(){
+    var id = $("av-salvas").value, e = id && Store.get(PREFIXO_AV_SALVA + id);
+    if (!e || !confirm("Excluir a conciliação salva \"" + (e.salvaNome || "") + "\"? Não dá para desfazer.")) return;
+    Store.remove(PREFIXO_AV_SALVA + id);
+    if (avulsa.salvaId === id) { avulsa.salvaId = null; avulsa.salvaNome = ""; autosaveAvulsa(); atualizarBotaoSalvar(); statusAvulsa(); }
+    preencherSalvas();
+    toast("Conciliação excluída.");
+  }
+
   function limparConciliacao(){
+    if (concModo === "avulso" && trabalhoNaoSalvo() &&
+        !confirm("Há itens conciliados à mão que não foram salvos. Limpar mesmo assim?\n\nDica: Cancelar e usar \"Salvar conciliação\".")) return;
     limparSelecao();
     if (concModo === "avulso") {
       avulsa = { extrato: null, rows: null, titulos: null, colunas: null, manuais: [] };
+      Store.remove(CHAVE_AV_ATUAL);
+      atualizarBotaoSalvar(); preencherSalvas();
       $("av-extrato-nome").textContent = "nenhum arquivo escolhido";
       $("av-planilha-nome").textContent = "nenhum arquivo escolhido";
     } else {
@@ -1476,7 +1577,7 @@
     return ultimaConc ? (Store.get(chaveGrupos()) || []) : [];
   }
   function salvarGrupos(g){
-    if (concModo === "avulso") avulsa.manuais = g;
+    if (concModo === "avulso") { avulsa.manuais = g; autosaveAvulsa(); statusAvulsa(); }
     else Store.set(chaveGrupos(), g);
   }
   function limparSelecao(){ selecao = { ext: {}, sis: {} }; }
@@ -1784,6 +1885,10 @@
   $("file-av-planilha").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) carregarPlanilhaAvulsa(ev.target.files[0]); });
   $("av-tipo").addEventListener("change", function(){ if (avulsa.rows) aplicarPlanilhaAvulsa(); });
   $("conc-limpar").addEventListener("click", limparConciliacao);
+  $("av-salvar").addEventListener("click", salvarConciliacaoAvulsa);
+  $("av-abrir").addEventListener("click", abrirSalva);
+  $("av-excluir").addEventListener("click", excluirSalva);
+  $("conc-tolerancia").addEventListener("change", function(){ if (concModo === "avulso") autosaveAvulsa(); });
   $("conc-sel-juntar").addEventListener("click", conciliarSelecionados);
   $("conc-sel-conferido").addEventListener("click", marcarConferido);
   $("conc-sel-cancelar").addEventListener("click", function(){ limparSelecao(); renderConciliacao(); });
@@ -1930,6 +2035,8 @@
     });
   }).then(function(ok){
     preencherCompetencias();
+    var emAndamentoInicio = Store.get(CHAVE_AV_ATUAL);
+    if (emAndamentoInicio) { restaurarAvulsa(emAndamentoInicio); trocarModoConc("avulso"); }
     refreshFormOptions();
     buildSidebar();
     populateConcSelect();

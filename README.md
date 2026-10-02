@@ -63,7 +63,13 @@ Nos dois: tolerância de data, filtro, **Exportar resultado** (CSV) e **Limpar**
   (ex.: um débito que pagou vários boletos). Se as somas não batem, pede o motivo;
 - *Marcar como conferido*: item sem par que está certo (ex.: tarifa), com observação.
 
-Cada um tem *Desfazer*. No modo por conta ficam salvos; no avulso valem até *Limpar*.
+Cada um tem *Desfazer*. No modo por conta ficam salvos junto com a conta.
+
+**Conciliações externas salvas** (modo Extrato × planilha):
+- a conciliação em andamento é gravada sozinha a cada mudança: se a página fechar, ela volta;
+- *Salvar conciliação* guarda com nome (ex.: "Fan Metal – Julho de 2026"); a lista
+  *Conciliações salvas* reabre ou exclui;
+- tudo entra no backup do Master. *Limpar* avisa se houver trabalho à mão não salvo.
 
 ### Competência (mês)
 

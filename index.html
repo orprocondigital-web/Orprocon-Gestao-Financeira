@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.8.0">
+<link rel="stylesheet" href="css/style.css?v=0.9.0">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -304,6 +304,12 @@
 
         <div id="conc-bloco-avulso" hidden>
           <p class="muted small inset-texto">Cruza um extrato com uma planilha (contas pagas a fornecedores ou recebidas de clientes), sem precisar de conta cadastrada. Nada é gravado no sistema. Valores iguais no mesmo período são desempatados pelo CNPJ ou pelo nome do fornecedor no histórico do banco.</p>
+          <div class="salvas" id="av-salvas-bloco" hidden>
+            <label for="av-salvas">Conciliações salvas</label>
+            <select id="av-salvas"></select>
+            <button type="button" class="btn btn-outline btn-sm" id="av-abrir">Abrir</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="av-excluir">Excluir</button>
+          </div>
           <div class="panel-body conc-avulso">
             <div class="field">
               <label for="av-tipo">A planilha é de</label>
@@ -346,6 +352,7 @@
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
             <input type="search" id="conc-filter" placeholder="Filtrar por CNPJ, nome ou histórico" aria-label="Filtrar movimentações">
             </div>
+            <button type="button" class="btn btn-primary btn-sm" id="av-salvar" hidden>Salvar conciliação</button>
             <button type="button" class="btn btn-outline btn-sm" id="conc-exportar">Exportar resultado</button>
             <button type="button" class="btn btn-ghost btn-sm" id="conc-limpar">Limpar</button>
           </div>
@@ -485,13 +492,13 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.8.0"></script>
-<script src="js/core.js?v=0.8.0"></script>
-<script src="js/integracao.js?v=0.8.0"></script>
-<script src="js/importacao.js?v=0.8.0"></script>
-<script src="js/extratos.js?v=0.8.0"></script>
-<script src="js/pdfextrato.js?v=0.8.0"></script>
-<script src="js/conciliacao.js?v=0.8.0"></script>
-<script src="js/app.js?v=0.8.0"></script>
+<script src="js/storage.js?v=0.9.0"></script>
+<script src="js/core.js?v=0.9.0"></script>
+<script src="js/integracao.js?v=0.9.0"></script>
+<script src="js/importacao.js?v=0.9.0"></script>
+<script src="js/extratos.js?v=0.9.0"></script>
+<script src="js/pdfextrato.js?v=0.9.0"></script>
+<script src="js/conciliacao.js?v=0.9.0"></script>
+<script src="js/app.js?v=0.9.0"></script>
 </body>
 </html>
