@@ -74,3 +74,46 @@ describe("planilha de recebimentos", () => {
     assert.equal(r.resumo.ok, 1);
   });
 });
+
+describe("conciliação manual", () => {
+  const ext = [
+    { data: "2026-07-13", valorNum: 4000, sign: "D", desc: "PAGAMENTO DE BOLETOS EM LOTE" },
+    { data: "2026-07-13", valorNum: 9.66, sign: "D", desc: "TARIFA" },
+    { data: "2026-07-13", valorNum: 9.66, sign: "D", desc: "TARIFA" },
+    { data: "2026-07-20", valorNum: 500, sign: "D", desc: "PIX ENVIADO FULANO" }
+  ];
+  const tit = [
+    { linha: 4, data: "2026-07-13", valorNum: 2500, sign: "D", nome: "ACO FORTE", doc: "1" },
+    { linha: 5, data: "2026-07-13", valorNum: 1500, sign: "D", nome: "TINTAS COLOR", doc: "2" },
+    { linha: 6, data: "2026-07-21", valorNum: 499.5, sign: "D", nome: "FULANO", doc: "3" }
+  ];
+  const kE = C.chavesUnicas(ext, C.chaveExtrato), kS = C.chavesUnicas(tit, C.chaveSistema);
+
+  test("tarifas idênticas no mesmo dia ganham chaves diferentes", () => {
+    assert.notEqual(kE[1], kE[2]);
+    assert.ok(kE[2].endsWith("#2"));
+  });
+  test("um débito que pagou dois boletos; tarifa conferida sem par; diferença de valor aceita", () => {
+    const grupos = [
+      { ext: [kE[0]], sis: [kS[0], kS[1]], tipo: "manual" },
+      { ext: [kE[1]], sis: [], tipo: "justificado", obs: "tarifa bancária" },
+      { ext: [kE[3]], sis: [kS[2]], tipo: "manual", obs: "pago com 0,50 de desconto" }
+    ];
+    const r = C.separarManuais(ext, tit, grupos, kE, kS);
+    assert.deepEqual(r.linhas.map((l) => [l.status, l.extratos.length, l.sistemas.length, l.diferencaCents]),
+      [["manual", 1, 2, 0], ["justificado", 1, 0, 0], ["manual", 1, 1, -50]]);
+    assert.deepEqual(r.extrato.map((e) => e.desc), ["TARIFA"]);      // sobra a segunda tarifa
+    assert.equal(r.sistema.length, 0);
+    const csv = C.csvResultado(r.linhas, "Planilha");
+    assert.match(csv, /Conciliado à mão;13\/07\/2026;PAGAMENTO DE BOLETOS EM LOTE;4\.000,00;13\/07\/2026;ACO FORTE \+ TINTAS COLOR;1 \+ 2;4\.000,00/);
+    assert.match(csv, /Conferido \(sem par\);.*;tarifa bancária/);
+  });
+  test("chave que não existe mais é ignorada", () => {
+    const r = C.separarManuais(ext, tit, [{ ext: ["E|sumiu#1"], sis: [], tipo: "justificado" }], kE, kS);
+    assert.equal(r.linhas.length, 0);
+    assert.equal(r.extrato.length, 4);
+  });
+  test("lançamento do sistema é identificado pelo id", () => {
+    assert.equal(C.chaveSistema({ id: "e123", data: "2026-07-01", valorNum: 1, sign: "C" }), "S|id:e123");
+  });
+});

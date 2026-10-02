@@ -144,21 +144,80 @@
     return { linhas: linhas, resumo: r };
   }
 
+  // ------------------------------------------------------------- conciliação manual
+
+  function cents(v) { return Math.round(Number(v) * 100); }
+
+  /** Chave estável de um lançamento do extrato (repetições idênticas ganham #2, #3…). */
+  function chaveExtrato(e) {
+    return ["E", e.data, cents(e.valorNum), e.sign, limpa(e.doc), chave(e.desc).replace(/[^a-z0-9]/g, "")].join("|");
+  }
+  /** Chave de um lançamento do sistema (pelo id) ou de um título da planilha (pela linha). */
+  function chaveSistema(s) {
+    if (s.id) return "S|id:" + s.id;
+    return ["P", s.linha || "", s.data, cents(s.valorNum), s.sign, limpa(s.doc), chave(s.nome || s.desc).replace(/[^a-z0-9]/g, "")].join("|");
+  }
+  function chavesUnicas(lista, base) {
+    var cont = {};
+    return lista.map(function (i) { var k = base(i); cont[k] = (cont[k] || 0) + 1; return k + "#" + cont[k]; });
+  }
+
+  /**
+   * Separa o que foi conciliado à mão. grupos: [{ ext: [chaves], sis: [chaves], tipo: "manual"|"justificado", obs }].
+   * Devolve o que sobra para a conciliação automática e uma linha por grupo:
+   * { status, extratos: [...], sistemas: [...], diferencaCents, obs, grupo }.
+   * Chaves que não existem mais (extrato trocado, lançamento apagado) são ignoradas.
+   */
+  function separarManuais(extrato, sistema, grupos, chavesE, chavesS) {
+    var kE = chavesE || chavesUnicas(extrato, chaveExtrato), kS = chavesS || chavesUnicas(sistema, chaveSistema);
+    var porE = {}, porS = {}, usados = {};
+    extrato.forEach(function (e, i) { porE[kE[i]] = e; });
+    sistema.forEach(function (s, i) { porS[kS[i]] = s; });
+    var linhas = [];
+    (grupos || []).forEach(function (g, gi) {
+      var ex = (g.ext || []).filter(function (k) { return porE[k] && !usados[k]; });
+      var si = (g.sis || []).filter(function (k) { return porS[k] && !usados[k]; });
+      if (!ex.length && !si.length) return;
+      ex.concat(si).forEach(function (k) { usados[k] = true; });
+      var assin = function (x) { return (x.sign === "D" ? -1 : 1) * cents(x.valorNum); };
+      var somaE = ex.reduce(function (a, k) { return a + assin(porE[k]); }, 0);
+      var somaS = si.reduce(function (a, k) { return a + assin(porS[k]); }, 0);
+      linhas.push({ status: g.tipo === "justificado" ? "justificado" : "manual", grupo: gi, obs: limpa(g.obs),
+        extratos: ex.map(function (k) { return porE[k]; }), sistemas: si.map(function (k) { return porS[k]; }),
+        diferencaCents: ex.length && si.length ? somaE - somaS : 0 });
+    });
+    return {
+      linhas: linhas,
+      extrato: extrato.filter(function (e, i) { return !usados[kE[i]]; }),
+      sistema: sistema.filter(function (s, i) { return !usados[kS[i]]; }),
+      chavesE: kE, chavesS: kS
+    };
+  }
+
   // ------------------------------------------------------------- exportação
 
-  var NOME_STATUS = { ok: "Conciliado", data_diferente: "Data diferente", so_extrato: "Só no banco", so_sistema: "Só na planilha" };
+  var NOME_STATUS = { ok: "Conciliado", data_diferente: "Data diferente", so_extrato: "Só no banco", so_sistema: "Só na planilha",
+    manual: "Conciliado à mão", justificado: "Conferido (sem par)" };
 
   /** Resultado → CSV para o Excel (";" e BOM). rotuloSistema: "Planilha" ou "Sistema". */
   function csvResultado(linhas, rotuloSistema) {
     var rs = rotuloSistema || "Planilha";
-    var cab = ["Situação", "Data banco", "Histórico banco", "Valor banco", "Data " + rs.toLowerCase(), "Fornecedor/cliente", "Documento", "Valor " + rs.toLowerCase(), "Fornecedor no histórico"];
+    var cab = ["Situação", "Data banco", "Histórico banco", "Valor banco", "Data " + rs.toLowerCase(), "Fornecedor/cliente", "Documento", "Valor " + rs.toLowerCase(), "Fornecedor no histórico", "Observação"];
     var v = function (x) { return x ? Core.formatBR(x.valorNum) : ""; };
+    // grupo manual (vários itens de cada lado) vira uma linha, com os textos juntos e os valores somados
+    var juntar = function (lista) {
+      if (!lista || !lista.length) return null;
+      if (lista.length === 1) return lista[0];
+      return { data: lista[0].data, desc: lista.map(function (x) { return x.desc || x.nome; }).join(" + "),
+        nome: lista.map(function (x) { return x.nome || x.desc; }).join(" + "), doc: lista.map(function (x) { return x.doc; }).filter(Boolean).join(" + "),
+        valorNum: lista.reduce(function (a, x) { return a + x.valorNum; }, 0) };
+    };
     var out = [cab.join(";")];
     linhas.forEach(function (l) {
-      var e = l.extrato, s = l.sistema;
+      var e = l.extratos ? juntar(l.extratos) : l.extrato, s = l.sistemas ? juntar(l.sistemas) : l.sistema;
       var st = l.status === "so_sistema" ? "Só " + (rs === "Planilha" ? "na planilha" : "no sistema") : NOME_STATUS[l.status];
       out.push([st, e ? Core.brDate(e.data) : "", e ? e.desc : "", v(e), s ? Core.brDate(s.data) : "", s ? (s.nome || s.desc || "") : "", s ? s.doc || "" : "", v(s),
-        l.nomeConfere ? "sim" : ""].map(function (c) {
+        l.nomeConfere ? "sim" : "", l.obs || ""].map(function (c) {
         c = limpa(c);
         return /[;"\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
       }).join(";"));
@@ -168,6 +227,7 @@
 
   return {
     lerPlanilhaTitulos: lerPlanilhaTitulos, escolherColunas: escolherColunas, detectarCabecalho: detectarCabecalho,
-    nomeConfere: nomeConfere, conciliarAvulso: conciliarAvulso, csvResultado: csvResultado
+    nomeConfere: nomeConfere, conciliarAvulso: conciliarAvulso, csvResultado: csvResultado,
+    chaveExtrato: chaveExtrato, chaveSistema: chaveSistema, chavesUnicas: chavesUnicas, separarManuais: separarManuais
   };
 });

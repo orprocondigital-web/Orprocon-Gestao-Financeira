@@ -1244,6 +1244,32 @@
           return;
         }
 
+        if (isLedger) {
+          // cada lançamento vai para o mês da sua data (como na importação de extratos)
+          var porMes = {};
+          imported.forEach(function(e){ var m = String(e.data).slice(0, 7); (porMes[m] = porMes[m] || []).push(e); });
+          var meses = Object.keys(porMes).sort();
+          var jaTem = 0;
+          meses.forEach(function(m){ jaTem += lancamentosDoMes(m, tab).length; });
+          var somar = jaTem === 0 || confirm(
+            "Encontrei " + imported.length + " lançamento(s) na aba \"" + foundSheet + "\" (" + meses.map(Importacao.nomeCompetencia).join(", ") + ").\n\n" +
+            "OK = adicionar aos " + jaTem + " que já existem nesse(s) mês(es).\n" +
+            "Cancelar = substituir os existentes por estes.");
+          meses.forEach(function(m){
+            Store.set("lancamentos:" + m + ":" + tab, (somar ? lancamentosDoMes(m, tab) : []).concat(porMes[m]));
+          });
+          var principal = meses.slice().sort(function(a, b){ return porMes[b].length - porMes[a].length; })[0];
+          var trocou = principal && principal !== competencia;
+          if (trocou) { competencia = principal; localStorage.setItem("competencia", principal); preencherCompetencias(); }
+          renderLedger();
+          var msgL = imported.length.toLocaleString("pt-BR") + " lançamento(s) importado(s) da aba \"" + foundSheet + "\", em " +
+            meses.map(Importacao.nomeCompetencia).join(", ") + "." + (trocou ? " A competência mudou para " + Importacao.nomeCompetencia(principal) + "." : "");
+          if (ignoradas) msgL += " " + ignoradas + " linha(s) classificadas ficaram de fora por não terem data. A planilha também não as envia ao Único.";
+          statusEl.textContent = msgL;
+          toast("Importação concluída.");
+          return;
+        }
+
         var existing = loadEntries(tab);
         var append = existing.length === 0 || confirm(
           "Encontrei " + imported.length + " item(ns) na aba \"" + foundSheet + "\".\n\n" +
@@ -1290,6 +1316,8 @@
 
   var STATUS_CONC = {
     ok:             { classe: "conc-match", texto: "Conciliado", barra: "b-ok" },
+    manual:         { classe: "conc-manual", texto: "À mão", barra: "b-man" },
+    justificado:    { classe: "conc-just",  texto: "Conferido", barra: "b-just" },
     data_diferente: { classe: "conc-warn",  texto: "Data diferente", barra: "b-warn" },
     so_extrato:     { classe: "conc-diff",  texto: "Só no banco", barra: "b-diff" },
     so_sistema:     { classe: "conc-miss",  texto: "Só no sistema", barra: "b-miss" }
@@ -1347,6 +1375,7 @@
 
   function trocarModoConc(modo){
     concModo = modo;
+    limparSelecao();
     $("conc-modo-conta").classList.toggle("ativo", modo === "conta");
     $("conc-modo-avulso").classList.toggle("ativo", modo === "avulso");
     $("conc-modo-conta").setAttribute("aria-pressed", modo === "conta");
@@ -1416,8 +1445,9 @@
   }
 
   function limparConciliacao(){
+    limparSelecao();
     if (concModo === "avulso") {
-      avulsa = { extrato: null, rows: null, titulos: null, colunas: null };
+      avulsa = { extrato: null, rows: null, titulos: null, colunas: null, manuais: [] };
       $("av-extrato-nome").textContent = "nenhum arquivo escolhido";
       $("av-planilha-nome").textContent = "nenhum arquivo escolhido";
     } else {
@@ -1438,6 +1468,72 @@
       conteudo: Conciliacao.csvResultado(ultimoResultado, concModo === "avulso" ? "Planilha" : "Sistema") }]);
   }
 
+  // ---------- conciliação manual ----------
+  var selecao = { ext: {}, sis: {} };   // chave → item
+  function chaveGrupos(){ return "conciliacao-manual:" + ultimaConc.acctId; }
+  function gruposManuais(){
+    if (concModo === "avulso") return avulsa.manuais || (avulsa.manuais = []);
+    return ultimaConc ? (Store.get(chaveGrupos()) || []) : [];
+  }
+  function salvarGrupos(g){
+    if (concModo === "avulso") avulsa.manuais = g;
+    else Store.set(chaveGrupos(), g);
+  }
+  function limparSelecao(){ selecao = { ext: {}, sis: {} }; }
+
+  function somaSel(lado){
+    var t = 0;
+    Object.keys(selecao[lado]).forEach(function(k){ var x = selecao[lado][k]; t += (x.sign === "D" ? -1 : 1) * Math.round(x.valorNum * 100); });
+    return t;
+  }
+
+  function atualizarBarraSelecao(){
+    var nE = Object.keys(selecao.ext).length, nS = Object.keys(selecao.sis).length;
+    var bar = $("conc-selecao");
+    if (!nE && !nS) { bar.hidden = true; return; }
+    var rs = concModo === "avulso" ? "da planilha" : "do sistema";
+    var dif = somaSel("ext") - somaSel("sis");
+    bar.hidden = false;
+    $("conc-sel-texto").innerHTML = "Selecionados: <strong>" + nE + "</strong> do banco (" + formatBRNumber(Math.abs(somaSel("ext")) / 100) + ")" +
+      " e <strong>" + nS + "</strong> " + rs + " (" + formatBRNumber(Math.abs(somaSel("sis")) / 100) + ")" +
+      (nE && nS ? " · diferença <strong class='" + (dif === 0 ? "val-c" : "val-d") + "'>" + formatBRNumber(dif / 100) + "</strong>" : "");
+    $("conc-sel-juntar").disabled = !(nE && nS);
+  }
+
+  function conciliarSelecionados(){
+    var ext = Object.keys(selecao.ext), sis = Object.keys(selecao.sis);
+    if (!ext.length || !sis.length) return;
+    var dif = somaSel("ext") - somaSel("sis"), obs = "";
+    if (dif !== 0) {
+      obs = prompt("Os valores não batem: diferença de " + formatBRNumber(dif / 100) + ".\n" +
+        "Se estiver certo (juros, desconto, tarifa embutida…), escreva o motivo e confirme:", "");
+      if (obs === null) return;
+    }
+    var g = gruposManuais().slice();
+    g.push({ ext: ext, sis: sis, tipo: "manual", obs: obs || "", em: new Date().toISOString() });
+    salvarGrupos(g); limparSelecao(); renderConciliacao();
+    toast("Conciliado à mão.");
+  }
+
+  function marcarConferido(){
+    var ext = Object.keys(selecao.ext), sis = Object.keys(selecao.sis);
+    if (!ext.length && !sis.length) return;
+    var obs = prompt("Marcar " + (ext.length + sis.length) + " item(ns) como conferido(s), sem par.\nObservação (opcional), ex.: tarifa bancária, transferência entre contas:", "");
+    if (obs === null) return;
+    var g = gruposManuais().slice();
+    ext.forEach(function(k){ g.push({ ext: [k], sis: [], tipo: "justificado", obs: obs, em: new Date().toISOString() }); });
+    sis.forEach(function(k){ g.push({ ext: [], sis: [k], tipo: "justificado", obs: obs, em: new Date().toISOString() }); });
+    salvarGrupos(g); limparSelecao(); renderConciliacao();
+    toast("Marcado como conferido.");
+  }
+
+  function desfazerGrupo(idx){
+    var g = gruposManuais().slice();
+    g.splice(idx, 1);
+    salvarGrupos(g); renderConciliacao();
+    toast("Desfeito: os itens voltaram para a conciliação.");
+  }
+
   function renderConciliacao() {
     var avulso = concModo === "avulso";
     if (avulso ? !(avulsa.extrato && avulsa.titulos) : !ultimaConc) return;
@@ -1445,65 +1541,134 @@
     var tolerancia = parseInt($("conc-tolerancia").value, 10);
     if (isNaN(tolerancia) || tolerancia < 0) tolerancia = 0;
 
-    var extrato = avulso ? avulsa.extrato : ultimaConc.extrato;
-    var sistema = avulso ? avulsa.titulos : lancamentosParaConciliar();
-    if (filtro) {
-      extrato = extrato.filter(function(e){ return String(e.texto || e.desc).toLowerCase().indexOf(filtro) > -1; });
-      sistema = sistema.filter(function(s){ return [s.desc, s.nome, s.cpf, s.doc].join(" ").toLowerCase().indexOf(filtro) > -1; });
-    }
+    // conciliações manuais saem antes da automática; chaves calculadas na lista inteira (estáveis com filtro)
+    var extratoTodo = avulso ? avulsa.extrato : ultimaConc.extrato;
+    var sistemaTodo = avulso ? avulsa.titulos : lancamentosParaConciliar();
+    var kE = Conciliacao.chavesUnicas(extratoTodo, Conciliacao.chaveExtrato);
+    var kS = Conciliacao.chavesUnicas(sistemaTodo, Conciliacao.chaveSistema);
+    var chaveDe = new Map();
+    extratoTodo.forEach(function(e, i){ chaveDe.set(e, kE[i]); });
+    sistemaTodo.forEach(function(s, i){ chaveDe.set(s, kS[i]); });
+    var sep = Conciliacao.separarManuais(extratoTodo, sistemaTodo, gruposManuais(), kE, kS);
+
+    var bate = function(x, lado){
+      if (!filtro) return true;
+      var t = lado === "ext" ? String(x.texto || x.desc) : [x.desc, x.nome, x.cpf, x.doc].join(" ");
+      return t.toLowerCase().indexOf(filtro) > -1;
+    };
+    var extrato = sep.extrato.filter(function(e){ return bate(e, "ext"); });
+    var sistema = sep.sistema.filter(function(s){ return bate(s, "sis"); });
+    var manuais = sep.linhas.filter(function(l){
+      return l.extratos.some(function(e){ return bate(e, "ext"); }) || l.sistemas.some(function(s){ return bate(s, "sis"); });
+    });
 
     var res = avulso ? Conciliacao.conciliarAvulso(extrato, sistema, { toleranciaDias: tolerancia })
                      : Core.conciliar(extrato, sistema, { toleranciaDias: tolerancia });
-    var ordem = { so_extrato: 0, so_sistema: 1, data_diferente: 2, ok: 3 };
-    var linhas = res.linhas.slice().sort(function(a, b){
-      var da = (a.extrato || a.sistema).data, db = (b.extrato || b.sistema).data;
-      return ordem[a.status] - ordem[b.status] || da.localeCompare(db);
-    });
+    var ordem = { so_extrato: 0, so_sistema: 1, data_diferente: 2, manual: 3, justificado: 4, ok: 5 };
+    var dataDe = function(l){ var x = l.extrato || l.sistema || (l.extratos && l.extratos[0]) || (l.sistemas && l.sistemas[0]); return x ? x.data : ""; };
+    var linhas = res.linhas.concat(manuais).sort(function(a, b){ return ordem[a.status] - ordem[b.status] || dataDe(a).localeCompare(dataDe(b)); });
     ultimoResultado = linhas;
+
+    // a seleção só guarda o que ainda está pendente
+    ["ext", "sis"].forEach(function(lado){
+      Object.keys(selecao[lado]).forEach(function(k){
+        var vivo = linhas.some(function(l){ var x = lado === "ext" ? l.extrato : l.sistema; return x && (l.status === "so_extrato" || l.status === "so_sistema") && chaveDe.get(x) === k; });
+        if (!vivo) delete selecao[lado][k];
+      });
+    });
 
     var rotulo = function(k){ return k === "so_sistema" && avulso ? "Só na planilha" : STATUS_CONC[k].texto; };
     var valor = function(l){ return l ? '<span class="' + (l.sign === "D" ? "val-d" : "val-c") + '">' + formatBRNumber(l.valorNum) + l.sign + "</span>" : '<span class="muted">—</span>'; };
+    var descBancoDe = function(e){
+      var cpfE = e.cpfCnpj || e.cpf;
+      return escapeHtml(e.desc) + (e.nome || cpfE ? "<span class='cell-sub'>" + escapeHtml([e.nome, cpfE].filter(Boolean).join(", ")) + "</span>" : "");
+    };
+    var descSisDe = function(s, confere){
+      return avulso ? escapeHtml(s.nome || "—") + (confere ? "<span class='nome-ok' title='O nome ou o CNPJ do fornecedor aparece no histórico do banco'>✓ no histórico</span>" : "") +
+                      "<span class='cell-sub'>" + escapeHtml(["Doc " + (s.doc || "—"), s.cpf, "linha " + s.linha].filter(Boolean).join(" · ")) + "</span>"
+                    : escapeHtml(s.desc);
+    };
+    var empilha = function(lista, fn){ return lista.map(fn).join("<hr class='sep-item'>"); };
+
     $("conc-body").innerHTML = linhas.map(function(l){
       var st = STATUS_CONC[l.status];
+      if (l.extratos) {   // conciliação manual
+        var nota = [l.obs, l.diferencaCents ? "diferença " + formatBRNumber(l.diferencaCents / 100) : ""].filter(Boolean).join(" · ");
+        return "<tr class='linha-manual'>" +
+          "<td>" + empilha(l.extratos, function(e){ return brDate(e.data); }) + "</td>" +
+          "<td>" + empilha(l.extratos, descBancoDe) + "</td>" +
+          "<td class='num'>" + (l.extratos.length ? empilha(l.extratos, valor) : '<span class="muted">—</span>') + "</td>" +
+          "<td><span class='pill " + st.classe + "'>" + st.texto + "</span>" +
+            "<button type='button' class='link-acao' data-desfazer='" + l.grupo + "'>Desfazer</button></td>" +
+          "<td>" + empilha(l.sistemas, function(s){ return brDate(s.data); }) + "</td>" +
+          "<td class='num'>" + (l.sistemas.length ? empilha(l.sistemas, valor) : '<span class="muted">—</span>') + "</td>" +
+          "<td>" + (l.sistemas.length ? empilha(l.sistemas, function(s){ return descSisDe(s, false); }) : "") +
+            (nota ? "<span class='cell-sub obs'>" + escapeHtml(nota) + "</span>" : "") + "</td>" +
+        "</tr>";
+      }
       var e = l.extrato, s = l.sistema;
-      var cpfE = e ? (e.cpfCnpj || e.cpf) : "";
-      var descBanco = e ? escapeHtml(e.desc) + (e.nome || cpfE ? "<span class='cell-sub'>" + escapeHtml([e.nome, cpfE].filter(Boolean).join(", ")) + "</span>" : "") : "";
-      var descSis = !s ? "<span class='muted'>" + (avulso ? "Não está na planilha" : "Não lançado") + "</span>"
-        : avulso ? escapeHtml(s.nome || "—") + (l.nomeConfere ? "<span class='nome-ok' title='O nome ou o CNPJ do fornecedor aparece no histórico do banco'>✓ no histórico</span>" : "") +
-                   "<span class='cell-sub'>" + escapeHtml(["Doc " + (s.doc || "—"), s.cpf, "linha " + s.linha].filter(Boolean).join(" · ")) + "</span>"
-        : escapeHtml(s.desc);
-      return "<tr>" +
+      var pendente = l.status === "so_extrato" || l.status === "so_sistema";
+      var lado = l.status === "so_extrato" ? "ext" : "sis";
+      var k = pendente ? chaveDe.get(lado === "ext" ? e : s) : "";
+      var marcado = pendente && selecao[lado][k];
+      var caixa = pendente ? "<label class='sel-item' title='Selecionar para conciliar à mão'><input type='checkbox' data-lado='" + lado + "' data-k='" + escapeHtml(k) + "'" + (marcado ? " checked" : "") + "></label>" : "";
+      return "<tr" + (marcado ? " class='selecionada'" : "") + ">" +
         "<td>" + (e ? brDate(e.data) : "") + "</td>" +
-        "<td>" + descBanco + "</td>" +
+        "<td>" + (e ? descBancoDe(e) : "") + "</td>" +
         "<td class='num'>" + valor(e) + "</td>" +
-        "<td><span class='pill " + st.classe + "'>" + rotulo(l.status) + "</span></td>" +
+        "<td>" + caixa + "<span class='pill " + st.classe + "'>" + rotulo(l.status) + "</span></td>" +
         "<td>" + (s ? brDate(s.data) : "") + "</td>" +
         "<td class='num'>" + valor(s) + "</td>" +
-        "<td>" + descSis + "</td>" +
+        "<td>" + (s ? descSisDe(s, l.nomeConfere) : "<span class='muted'>" + (avulso ? "Não está na planilha" : "Não lançado") + "</span>") + "</td>" +
       "</tr>";
     }).join("");
 
+    // mapa chave → item para a seleção
+    var itemDe = {};
+    extratoTodo.forEach(function(x, i){ itemDe["ext|" + kE[i]] = x; });
+    sistemaTodo.forEach(function(x, i){ itemDe["sis|" + kS[i]] = x; });
+    Array.prototype.forEach.call($("conc-body").querySelectorAll("input[data-k]"), function(cb){
+      cb.addEventListener("change", function(){
+        var ladoCb = cb.dataset.lado, kk = cb.dataset.k;
+        if (cb.checked) selecao[ladoCb][kk] = itemDe[ladoCb + "|" + kk]; else delete selecao[ladoCb][kk];
+        cb.closest("tr").classList.toggle("selecionada", cb.checked);
+        atualizarBarraSelecao();
+      });
+    });
+    Array.prototype.forEach.call($("conc-body").querySelectorAll("[data-desfazer]"), function(bt){
+      bt.addEventListener("click", function(){ desfazerGrupo(+bt.dataset.desfazer); });
+    });
+    atualizarBarraSelecao();
+
     var r = res.resumo;
-    var dif = r.diferencaCents / 100;
-    var total = res.linhas.length || 1;
-    var partes = ["ok", "data_diferente", "so_extrato", "so_sistema"];
+    r.manual = manuais.filter(function(l){ return l.status === "manual"; }).length;
+    r.justificado = manuais.filter(function(l){ return l.status === "justificado"; }).length;
+    var difMan = 0;
+    manuais.forEach(function(l){
+      l.extratos.forEach(function(x){ difMan += (x.sign === "D" ? -1 : 1) * Math.round(x.valorNum * 100) * (avulso ? (x.sign === "D" ? -1 : 1) : 1); });
+      l.sistemas.forEach(function(x){ difMan -= (x.sign === "D" ? -1 : 1) * Math.round(x.valorNum * 100) * (avulso ? (x.sign === "D" ? -1 : 1) : 1); });
+    });
+    var dif = (r.diferencaCents + difMan) / 100;
+    var total = linhas.length || 1;
+    var partes = ["ok", "data_diferente", "manual", "justificado", "so_extrato", "so_sistema"];
     var barra = partes.filter(function(k){ return r[k] > 0; }).map(function(k){
       return '<span class="' + STATUS_CONC[k].barra + '" style="flex:' + r[k] + '" title="' + rotulo(k) + ': ' + r[k] + '"></span>';
     }).join("");
-    var legenda = partes.map(function(k){
+    var legenda = partes.filter(function(k){ return r[k] > 0 || ["ok", "data_diferente", "so_extrato", "so_sistema"].indexOf(k) > -1; }).map(function(k){
       return '<span><i class="' + STATUS_CONC[k].barra + '"></i>' + rotulo(k) + ' <strong>' + r[k] + '</strong></span>';
     }).join("");
     var pendentes = r.so_extrato + r.so_sistema;
-    var pct = Math.round((r.ok + r.data_diferente) / total * 100);
-    var titulo = r.fechado ? "Conciliação fechada" :
+    var pct = Math.round((total - pendentes) / total * 100);
+    var titulo = !pendentes ? "Conciliação fechada" :
       pendentes + (pendentes === 1 ? " pendência" : " pendências") + ", " + pct + "% conciliado";
     var nota = avulso && r.ignorados ? '<p class="muted small">' + r.ignorados + " " + ($("av-tipo").value === "recebimentos" ? "saída(s)" : "entrada(s)") +
       " do extrato ficaram fora, porque a planilha é de " + ($("av-tipo").value === "recebimentos" ? "recebimentos" : "pagamentos") + ".</p>" : "";
+    var dica = pendentes ? '<p class="muted small">Pendente que está certo? Marque as caixinhas e use <strong>Conciliar selecionados</strong> (ex.: um débito que pagou vários boletos) ou <strong>Marcar como conferido</strong> (ex.: tarifa, sem par).</p>' : "";
     $("conc-totals").innerHTML =
       '<div class="conc-headline"><h2>' + titulo + '</h2>' +
       '<div class="diff">Diferença, banco menos ' + (avulso ? "planilha" : "sistema") + '<strong class="' + (dif === 0 ? "val-c" : "val-d") + '">' + formatBRNumber(dif) + '</strong></div></div>' +
       '<div class="conc-bar" role="img" aria-label="' + pct + '% conciliado">' + barra + '</div>' +
-      '<div class="conc-legend">' + legenda + '</div>' + nota;
+      '<div class="conc-legend">' + legenda + '</div>' + nota + dica;
     $("conc-results-panel").style.display = "block";
   }
 
@@ -1619,6 +1784,9 @@
   $("file-av-planilha").addEventListener("change", function(ev){ if (ev.target.files && ev.target.files[0]) carregarPlanilhaAvulsa(ev.target.files[0]); });
   $("av-tipo").addEventListener("change", function(){ if (avulsa.rows) aplicarPlanilhaAvulsa(); });
   $("conc-limpar").addEventListener("click", limparConciliacao);
+  $("conc-sel-juntar").addEventListener("click", conciliarSelecionados);
+  $("conc-sel-conferido").addEventListener("click", marcarConferido);
+  $("conc-sel-cancelar").addEventListener("click", function(){ limparSelecao(); renderConciliacao(); });
   $("conc-exportar").addEventListener("click", exportarConciliacao);
   $("conc-tolerancia").addEventListener("input", renderConciliacao);
   $("conc-acct").addEventListener("change", function(){

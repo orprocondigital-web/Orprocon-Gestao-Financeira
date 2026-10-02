@@ -58,6 +58,13 @@ Dois modos, no topo da tela:
 
 Nos dois: tolerância de data, filtro, **Exportar resultado** (CSV) e **Limpar**.
 
+**Conciliação manual** — o que ficou pendente mas está certo: marque as caixinhas e
+- *Conciliar selecionados*: junta um ou mais itens do banco com um ou mais da planilha/sistema
+  (ex.: um débito que pagou vários boletos). Se as somas não batem, pede o motivo;
+- *Marcar como conferido*: item sem par que está certo (ex.: tarifa), com observação.
+
+Cada um tem *Desfazer*. No modo por conta ficam salvos; no avulso valem até *Limpar*.
+
 ### Competência (mês)
 
 Cada mês tem os seus lançamentos, escolhido no seletor *Competência* do topo.
