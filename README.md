@@ -58,6 +58,13 @@ Dois modos, no topo da tela:
 
 Nos dois: tolerância de data, filtro, **Exportar resultado** (CSV) e **Limpar**.
 
+**XMLs das NF-e** (soltos ou em .zip, como vêm da SIEG) também servem no lugar da planilha:
+cada parcela da nota (cobr/dup) vira um título pelo vencimento; nota sem parcela vira um título
+com o valor total. Compras para "pagamentos", vendas para "recebimentos"; a empresa é o CNPJ
+que mais aparece nas notas. Notas canceladas saem se o XML do evento vier junto. Parcelas que
+vencem depois do extrato ficam fora ("a vencer"). Pagamento antecipado ou atrasado casa até
+30 dias, desde que o CNPJ ou o nome do fornecedor esteja no histórico do banco.
+
 **Balancete de fornecedores do Único** (Saldo anterior / Débito / Crédito / Saldo atual por
 fornecedor) também é aceito no Extrato × planilha: o sistema reconhece o formato e confere por
 **total pago a cada fornecedor** (soma das saídas do extrato × Débito do balancete). O pagamento
@@ -145,6 +152,7 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/extratos.js` | OFX, TXT do Sicoob e CSV; conta do extrato, sem duplicar, sugestão de classificação. |
 | `js/pdfextrato.js` | Extratos em PDF (texto com posição, via pdf.js) e conferência de saldos. |
 | `js/conciliacao.js` | Conciliação avulsa: planilha de fornecedores/clientes × extrato. |
+| `js/nfe.js` | Leitura dos XMLs de NF-e (parcelas, cancelamentos) para a conciliação. |
 | `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
 | `js/app.js` | Tela. |
 | `tests/` | Testes automatizados e um extrato Sicoob fictício. |

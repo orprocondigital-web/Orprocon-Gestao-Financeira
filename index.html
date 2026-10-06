@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.10.0">
+<link rel="stylesheet" href="css/style.css?v=0.11.0">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -303,7 +303,7 @@
         </div>
 
         <div id="conc-bloco-avulso" hidden>
-          <p class="muted small inset-texto">Cruza o extrato (pode ser mais de um) com uma planilha de contas pagas a fornecedores, recebidas de clientes, ou com o <strong>balancete de fornecedores</strong> do Único (aí a conferência é pelo total pago a cada fornecedor). Valores iguais são desempatados pelo CNPJ ou pelo nome do fornecedor no histórico do banco.</p>
+          <p class="muted small inset-texto">Cruza o extrato (pode ser mais de um) com uma planilha de contas pagas a fornecedores, recebidas de clientes, ou com o <strong>balancete de fornecedores</strong> do Único (aí a conferência é pelo total pago a cada fornecedor), ou com os <strong>XMLs das NF-e</strong> (soltos ou em .zip): cada parcela da nota vira um título, pelo vencimento. Valores iguais são desempatados pelo CNPJ ou pelo nome do fornecedor no histórico do banco.</p>
           <div class="salvas" id="av-salvas-bloco" hidden>
             <label for="av-salvas">Conciliações salvas</label>
             <select id="av-salvas"></select>
@@ -324,8 +324,8 @@
               <span class="muted small" id="av-extrato-nome">nenhum arquivo escolhido</span>
             </div>
             <div class="field conc-upload">
-              <label class="btn btn-outline" for="file-av-planilha">2. Planilha</label>
-              <input type="file" id="file-av-planilha" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+              <label class="btn btn-outline" for="file-av-planilha">2. Planilha ou XMLs</label>
+              <input type="file" id="file-av-planilha" accept=".xlsx,.xlsm,.xls,.csv,.xml,.zip" multiple hidden>
               <span class="muted small" id="av-planilha-nome">nenhum arquivo escolhido</span>
             </div>
           </div>
@@ -529,13 +529,14 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.10.0"></script>
-<script src="js/core.js?v=0.10.0"></script>
-<script src="js/integracao.js?v=0.10.0"></script>
-<script src="js/importacao.js?v=0.10.0"></script>
-<script src="js/extratos.js?v=0.10.0"></script>
-<script src="js/pdfextrato.js?v=0.10.0"></script>
-<script src="js/conciliacao.js?v=0.10.0"></script>
-<script src="js/app.js?v=0.10.0"></script>
+<script src="js/storage.js?v=0.11.0"></script>
+<script src="js/core.js?v=0.11.0"></script>
+<script src="js/integracao.js?v=0.11.0"></script>
+<script src="js/importacao.js?v=0.11.0"></script>
+<script src="js/extratos.js?v=0.11.0"></script>
+<script src="js/pdfextrato.js?v=0.11.0"></script>
+<script src="js/conciliacao.js?v=0.11.0"></script>
+<script src="js/nfe.js?v=0.11.0"></script>
+<script src="js/app.js?v=0.11.0"></script>
 </body>
 </html>

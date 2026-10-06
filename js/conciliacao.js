@@ -109,6 +109,7 @@
    */
   function conciliarAvulso(extrato, titulos, opcoes) {
     var tol = opcoes && opcoes.toleranciaDias !== undefined ? opcoes.toleranciaDias : 3;
+    var maxConfirmado = Math.max(tol, opcoes && opcoes.diasComFornecedor !== undefined ? opcoes.diasComFornecedor : 30);
     var sinal = titulos.length ? titulos[0].sign : "D";
     var ext = extrato.filter(function (e) { return e.sign === sinal; });
     var ignorados = extrato.length - ext.length;
@@ -119,9 +120,11 @@
       ext.forEach(function (e, ei) {
         if (Math.round(e.valorNum * 100) !== c) return;
         var d = diasEntre(e.data, t.data);
-        if (d > tol) return;
         var confere = nomeConfere(e, t);
-        pares.push({ ti: ti, ei: ei, d: d, confere: confere, peso: (confere ? 0 : 1000) + d * 10 });
+        // fora da tolerância só vale se o fornecedor confirma (CNPJ/nome no histórico) e até 30 dias:
+        // pagamento antecipado ou atrasado em relação ao vencimento
+        if (d > tol && !(confere && d <= maxConfirmado)) return;
+        pares.push({ ti: ti, ei: ei, d: d, confere: confere, peso: (d > tol ? 2000 : confere ? 0 : 1000) + d * 10 });
       });
     });
     pares.sort(function (a, b) { return a.peso - b.peso || a.ti - b.ti || a.ei - b.ei; });
