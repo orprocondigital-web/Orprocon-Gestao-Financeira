@@ -18,6 +18,8 @@ servidor nenhum. Todo o processamento de XML acontece localmente.
   — SVRS)
 - Calculadora manual avulsa (BC × alíquota) para conferir um item isolado
 - Exportação em CSV, pronta para abrir no Excel (acentuação e formato pt-BR)
+- Botão **Usar exemplo**: carrega notas fictícias (NF-e e NFS-e) com itens
+  corretos, com redução de alíquota e com erros, para demonstrar a ferramenta
 
 ## Publicar no GitHub Pages
 
