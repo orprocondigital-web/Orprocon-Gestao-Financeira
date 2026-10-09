@@ -137,7 +137,7 @@
     return;
   }
 
-  Store.init().then(function (ok) {
+  Store.init({ prefixo: "auth:" }).then(function (ok) {
     if (!ok) throw new Error("Este navegador não permite guardar dados. Verifique se não está numa janela anônima.");
     auth = AuthCore.criarAuthLocal(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste) });
     $("cfg-email").value = AuthCore.ADMIN_EMAIL;

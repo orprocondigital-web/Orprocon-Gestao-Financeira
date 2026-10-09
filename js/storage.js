@@ -23,10 +23,28 @@ var Store = (function () {
     });
   }
 
-  function lerTudo(banco, store) {
+  /** Lê o banco inteiro (ou só as chaves que começam com `prefixo`) de uma vez. */
+  function lerTudo(banco, store, prefixo) {
     return new Promise(function (ok, erro) {
+      var os = banco.transaction(store, "readonly").objectStore(store);
+      var faixa = prefixo ? IDBKeyRange.bound(prefixo, prefixo + "\uffff") : undefined;
+      if (os.getAll && os.getAllKeys) {
+        // getAll/getAllKeys: duas leituras em bloco, bem mais rápido que percorrer item a item
+        var chaves = null, valores = null;
+        var pronto = function () {
+          if (!chaves || !valores) return;
+          var dados = {};
+          for (var i = 0; i < chaves.length; i++) dados[chaves[i]] = valores[i];
+          ok(dados);
+        };
+        var rk = os.getAllKeys(faixa), rv = os.getAll(faixa);
+        rk.onsuccess = function () { chaves = rk.result; pronto(); };
+        rv.onsuccess = function () { valores = rv.result; pronto(); };
+        rk.onerror = rv.onerror = function (e) { erro(e.target.error); };
+        return;
+      }
       var dados = {};
-      var req = banco.transaction(store, "readonly").objectStore(store).openCursor();
+      var req = os.openCursor(faixa);
       req.onsuccess = function (e) {
         var c = e.target.result;
         if (c) { dados[c.key] = c.value; c.continue(); } else ok(dados);
@@ -86,14 +104,23 @@ var Store = (function () {
     }).catch(function (e) { console.warn("Migração localforage ignorada:", e); });
   }
 
-  function init() {
+  /**
+   * Abre o banco e carrega os dados para a memória.
+   * opcoes.prefixo: carrega só essas chaves (a tela de login só precisa de "auth:",
+   * não dos lançamentos de todos os meses).
+   */
+  function init(opcoes) {
+    var prefixo = opcoes && opcoes.prefixo;
     if (!window.indexedDB) return Promise.resolve(false);
     return abrir(DB_NOME, 1, function (b) { b.createObjectStore(OBJ); })
-      .then(function (b) { db = b; return lerTudo(db, OBJ); })
-      .then(function (dados) { cache = dados; return migrarLocalStorage(); })
-      .then(migrarLocalforage)
+      .then(function (b) { db = b; return lerTudo(db, OBJ, prefixo); })
+      .then(function (dados) {
+        cache = dados;
+        if (prefixo) return;
+        return migrarLocalStorage().then(migrarLocalforage);
+      })
       .then(function () {
-        if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+        if (!prefixo && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
         return true;
       })
       .catch(function (e) { console.error("IndexedDB indisponível:", e); db = null; return false; });

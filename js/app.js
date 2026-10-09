@@ -859,7 +859,12 @@
 
   function analisarArquivoPlanilha(file){
     $("imp-arquivo-nome").textContent = file.name;
-    if (typeof XLSX === "undefined") { $("imp-status").textContent = "O leitor de planilhas não carregou. Verifique a internet e recarregue a página."; return; }
+    if (typeof XLSX === "undefined") {
+      $("imp-status").textContent = "Preparando o leitor de planilhas…";
+      carregarXlsx().then(function(){ analisarArquivoPlanilha(file); },
+        function(){ $("imp-status").textContent = "O leitor de planilhas não carregou. Verifique a internet e tente de novo."; });
+      return;
+    }
     $("imp-status").textContent = "Lendo a planilha… pode levar alguns segundos.";
     $("imp-resumo").hidden = true; $("imp-opcoes").hidden = true; $("imp-confirmar").disabled = true;
     var reader = new FileReader();
@@ -964,6 +969,23 @@
     planoImportacao = null;
   }
 
+  // ---------- leitor de planilhas (carregado só quando precisa) ----------
+  // Antes ficava no <head> e travava a abertura do sistema até baixar e montar ~900 KB.
+  var XLSX_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+  var xlsxPromessa = null;
+  function carregarXlsx(){
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    if (xlsxPromessa) return xlsxPromessa;
+    xlsxPromessa = new Promise(function(ok, erro){
+      var sc = document.createElement("script");
+      sc.src = XLSX_URL;
+      sc.onload = function(){ ok(window.XLSX); };
+      sc.onerror = function(){ xlsxPromessa = null; sc.remove(); erro(new Error("o leitor de planilhas não carregou (verifique a internet)")); };
+      document.head.appendChild(sc);
+    });
+    return xlsxPromessa;
+  }
+
   // ---------- importar extratos do banco (PDF, OFX, TXT, CSV, planilha) ----------
   var PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
   var PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -1018,8 +1040,7 @@
           return { arquivo: nome, formato: "PDF " + r.banco.nome, banco: r.banco.nome, numeroConta: r.numeroConta, itens: r.itens, conferencia: r.conferencia };
         });
       }
-      if (ext === "xlsx" || ext === "xls") {
-        if (typeof XLSX === "undefined") throw new Error("o leitor de planilhas não carregou");
+      if (ext === "xlsx" || ext === "xls") return carregarXlsx().then(function(XLSX){
         var wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
         var r = Core.parseExtratoRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" }));
         if (!r.ok) return { arquivo: nome, erro: r.erro };
@@ -1027,7 +1048,7 @@
           ? PdfExtrato.conferirSaldos(r.itens, r.saldoInicial !== undefined ? [{ tipo: "inicio", saldo: r.saldoInicial }] : [])
           : null;
         return { arquivo: nome, formato: "Planilha", numeroConta: r.numeroConta || "", itens: r.itens, conferencia: conf };
-      }
+      });
       var e = Extratos.lerExtrato(Core.decodeText(new Uint8Array(buf)));
       if (e.ok === false) return { arquivo: nome, erro: e.erro || "Formato não reconhecido." };
       return { arquivo: nome, formato: e.formato === "genérico" ? "CSV/TXT" : e.formato, numeroConta: e.numeroConta || "", itens: e.itens || [] };
@@ -1233,7 +1254,12 @@
   function importFile(file, isLedger){
     var statusEl = $(isLedger ? "import-status-ledger" : "import-status-cadastro");
     $(isLedger ? "import-filename-ledger" : "import-filename-cadastro").textContent = file.name;
-    if (typeof XLSX === "undefined") { statusEl.textContent = "O leitor de planilhas não carregou. Verifique a conexão com a internet e recarregue a página."; return; }
+    if (typeof XLSX === "undefined") {
+      statusEl.textContent = "Preparando o leitor de planilhas…";
+      carregarXlsx().then(function(){ importFile(file, isLedger); },
+        function(){ statusEl.textContent = "O leitor de planilhas não carregou. Verifique a conexão com a internet e tente de novo."; });
+      return;
+    }
     statusEl.textContent = "Lendo arquivo…";
     var tab = currentTab;
 
@@ -1450,9 +1476,10 @@
   function lerPlanilhaComoLinhas(file){
     return lerBuffer(file).then(function(buf){
       if (/\.csv$/i.test(file.name)) return Core.textToRows(Core.decodeText(new Uint8Array(buf)));
-      if (typeof XLSX === "undefined") throw new Error("o leitor de planilhas não carregou");
-      var wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
-      return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" });
+      return carregarXlsx().then(function(XLSX){
+        var wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
+        return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" });
+      });
     });
   }
 
@@ -2502,6 +2529,7 @@
   // ---------- início ----------
   mostrarUsuario();
   var LOGIN_PENDENTE = {};
+  var dicaCarregando = setTimeout(function(){ $("carregando-dica").hidden = false; }, 2500);
   Store.init().then(function(ok){
     if (!ok) toast("Este navegador não permite gravar dados. Nada será salvo.");
     Auth = AuthCore.criarAuthLocal(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste) });
@@ -2525,7 +2553,17 @@
     var pedido = decodeURIComponent((location.hash || "").slice(1));
     selectTab(itemIndex[pedido] ? pedido : (bancos.length && itemIndex[bancos[0].id] ? bancos[0].id : "master"));
     $("content").setAttribute("aria-busy", "false");
-  }).catch(function(e){ if (e !== LOGIN_PENDENTE) console.error(e); });
+    clearTimeout(dicaCarregando);
+    // deixa o leitor de planilhas pronto em segundo plano, sem atrasar a abertura
+    var depois = window.requestIdleCallback || function(f){ setTimeout(f, 1500); };
+    depois(function(){ carregarXlsx().catch(function(){}); });
+  }).catch(function(e){
+    if (e === LOGIN_PENDENTE) return;
+    console.error(e);
+    clearTimeout(dicaCarregando);
+    $("content").setAttribute("aria-busy", "false");
+    toast("Não consegui abrir os dados. Recarregue a página (F5).");
+  });
 
   window.addEventListener("beforeunload", function(e){
     if (Store.gravando()) { e.preventDefault(); e.returnValue = ""; }
