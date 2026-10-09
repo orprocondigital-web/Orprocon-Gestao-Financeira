@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=0.13.2">
+<link rel="stylesheet" href="css/style.css?v=0.13.3">
 <script>
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
 </script>
@@ -33,6 +33,7 @@
     <div class="login-topo">
       <img class="logo-claro login-logo-mobile" src="icons/orprocon-logo.png" alt="Orprocon Empresa Contábil">
       <img class="logo-escuro login-logo-mobile" src="icons/orprocon-logo-escuro.png" alt="Orprocon Empresa Contábil">
+      <span class="login-topo-nome">Gestão Financeira</span>
     </div>
 
     <p class="login-carregando" id="carregando">Carregando…</p>
@@ -41,7 +42,7 @@
     <div class="teste-card" id="teste-card" hidden>
       <span class="teste-selo">Modo de teste</span>
       <h1>Conheça o sistema</h1>
-      <p class="muted">Entre sem senha para testar. O que você fizer fica só neste computador.</p>
+      <p class="muted">Entre sem senha para testar. O que você fizer fica só neste aparelho.</p>
       <button type="button" class="btn btn-primary login-botao" id="btn-entrar-teste">Entrar no modo de teste</button>
       <div class="login-ou"><span>ou entre com o seu usuário</span></div>
     </div>
@@ -63,9 +64,11 @@
       </div>
       <p class="login-erro" id="entrar-erro" role="alert"></p>
       <button type="submit" class="btn btn-primary login-botao">Entrar</button>
+      <div class="login-ajuda">
       <p class="muted small">Esqueceu a senha? Peça ao administrador para redefinir.</p>
-      <p class="login-importar muted small">Primeira vez neste computador? <button type="button" class="link-btn" data-importar>Importar o arquivo de acessos</button></p>
+      <p class="login-importar muted small">Primeira vez neste aparelho? <button type="button" class="link-btn" data-importar>Importar o arquivo de acessos</button></p>
       <p class="muted small" id="link-configurar" hidden>Administrador principal, primeira vez aqui? <button type="button" class="link-btn" id="btn-ir-configurar">Criar o primeiro acesso</button></p>
+      </div>
     </form>
 
     <!-- PRIMEIRO ACESSO: cria o administrador -->
@@ -127,9 +130,9 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script src="js/config.js?v=0.13.2"></script>
-<script src="js/storage.js?v=0.13.2"></script>
-<script src="js/auth.js?v=0.13.2"></script>
-<script src="js/login.js?v=0.13.2"></script>
+<script src="js/config.js?v=0.13.3"></script>
+<script src="js/storage.js?v=0.13.3"></script>
+<script src="js/auth.js?v=0.13.3"></script>
+<script src="js/login.js?v=0.13.3"></script>
 </body>
 </html>

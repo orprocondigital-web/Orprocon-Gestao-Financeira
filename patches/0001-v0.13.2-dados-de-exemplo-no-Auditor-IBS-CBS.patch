@@ -1,0 +1,287 @@
+From b6fc9bc227c3eddcbadfacbaf307085ab1d86389 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 13:59:01 +0000
+Subject: [PATCH 1/2] v0.13.2 - dados de exemplo no Auditor IBS/CBS
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Botão "Usar exemplo" (e "Ver com dados de exemplo" na tela vazia), igual ao
+Apurador de ICMS: carrega NF-e e NFS-e fictícias com itens corretos, redução
+de alíquota, valores divergentes, cClassTrib ausente, CST sem incidência e
+item sem o grupo IBSCBS.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013efk9eUQasDx1t25VHMBT6
+---
+ index.html                         |  28 +++----
+ login.html                         |  10 +--
+ modulos/auditor-ibs-cbs/README.md  |   2 +
+ modulos/auditor-ibs-cbs/index.html | 120 ++++++++++++++++++++++++-----
+ package.json                       |   2 +-
+ sw.js                              |   2 +-
+ 6 files changed, 125 insertions(+), 39 deletions(-)
+
+diff --git a/index.html b/index.html
+index 5a1d897..6697251 100644
+--- a/index.html
++++ b/index.html
+@@ -13,7 +13,7 @@
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+ <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
+-<link rel="stylesheet" href="css/style.css?v=0.13.1">
++<link rel="stylesheet" href="css/style.css?v=0.13.2">
+ <script>
+   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
+   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+@@ -669,19 +669,19 @@
+   </div>
+ </div>
+ 
+-<script src="js/config.js?v=0.13.1"></script>
+-<script src="js/storage.js?v=0.13.1"></script>
+-<script src="js/core.js?v=0.13.1"></script>
+-<script src="js/integracao.js?v=0.13.1"></script>
+-<script src="js/importacao.js?v=0.13.1"></script>
+-<script src="js/extratos.js?v=0.13.1"></script>
+-<script src="js/pdfextrato.js?v=0.13.1"></script>
+-<script src="js/conciliacao.js?v=0.13.1"></script>
+-<script src="js/nfe.js?v=0.13.1"></script>
+-<script src="js/auth.js?v=0.13.1"></script>
+-<script src="js/modulos.js?v=0.13.1"></script>
+-<script src="js/app.js?v=0.13.1"></script>
+-<script src="js/pwa.js?v=0.13.1"></script>
++<script src="js/config.js?v=0.13.2"></script>
++<script src="js/storage.js?v=0.13.2"></script>
++<script src="js/core.js?v=0.13.2"></script>
++<script src="js/integracao.js?v=0.13.2"></script>
++<script src="js/importacao.js?v=0.13.2"></script>
++<script src="js/extratos.js?v=0.13.2"></script>
++<script src="js/pdfextrato.js?v=0.13.2"></script>
++<script src="js/conciliacao.js?v=0.13.2"></script>
++<script src="js/nfe.js?v=0.13.2"></script>
++<script src="js/auth.js?v=0.13.2"></script>
++<script src="js/modulos.js?v=0.13.2"></script>
++<script src="js/app.js?v=0.13.2"></script>
++<script src="js/pwa.js?v=0.13.2"></script>
+ <div class="aviso-atualizacao" id="aviso-atualizacao" role="status" hidden>
+   <span>Nova versão do sistema disponível.</span>
+   <button type="button" class="btn btn-primary btn-sm" id="btn-atualizar">Atualizar</button>
+diff --git a/login.html b/login.html
+index 2550b20..44ac74e 100644
+--- a/login.html
++++ b/login.html
+@@ -10,7 +10,7 @@
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+-<link rel="stylesheet" href="css/style.css?v=0.13.1">
++<link rel="stylesheet" href="css/style.css?v=0.13.2">
+ <script>
+   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+ </script>
+@@ -127,9 +127,9 @@
+ 
+ <div id="toast" class="toast" role="status" aria-live="polite"></div>
+ 
+-<script src="js/config.js?v=0.13.1"></script>
+-<script src="js/storage.js?v=0.13.1"></script>
+-<script src="js/auth.js?v=0.13.1"></script>
+-<script src="js/login.js?v=0.13.1"></script>
++<script src="js/config.js?v=0.13.2"></script>
++<script src="js/storage.js?v=0.13.2"></script>
++<script src="js/auth.js?v=0.13.2"></script>
++<script src="js/login.js?v=0.13.2"></script>
+ </body>
+ </html>
+diff --git a/modulos/auditor-ibs-cbs/README.md b/modulos/auditor-ibs-cbs/README.md
+index 379d701..6b656e2 100644
+--- a/modulos/auditor-ibs-cbs/README.md
++++ b/modulos/auditor-ibs-cbs/README.md
+@@ -18,6 +18,8 @@ servidor nenhum. Todo o processamento de XML acontece localmente.
+   — SVRS)
+ - Calculadora manual avulsa (BC × alíquota) para conferir um item isolado
+ - Exportação em CSV, pronta para abrir no Excel (acentuação e formato pt-BR)
++- Botão **Usar exemplo**: carrega notas fictícias (NF-e e NFS-e) com itens
++  corretos, com redução de alíquota e com erros, para demonstrar a ferramenta
+ 
+ ## Publicar no GitHub Pages
+ 
+diff --git a/modulos/auditor-ibs-cbs/index.html b/modulos/auditor-ibs-cbs/index.html
+index 01e02f8..79fe0a2 100644
+--- a/modulos/auditor-ibs-cbs/index.html
++++ b/modulos/auditor-ibs-cbs/index.html
+@@ -151,7 +151,11 @@
+ 
+       <div class="filelist mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-900 font-mono text-xs text-slate-600 dark:text-slate-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 empty:hidden" id="filelist"></div>
+ 
+-      <div class="my-4">
++      <div class="my-4 flex flex-wrap gap-2">
++        <button class="btn ghost" id="btnDemo" title="Carrega notas fictícias para demonstração">
++          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23-.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
++          Usar exemplo
++        </button>
+         <button class="btn ghost" id="btnToggleManual">
+           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+           Inserir produto manualmente
+@@ -255,6 +259,7 @@
+       <div id="emptyState" class="mt-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 px-6 py-14 text-center">
+         <svg class="mx-auto mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+         <p class="text-sm text-slate-500 dark:text-slate-400">Nenhum documento carregado ainda. Envie um XML para iniciar a conferência.</p>
++        <button class="btn mt-4" id="btnDemo2">Ver com dados de exemplo</button>
+       </div>
+     </section>
+ 
+@@ -575,27 +580,106 @@ function addFiles(fileList){
+   document.getElementById('toolbar').style.display='flex';
+   files.forEach(file=>{
+     const reader = new FileReader();
+-    reader.onload = (e)=>{
+-      let statusEl = logFile(file.name, 'processando…', null);
+-      try{
+-        const parser = new DOMParser();
+-        const doc = parser.parseFromString(e.target.result, 'text/xml');
+-        const res = parseXmlDoc(doc, file.name);
+-        if(res.error && res.items.length===0){
+-          updateFileLog(statusEl, res.error, false);
+-        } else {
+-          allRows = allRows.concat(res.items);
+-          updateFileLog(statusEl, res.items.length + ' item(ns) encontrados', true);
+-          render();
+-        }
+-      }catch(err){
+-        updateFileLog(statusEl, 'Erro ao processar: ' + err.message, false);
+-      }
+-    };
++    reader.onload = (e)=>addXmlText(file.name, e.target.result);
+     reader.readAsText(file, 'UTF-8');
+   });
+ }
+ 
++function addXmlText(name, text){
++  let statusEl = logFile(name, 'processando…', null);
++  try{
++    const parser = new DOMParser();
++    const doc = parser.parseFromString(text, 'text/xml');
++    const res = parseXmlDoc(doc, name);
++    if(res.error && res.items.length===0){
++      updateFileLog(statusEl, res.error, false);
++    } else {
++      allRows = allRows.concat(res.items);
++      updateFileLog(statusEl, res.items.length + ' item(ns) encontrados', true);
++      render();
++    }
++  }catch(err){
++    updateFileLog(statusEl, 'Erro ao processar: ' + err.message, false);
++  }
++}
++
++// ---------------- Dados de exemplo (fictícios) ----------------
++// Notas montadas para demonstrar cada situação da conferência: itens corretos,
++// redução de alíquota (gRed), valores divergentes, cClassTrib ausente,
++// item sem o grupo IBSCBS, CST sem incidência e uma NFS-e.
++// Alíquotas do ano-teste de 2026: CBS 0,9% e IBS 0,1% (UF).
++function gerarExemploIbsCbs(){
++  const r2 = v=>Math.round(v*100)/100;
++  const f2 = v=>v.toFixed(2), f4 = v=>v.toFixed(4);
++  const EMIT = {cnpj:'11222333000181', nome:'Comercial Exemplo Ltda'};
++  const DEST = {cnpj:'44555666000177', nome:'Mercado Bom Preço Ltda'};
++
++  // grupo IBSCBS; "erro" força divergência em um dos valores
++  function grupo(it){
++    if(it.semGrupo) return '';
++    const cls = it.cClassTrib ? `<cClassTrib>${it.cClassTrib}</cClassTrib>` : '';
++    if(it.semBC) return `<IBSCBS><CST>${it.cst}</CST>${cls}</IBSCBS>`;
++    const bc = it.v, red = it.red || 0;
++    const ef = p=>r2(p*(1-red/100)*10000)/10000;
++    const gRed = p=> (red && p) ? `<gRed><pRedAliq>${f4(red)}</pRedAliq><pAliqEfet>${f4(ef(p))}</pAliqEfet></gRed>` : '';
++    const pUf = 0.1, pMun = 0, pCbs = 0.9;
++    let vUf = r2(bc*ef(pUf)/100), vMun = r2(bc*ef(pMun)/100), vCbs = r2(bc*ef(pCbs)/100);
++    if(it.erro==='cbs') vCbs = r2(bc*pCbs/100);          // ignorou a redução
++    if(it.erro==='uf') vUf = r2(vUf*1.5);                 // alíquota errada
++    let vIbs = r2(vUf+vMun);
++    if(it.erro==='total') vIbs = r2(vIbs+1.37);           // soma não fecha
++    return `<IBSCBS><CST>${it.cst}</CST>${cls}<gIBSCBS><vBC>${f2(bc)}</vBC>`+
++      `<gIBSUF><pIBSUF>${f4(pUf)}</pIBSUF>${gRed(pUf)}<vIBSUF>${f2(vUf)}</vIBSUF></gIBSUF>`+
++      `<gIBSMun><pIBSMun>${f4(pMun)}</pIBSMun>${gRed(pMun)}<vIBSMun>${f2(vMun)}</vIBSMun></gIBSMun>`+
++      `<vIBS>${f2(vIbs)}</vIBS>`+
++      `<gCBS><pCBS>${f4(pCbs)}</pCBS>${gRed(pCbs)}<vCBS>${f2(vCbs)}</vCBS></gCBS></gIBSCBS></IBSCBS>`;
++  }
++  function nfe(n, itens){
++    const dets = itens.map((it,i)=>{
++      const q = it.q || 1;
++      return `<det nItem="${i+1}"><prod><cProd>${it.cod}</cProd><xProd>${it.x}</xProd><NCM>${it.ncm}</NCM><CFOP>${it.cfop||'5102'}</CFOP>`+
++        `<qCom>${f4(q)}</qCom><vUnCom>${f4(it.v/q)}</vUnCom><vProd>${f2(it.v)}</vProd></prod><imposto>${grupo(it)}</imposto></det>`;
++    }).join('');
++    return `<?xml version="1.0" encoding="UTF-8"?><nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe><infNFe versao="4.00">`+
++      `<ide><mod>55</mod><serie>1</serie><nNF>${n}</nNF><dhEmi>2026-09-15T10:00:00-03:00</dhEmi></ide>`+
++      `<emit><CNPJ>${EMIT.cnpj}</CNPJ><xNome>${EMIT.nome}</xNome></emit><dest><CNPJ>${DEST.cnpj}</CNPJ><xNome>${DEST.nome}</xNome></dest>`+
++      `${dets}</infNFe></NFe></nfeProc>`;
++  }
++  const nfse = `<?xml version="1.0" encoding="UTF-8"?><NFSe><infNFSe><nNFSe>2381</nNFSe><DPS><infDPS><serv>`+
++    `<cServ><xDescServ>Consultoria contábil mensal</xDescServ></cServ></serv><valores><trib>`+
++    grupo({cst:'000', cClassTrib:'000001', v:3500}) + `</trib></valores></infDPS></DPS></infNFSe></NFSe>`;
++
++  return [
++    {name:'exemplo-nfe-1001.xml', text: nfe(1001, [
++      {cod:'ARZ5', x:'Arroz tipo 1 5kg', ncm:'10063021', q:20, v:579.80, cst:'000', cClassTrib:'000001'},
++      {cod:'OLE9', x:'Óleo de soja 900ml', ncm:'15079011', q:24, v:191.76, cst:'000', cClassTrib:'000001'},
++      {cod:'REF2', x:'Refrigerante 2L', ncm:'22021000', q:12, v:107.88, cst:'000', cClassTrib:'000001'}
++    ])},
++    {name:'exemplo-nfe-1002.xml', text: nfe(1002, [
++      {cod:'LIV1', x:'Livro didático — Matemática 6º ano', ncm:'49011000', q:10, v:890.00, cst:'200', cClassTrib:'200028', red:60},
++      {cod:'MED7', x:'Medicamento genérico cx 30 comp.', ncm:'30049099', q:15, v:412.50, cst:'200', cClassTrib:'200029', red:60, erro:'cbs'}
++    ])},
++    {name:'exemplo-nfe-1003.xml', text: nfe(1003, [
++      {cod:'CAF5', x:'Café torrado 500g', ncm:'09012100', q:30, v:629.70, cst:'000', cClassTrib:'000001', erro:'uf'},
++      {cod:'ACU1', x:'Açúcar cristal 1kg', ncm:'17019900', q:40, v:183.60, cst:'000', erro:'total'},
++      {cod:'BIS2', x:'Biscoito recheado 140g', ncm:'19053100', q:48, v:153.60, cst:'000'}
++    ])},
++    {name:'exemplo-nfe-1004.xml', text: nfe(1004, [
++      {cod:'EXP1', x:'Soja em grãos — exportação', ncm:'12019000', cfop:'7101', q:1000, v:2450.00, cst:'410', cClassTrib:'410004', semBC:true},
++      {cod:'ANT9', x:'Mercadoria em nota de layout antigo', ncm:'39269090', q:5, v:75.00, semGrupo:true}
++    ])},
++    {name:'exemplo-nfse-2381.xml', text: nfse}
++  ];
++}
++function carregarExemplo(){
++  allRows = [];
++  document.getElementById('filelist').innerHTML = '';
++  document.getElementById('toolbar').style.display = 'flex';
++  gerarExemploIbsCbs().forEach(f=>addXmlText(f.name, f.text));
++}
++document.getElementById('btnDemo').addEventListener('click', carregarExemplo);
++document.getElementById('btnDemo2').addEventListener('click', carregarExemplo);
++
+ function logFile(name, status){
+   const wrap = document.getElementById('filelist');
+   const div = document.createElement('div');
+diff --git a/package.json b/package.json
+index 4da5c45..1a40129 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "gestao-financeira",
+-  "version": "0.13.1",
++  "version": "0.13.2",
+   "private": true,
+   "description": "Integração contábil (SCI Único) e conciliação bancária",
+   "scripts": {
+diff --git a/sw.js b/sw.js
+index 146279e..a0cadd9 100644
+--- a/sw.js
++++ b/sw.js
+@@ -9,7 +9,7 @@
+  * Versão nova: o navegador baixa este arquivo, instala em segundo plano e o sistema
+  * mostra "Nova versão disponível". Ao clicar em Atualizar (ou ao reabrir o app), ela entra.
+  */
+-var VERSAO = "?v=0.13.1";
++var VERSAO = "?v=0.13.2";
+ var CACHE = "gestao-financeira-" + VERSAO.slice(3);
+ var CACHE_EXTERNO = "gestao-financeira-externo";
+ 
+-- 
+2.43.0
+
