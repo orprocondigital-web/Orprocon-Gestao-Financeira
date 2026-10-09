@@ -1,0 +1,146 @@
+From 0400ea1d34d3d49e092b69d709d98cf1badacb87 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 17:01:35 +0000
+Subject: [PATCH] =?UTF-8?q?v0.13.4=20-=20sistema=20come=C3=A7a=20sem=20uni?=
+ =?UTF-8?q?dades=20pr=C3=A9-gravadas?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A lista de unidades usava nomes fixos (Matriz, Tubarão, Chapecó...) quando
+não havia Tabela de unidades nem unidades criadas. Agora fica vazia.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013efk9eUQasDx1t25VHMBT6
+---
+ index.html   | 28 ++++++++++++++--------------
+ js/app.js    |  5 ++---
+ login.html   | 10 +++++-----
+ package.json |  2 +-
+ sw.js        |  2 +-
+ 5 files changed, 23 insertions(+), 24 deletions(-)
+
+diff --git a/index.html b/index.html
+index d7d5210..90205ac 100644
+--- a/index.html
++++ b/index.html
+@@ -13,7 +13,7 @@
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+ <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
+-<link rel="stylesheet" href="css/style.css?v=0.13.3">
++<link rel="stylesheet" href="css/style.css?v=0.13.4">
+ <script>
+   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
+   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+@@ -669,19 +669,19 @@
+   </div>
+ </div>
+ 
+-<script src="js/config.js?v=0.13.3"></script>
+-<script src="js/storage.js?v=0.13.3"></script>
+-<script src="js/core.js?v=0.13.3"></script>
+-<script src="js/integracao.js?v=0.13.3"></script>
+-<script src="js/importacao.js?v=0.13.3"></script>
+-<script src="js/extratos.js?v=0.13.3"></script>
+-<script src="js/pdfextrato.js?v=0.13.3"></script>
+-<script src="js/conciliacao.js?v=0.13.3"></script>
+-<script src="js/nfe.js?v=0.13.3"></script>
+-<script src="js/auth.js?v=0.13.3"></script>
+-<script src="js/modulos.js?v=0.13.3"></script>
+-<script src="js/app.js?v=0.13.3"></script>
+-<script src="js/pwa.js?v=0.13.3"></script>
++<script src="js/config.js?v=0.13.4"></script>
++<script src="js/storage.js?v=0.13.4"></script>
++<script src="js/core.js?v=0.13.4"></script>
++<script src="js/integracao.js?v=0.13.4"></script>
++<script src="js/importacao.js?v=0.13.4"></script>
++<script src="js/extratos.js?v=0.13.4"></script>
++<script src="js/pdfextrato.js?v=0.13.4"></script>
++<script src="js/conciliacao.js?v=0.13.4"></script>
++<script src="js/nfe.js?v=0.13.4"></script>
++<script src="js/auth.js?v=0.13.4"></script>
++<script src="js/modulos.js?v=0.13.4"></script>
++<script src="js/app.js?v=0.13.4"></script>
++<script src="js/pwa.js?v=0.13.4"></script>
+ <div class="aviso-atualizacao" id="aviso-atualizacao" role="status" hidden>
+   <span>Nova versão do sistema disponível.</span>
+   <button type="button" class="btn btn-primary btn-sm" id="btn-atualizar">Atualizar</button>
+diff --git a/js/app.js b/js/app.js
+index b1aef96..d9980e0 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -2,7 +2,6 @@
+   "use strict";
+ 
+   var I = Integracao;
+-  var DEFAULT_UNIDADES = ["Matriz","Tubarão","Chapecó","Criciúma","Florianópolis","Passo Fundo"];
+   var LIMITE_CADASTRO_TELA = 500;
+   var LIMITE_SUGESTOES_NOME = 5000;
+ 
+@@ -653,8 +652,8 @@
+   function nomesUnidades(){
+     var t = tabelaUnidades().map(function(e){ return String(e.linha[0]).trim(); });
+     if (t.length) return t;
+-    if (unidades.length) return unidades.map(function(u){ return u.label; });
+-    return DEFAULT_UNIDADES;
++    // sem tabela nem unidades criadas: lista vazia (o sistema começa zerado)
++    return unidades.map(function(u){ return u.label; });
+   }
+ 
+   function chaveNome(s){
+diff --git a/login.html b/login.html
+index b3fb8a4..8098c74 100644
+--- a/login.html
++++ b/login.html
+@@ -10,7 +10,7 @@
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+-<link rel="stylesheet" href="css/style.css?v=0.13.3">
++<link rel="stylesheet" href="css/style.css?v=0.13.4">
+ <script>
+   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+ </script>
+@@ -130,9 +130,9 @@
+ 
+ <div id="toast" class="toast" role="status" aria-live="polite"></div>
+ 
+-<script src="js/config.js?v=0.13.3"></script>
+-<script src="js/storage.js?v=0.13.3"></script>
+-<script src="js/auth.js?v=0.13.3"></script>
+-<script src="js/login.js?v=0.13.3"></script>
++<script src="js/config.js?v=0.13.4"></script>
++<script src="js/storage.js?v=0.13.4"></script>
++<script src="js/auth.js?v=0.13.4"></script>
++<script src="js/login.js?v=0.13.4"></script>
+ </body>
+ </html>
+diff --git a/package.json b/package.json
+index b7424e7..b8a8cfa 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "gestao-financeira",
+-  "version": "0.13.3",
++  "version": "0.13.4",
+   "private": true,
+   "description": "Integração contábil (SCI Único) e conciliação bancária",
+   "scripts": {
+diff --git a/sw.js b/sw.js
+index 31b051e..e7b29af 100644
+--- a/sw.js
++++ b/sw.js
+@@ -9,7 +9,7 @@
+  * Versão nova: o navegador baixa este arquivo, instala em segundo plano e o sistema
+  * mostra "Nova versão disponível". Ao clicar em Atualizar (ou ao reabrir o app), ela entra.
+  */
+-var VERSAO = "?v=0.13.3";
++var VERSAO = "?v=0.13.4";
+ var CACHE = "gestao-financeira-" + VERSAO.slice(3);
+ var CACHE_EXTERNO = "gestao-financeira-externo";
+ 
+-- 
+2.43.0
+

@@ -2,7 +2,6 @@
   "use strict";
 
   var I = Integracao;
-  var DEFAULT_UNIDADES = ["Matriz","Tubarão","Chapecó","Criciúma","Florianópolis","Passo Fundo"];
   var LIMITE_CADASTRO_TELA = 500;
   var LIMITE_SUGESTOES_NOME = 5000;
 
@@ -653,8 +652,8 @@
   function nomesUnidades(){
     var t = tabelaUnidades().map(function(e){ return String(e.linha[0]).trim(); });
     if (t.length) return t;
-    if (unidades.length) return unidades.map(function(u){ return u.label; });
-    return DEFAULT_UNIDADES;
+    // sem tabela nem unidades criadas: lista vazia (o sistema começa zerado)
+    return unidades.map(function(u){ return u.label; });
   }
 
   function chaveNome(s){

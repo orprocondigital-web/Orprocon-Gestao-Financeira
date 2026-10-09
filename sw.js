@@ -9,7 +9,7 @@
  * Versão nova: o navegador baixa este arquivo, instala em segundo plano e o sistema
  * mostra "Nova versão disponível". Ao clicar em Atualizar (ou ao reabrir o app), ela entra.
  */
-var VERSAO = "?v=0.13.3";
+var VERSAO = "?v=0.13.4";
 var CACHE = "gestao-financeira-" + VERSAO.slice(3);
 var CACHE_EXTERNO = "gestao-financeira-externo";
 
