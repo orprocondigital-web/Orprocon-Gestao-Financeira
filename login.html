@@ -37,6 +37,15 @@
 
     <p class="login-carregando" id="carregando">Carregando…</p>
 
+    <!-- MODO DE TESTE (liga/desliga em js/config.js) -->
+    <div class="teste-card" id="teste-card" hidden>
+      <span class="teste-selo">Modo de teste</span>
+      <h1>Conheça o sistema</h1>
+      <p class="muted">Entre sem senha para testar. O que você fizer fica só neste computador.</p>
+      <button type="button" class="btn btn-primary login-botao" id="btn-entrar-teste">Entrar no modo de teste</button>
+      <div class="login-ou"><span>ou entre com o seu usuário</span></div>
+    </div>
+
     <!-- ENTRAR -->
     <form id="form-entrar" class="login-form" hidden novalidate>
       <h1>Entrar</h1>
@@ -56,6 +65,7 @@
       <button type="submit" class="btn btn-primary login-botao">Entrar</button>
       <p class="muted small">Esqueceu a senha? Peça ao administrador para redefinir.</p>
       <p class="login-importar muted small">Primeira vez neste computador? <button type="button" class="link-btn" data-importar>Importar o arquivo de acessos</button></p>
+      <p class="muted small" id="link-configurar" hidden>Administrador principal, primeira vez aqui? <button type="button" class="link-btn" id="btn-ir-configurar">Criar o primeiro acesso</button></p>
     </form>
 
     <!-- PRIMEIRO ACESSO: cria o administrador -->
@@ -87,6 +97,7 @@
       <div class="login-ou"><span>ou</span></div>
       <p class="muted small">Recebeu um arquivo de acessos do administrador? Importe-o para entrar com o seu usuário.</p>
       <button type="button" class="btn btn-outline login-botao" data-importar>Importar arquivo de acessos</button>
+      <p class="muted small" id="link-voltar-entrar" hidden><button type="button" class="link-btn" id="btn-voltar-entrar">Voltar para entrar</button></p>
     </form>
 
     <!-- TROCAR A SENHA PROVISÓRIA -->
@@ -116,6 +127,7 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<script src="js/config.js?v=0.13.0"></script>
 <script src="js/storage.js?v=0.13.0"></script>
 <script src="js/auth.js?v=0.13.0"></script>
 <script src="js/login.js?v=0.13.0"></script>

@@ -19,6 +19,7 @@
   "use strict";
 
   var ADMIN_EMAIL = "orprocondigital@gmail.com";
+  var TESTE_EMAIL = "teste@modo-teste.local";
   var CHAVE_USUARIOS = "auth:usuarios";
   var CHAVE_SESSAO = "gf.sessao";
   var ITERACOES = 150000;
@@ -107,7 +108,8 @@
   function publico(u) {
     if (!u) return null;
     return { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, areas: u.perfil === "admin" ? IDS_AREAS.slice() : (u.areas || []).slice(),
-      ativo: u.ativo !== false, trocarSenha: !!u.trocarSenha, criadoEm: u.criadoEm, atualizadoEm: u.atualizadoEm, ultimoAcesso: u.ultimoAcesso || "" };
+      ativo: u.ativo !== false, trocarSenha: !!u.trocarSenha, criadoEm: u.criadoEm, atualizadoEm: u.atualizadoEm, ultimoAcesso: u.ultimoAcesso || "",
+      principal: u.email === ADMIN_EMAIL, teste: !!u.teste };
   }
 
   function podeAcessar(usuario, area) {
@@ -119,19 +121,30 @@
   /**
    * Adaptador local. armazenamento: { get(chave), set(chave, valor) } (o Store do sistema).
    * sessao: { getItem, setItem, removeItem } (localStorage). agora: função de data (para testes).
+   * opcoes.modoTeste: mostra o "Entrar no modo de teste" (conta sem senha). Desligado, a conta de
+   * teste some sozinha e não conta para nada.
    */
   function criarAuthLocal(armazenamento, sessao, opcoes) {
     opcoes = opcoes || {};
+    var modoTeste = !!opcoes.modoTeste;
     var agora = opcoes.agora || function () { return new Date(); };
     var tentativas = {};
 
-    function lista() { return (armazenamento.get(CHAVE_USUARIOS) || []).slice(); }
+    function lista() {
+      var l = (armazenamento.get(CHAVE_USUARIOS) || []).slice();
+      return modoTeste ? l : l.filter(function (u) { return !u.teste; });
+    }
+    function reais(l) { return l.filter(function (u) { return !u.teste; }); }
     function gravar(l) { return Promise.resolve(armazenamento.set(CHAVE_USUARIOS, l)); }
     function porEmail(l, email) { var e = normEmail(email); return l.filter(function (u) { return u.email === e; })[0]; }
     function porId(l, id) { return l.filter(function (u) { return u.id === id; })[0]; }
     function iso() { return agora().toISOString(); }
     function novoId() { return "u" + agora().getTime().toString(36) + Math.random().toString(36).slice(2, 7); }
-    function adminsAtivos(l) { return l.filter(function (u) { return u.perfil === "admin" && u.ativo !== false; }); }
+    function adminsAtivos(l) { return l.filter(function (u) { return u.perfil === "admin" && u.ativo !== false && !u.teste; }); }
+    /** O administrador principal só é alterado por ele mesmo. */
+    function protegerPrincipal(eu, alvo) {
+      if (alvo.email === ADMIN_EMAIL && eu.email !== ADMIN_EMAIL) throw erro("principal", "Só o administrador principal pode alterar a conta dele.");
+    }
 
     function lerSessao() {
       try {
@@ -158,18 +171,34 @@
       ADMIN_EMAIL: ADMIN_EMAIL,
 
       /** Ainda não há nenhuma conta neste navegador: mostrar o primeiro acesso. */
-      precisaConfigurar: function () { return Promise.resolve(lista().length === 0); },
+      modoTeste: modoTeste,
+
+      /** Ainda não há nenhuma conta de verdade neste navegador (a de teste não conta). */
+      precisaConfigurar: function () { return Promise.resolve(reais(lista()).length === 0); },
 
       /** Primeiro acesso: cria o administrador principal (só quando não existe nenhuma conta). */
       configurarAdmin: function (nome, senha) {
-        if (lista().length) return Promise.reject(erro("ja-configurado", "O administrador já foi criado."));
+        if (reais(lista()).length) return Promise.reject(erro("ja-configurado", "O administrador já foi criado."));
         var p = problemaSenha(senha);
         if (p) return Promise.reject(erro("senha-fraca", p));
         return gerarHash(senha).then(function (h) {
           var u = { id: novoId(), nome: String(nome || "").trim() || "Administrador", email: ADMIN_EMAIL, perfil: "admin", areas: [],
             ativo: true, trocarSenha: false, senha: h, criadoEm: iso(), atualizadoEm: iso() };
-          return gravar([u]).then(function () { return publico(u); });
+          return gravar(lista().concat([u])).then(function () { return publico(u); });
         });
+      },
+
+      /** Modo de teste: entra sem senha numa conta de teste (administrador, para ver tudo). */
+      entrarTeste: function () {
+        if (!modoTeste) return Promise.reject(erro("sem-teste", "O modo de teste está desligado."));
+        var l = lista(), u = porEmail(l, TESTE_EMAIL);
+        if (!u) {
+          u = { id: novoId(), nome: "Usuário de teste", email: TESTE_EMAIL, perfil: "admin", areas: [], ativo: true,
+            trocarSenha: false, teste: true, senha: null, criadoEm: iso(), atualizadoEm: iso() };
+          l.push(u);
+        }
+        u.ativo = true; u.perfil = "admin"; u.ultimoAcesso = iso();
+        return gravar(l).then(function () { gravarSessao(u); return publico(u); });
       },
 
       entrar: function (email, senha) {
@@ -224,7 +253,9 @@
 
       listarUsuarios: function () {
         return exigirAdmin().then(function () {
-          return lista().map(publico).sort(function (a, b) { return (b.perfil === "admin") - (a.perfil === "admin") || a.nome.localeCompare(b.nome); });
+          return lista().map(publico).sort(function (a, b) {
+            return (a.teste - b.teste) || (b.principal - a.principal) || ((b.perfil === "admin") - (a.perfil === "admin")) || a.nome.localeCompare(b.nome);
+          });
         });
       },
 
@@ -252,6 +283,7 @@
         return exigirAdmin().then(function (eu) {
           var l = lista(), u = porId(l, id);
           if (!u) throw erro("nao-encontrado", "Usuário não encontrado.");
+          protegerPrincipal(eu, u);
           var perfil = dados.perfil === "admin" ? "admin" : (dados.perfil === "usuario" ? "usuario" : u.perfil);
           var ativo = dados.ativo === undefined ? u.ativo !== false : !!dados.ativo;
           var areas = dados.areas ? dados.areas.filter(function (a) { return IDS_AREAS.indexOf(a) > -1; }) : (u.areas || []);
@@ -272,9 +304,11 @@
 
       /** Nova senha provisória (a pessoa troca no próximo acesso). */
       redefinirSenha: function (id) {
-        return exigirAdmin().then(function () {
+        return exigirAdmin().then(function (eu) {
           var l = lista(), u = porId(l, id);
           if (!u) throw erro("nao-encontrado", "Usuário não encontrado.");
+          protegerPrincipal(eu, u);
+          if (u.teste) throw erro("teste", "A conta de teste não tem senha.");
           var provisoria = senhaProvisoria();
           return gerarHash(provisoria).then(function (h) {
             u.senha = h; u.trocarSenha = true; u.atualizadoEm = iso();
@@ -288,6 +322,7 @@
           var l = lista(), u = porId(l, id);
           if (!u) throw erro("nao-encontrado", "Usuário não encontrado.");
           if (u.id === eu.id) throw erro("proprio", "Você não pode excluir o seu próprio acesso.");
+          protegerPrincipal(eu, u);
           if (u.perfil === "admin" && adminsAtivos(l).length <= 1 && u.ativo !== false) throw erro("ultimo-admin", "Precisa existir pelo menos um administrador ativo.");
           return gravar(l.filter(function (x) { return x.id !== id; }));
         });
@@ -298,7 +333,7 @@
       /** Arquivo com as contas (senhas em hash) para levar a outro computador. */
       exportarAcessos: function () {
         return exigirAdmin().then(function () {
-          return { app: "gestao-financeira", tipo: "acessos", geradoEm: iso(), usuarios: lista() };
+          return { app: "gestao-financeira", tipo: "acessos", geradoEm: iso(), usuarios: reais(lista()) };
         });
       },
 
@@ -307,7 +342,7 @@
        * Sem nenhuma conta aqui, qualquer um pode importar (é o primeiro acesso); com contas, só o admin.
        */
       importarAcessos: function (arquivo) {
-        var vazio = lista().length === 0;
+        var vazio = reais(lista()).length === 0;
         var permitido = vazio ? Promise.resolve() : exigirAdmin();
         return permitido.then(function () {
           if (!arquivo || arquivo.app !== "gestao-financeira" || arquivo.tipo !== "acessos" || !Array.isArray(arquivo.usuarios)) {
@@ -315,12 +350,12 @@
           }
           var l = lista(), novos = 0, atualizados = 0;
           arquivo.usuarios.forEach(function (v) {
-            if (!v || !v.id || !emailValido(v.email) || !v.senha || !v.senha.hash) return;
+            if (!v || v.teste || !v.id || !emailValido(v.email) || !v.senha || !v.senha.hash) return;
             var atual = porEmail(l, v.email);
             if (!atual) { l.push(v); novos++; }
             else if (String(v.atualizadoEm || "") > String(atual.atualizadoEm || "")) { l[l.indexOf(atual)] = v; atualizados++; }
           });
-          if (!adminsAtivos(l).length) throw erro("arquivo", "O arquivo não tem nenhum administrador ativo.");
+          if (!adminsAtivos(l).length && !modoTeste) throw erro("arquivo", "O arquivo não tem nenhum administrador ativo.");
           return gravar(l).then(function () { return { novos: novos, atualizados: atualizados }; });
         });
       }
@@ -337,7 +372,7 @@
   }
 
   return {
-    ADMIN_EMAIL: ADMIN_EMAIL, AREAS: AREAS, CHAVE_USUARIOS: CHAVE_USUARIOS, CHAVE_SESSAO: CHAVE_SESSAO,
+    ADMIN_EMAIL: ADMIN_EMAIL, TESTE_EMAIL: TESTE_EMAIL, AREAS: AREAS, CHAVE_USUARIOS: CHAVE_USUARIOS, CHAVE_SESSAO: CHAVE_SESSAO,
     problemaSenha: problemaSenha, senhaProvisoria: senhaProvisoria, gerarHash: gerarHash, conferirHash: conferirHash,
     podeAcessar: podeAcessar, criarAuthLocal: criarAuthLocal, temSessao: temSessao, emailValido: emailValido
   };

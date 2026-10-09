@@ -16,6 +16,7 @@
 
   function mostrar(id) {
     ["carregando", "form-entrar", "form-configurar", "form-trocar"].forEach(function (f) { $(f).hidden = f !== id; });
+    $("teste-card").hidden = !(auth && auth.modoTeste && id === "form-entrar");
     var foco = { "form-entrar": "entrar-email", "form-configurar": "cfg-nome", "form-trocar": "trocar-senha" }[id];
     if (foco) setTimeout(function () { var el = $(foco); if (el && !el.value) el.focus(); else if (id === "form-entrar") $("entrar-senha").focus(); }, 30);
   }
@@ -88,6 +89,13 @@
       .then(function () { ocupado(f, false); });
   });
 
+  $("btn-entrar-teste").addEventListener("click", function () {
+    var b = this; b.disabled = true;
+    auth.entrarTeste().then(irParaSistema).catch(function (e) { erro("entrar-erro", e.message); b.disabled = false; });
+  });
+  $("btn-ir-configurar").addEventListener("click", function () { mostrar("form-configurar"); });
+  $("btn-voltar-entrar").addEventListener("click", function () { mostrar("form-entrar"); });
+
   // importar o arquivo de acessos (fase sem servidor)
   Array.prototype.forEach.call(document.querySelectorAll("[data-importar]"), function (b) {
     b.addEventListener("click", function () { $("file-acessos").click(); });
@@ -102,6 +110,7 @@
       return auth.importarAcessos(dados);
     }).then(function (r) {
       toast("Acessos importados (" + (r.novos + r.atualizados) + "). Agora entre com o seu e-mail e senha.");
+      $("link-configurar").hidden = true;
       mostrar("form-entrar");
     }).catch(function (e) {
       var alvo = $("form-configurar").hidden ? "entrar-erro" : "cfg-erro";
@@ -130,13 +139,16 @@
 
   Store.init().then(function (ok) {
     if (!ok) throw new Error("Este navegador não permite guardar dados. Verifique se não está numa janela anônima.");
-    auth = AuthCore.criarAuthLocal(Store, localStorage);
+    auth = AuthCore.criarAuthLocal(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste) });
     $("cfg-email").value = AuthCore.ADMIN_EMAIL;
     try { $("entrar-email").value = localStorage.getItem("gf.ultimoEmail") || ""; } catch (e) {}
     var params = new URLSearchParams(location.search);
     var saiu = params.has("sair") ? auth.sair() : Promise.resolve();
     return saiu.then(function () { return auth.precisaConfigurar(); }).then(function (vazio) {
-      if (vazio) { mostrar("form-configurar"); return; }
+      // no modo de teste a tela começa no "Entrar no modo de teste"; o admin chega ao primeiro acesso pelo link
+      $("link-configurar").hidden = !(vazio && auth.modoTeste);
+      $("link-voltar-entrar").hidden = !auth.modoTeste;
+      if (vazio && !auth.modoTeste) { mostrar("form-configurar"); return; }
       return auth.usuarioAtual().then(function (u) {
         if (u && !u.trocarSenha) { irParaSistema(); return; }
         if (u && u.trocarSenha) auth.sair();

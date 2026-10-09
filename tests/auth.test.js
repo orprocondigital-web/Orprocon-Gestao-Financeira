@@ -4,13 +4,13 @@ const assert = require("node:assert/strict");
 if (!globalThis.crypto) globalThis.crypto = require("node:crypto").webcrypto;   // Node 18
 const A = require("../js/auth.js");
 
-function ambiente(inicio = "2026-10-09T09:00:00Z") {
-  const dados = {}, ls = {};
+function ambiente(inicio = "2026-10-09T09:00:00Z", modoTeste = false, dados = {}) {
+  const ls = {};
   let t = Date.parse(inicio);
   const auth = A.criarAuthLocal(
     { get: (k) => dados[k], set: (k, v) => { dados[k] = JSON.parse(JSON.stringify(v)); } },
     { getItem: (k) => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: (k) => { delete ls[k]; } },
-    { agora: () => new Date(t) });
+    { agora: () => new Date(t), modoTeste });
   return { auth, dados, ls, avancar: (ms) => { t += ms; } };
 }
 const SENHA_ADMIN = "TesteAdmin123";
@@ -119,5 +119,50 @@ describe("administração", () => {
     assert.deepEqual(await outro.auth.importarAcessos(arquivo), { novos: 2, atualizados: 0 });
     assert.equal((await outro.auth.entrar("carla@orprocon.com.br", senhaProvisoria)).nome, "Carla");
     await assert.rejects(outro.auth.importarAcessos(arquivo), /Só o administrador/);   // já tem contas: só o admin importa
+  });
+});
+
+describe("modo de teste", () => {
+  test("entra sem senha; não impede o primeiro acesso do admin; não vai no arquivo de acessos", async () => {
+    const { auth, dados } = ambiente(undefined, true);
+    const t = await auth.entrarTeste();
+    assert.deepEqual([t.teste, t.perfil, t.email], [true, "admin", A.TESTE_EMAIL]);
+    assert.equal(await auth.precisaConfigurar(), true);              // a conta de teste não conta
+    await assert.rejects(auth.entrar(A.TESTE_EMAIL, ""), /incorretos/);  // sem senha pelo formulário normal
+    await auth.configurarAdmin("Mauricio", SENHA_ADMIN);
+    await auth.entrar(A.ADMIN_EMAIL, SENHA_ADMIN);
+    const arq = await auth.exportarAcessos();
+    assert.deepEqual(arq.usuarios.map((u) => u.email), [A.ADMIN_EMAIL]);
+    // fim dos testes: com o modo desligado a conta de teste some
+    const depois = A.criarAuthLocal({ get: (k) => dados[k], set: (k, v) => { dados[k] = v; } },
+      { getItem: () => null, setItem() {}, removeItem() {} }, { modoTeste: false });
+    await assert.rejects(depois.entrarTeste(), /desligado/);
+  });
+  test("conta de teste também não conta como último admin", async () => {
+    const { auth } = ambiente(undefined, true);
+    await auth.configurarAdmin("Mauricio", SENHA_ADMIN);
+    await auth.entrarTeste();
+    const admin = (await auth.listarUsuarios()).find((u) => u.principal);
+    await assert.rejects(auth.atualizarUsuario(admin.id, { ativo: false }), /administrador principal/);
+  });
+});
+
+describe("gestores e gerentes como administradores", () => {
+  test("outro admin gerencia usuários, mas não mexe no admin principal", async () => {
+    const { auth } = ambiente();
+    await auth.configurarAdmin("Mauricio", SENHA_ADMIN);
+    await auth.entrar(A.ADMIN_EMAIL, SENHA_ADMIN);
+    const { usuario: gerente, senhaProvisoria } = await auth.criarUsuario({ nome: "Gerente", email: "gerente@orprocon.com.br", perfil: "admin" });
+    assert.deepEqual([gerente.perfil, gerente.principal, gerente.areas.length], ["admin", false, A.AREAS.length]);
+    await auth.sair();
+    await auth.entrar("gerente@orprocon.com.br", senhaProvisoria);
+    const lista = await auth.listarUsuarios();
+    const principal = lista.find((u) => u.principal);
+    assert.equal(principal.email, A.ADMIN_EMAIL);
+    for (const tentativa of [auth.atualizarUsuario(principal.id, { ativo: false }), auth.redefinirSenha(principal.id), auth.excluirUsuario(principal.id)]) {
+      await assert.rejects(tentativa, /Só o administrador principal/);
+    }
+    const { usuario: ana } = await auth.criarUsuario({ nome: "Ana", email: "ana@orprocon.com.br", perfil: "usuario", areas: ["conciliacao"] });
+    assert.equal((await auth.atualizarUsuario(ana.id, { areas: ["conciliacao", "mod-icms"] })).areas.length, 2);
   });
 });

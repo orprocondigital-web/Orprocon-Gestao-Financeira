@@ -156,12 +156,27 @@ O sistema só abre depois do login (`login.html`). Administrador principal:
   redefinir, o sistema mostra a **senha provisória** uma única vez e monta a
   mensagem de acesso (copiar, e-mail ou WhatsApp). No primeiro acesso a pessoa cria
   a senha dela.
+- **Gestores e gerentes** podem ser administradores (perfil *Administrador*): acessam
+  tudo e cadastram usuários, mas **não alteram, desativam nem excluem o administrador
+  principal** — só ele mexe na própria conta.
 - **Regras:** senha com 8+ caracteres, letras e números; 5 tentativas erradas
   bloqueiam por 30 s; a sessão vale 12 horas sem uso; ninguém tira o próprio acesso
   de admin, e sempre existe pelo menos um administrador ativo.
 - Cada pessoa vê no menu só as áreas liberadas. *Restaurar backup* e *Apagar tudo*
   são só do admin. O backup de dados **não** leva as contas, e restaurar ou apagar
   não mexe nelas.
+
+### Modo de teste
+
+Enquanto `modoTeste: true` em `js/config.js`, a tela de login mostra **Entrar no modo
+de teste**: quem recebe o link entra sem e-mail e sem senha, numa conta de teste
+(administrador, para ver tudo; marcada com o selo *Modo de teste* no topo). Ela não
+atrapalha o primeiro acesso do admin principal (link *Criar o primeiro acesso* na tela
+de login) e não vai no arquivo de acessos.
+
+**Fim dos testes:** mude para `modoTeste: false`, aumente a versão (`?v=` e `sw.js`) e
+publique. O botão some, a conta de teste deixa de existir, e passa a valer: o admin
+principal entra com o e-mail dele, e cada pessoa com o arquivo de acessos.
 
 ### Fase atual: só front (sem servidor)
 
@@ -269,6 +284,7 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
 | `js/app.js` | Tela. |
 | `js/auth.js` | Login, usuários, perfis, áreas e sessão (fase só front; interface pronta para a API). |
+| `js/config.js` | Liga/desliga o modo de teste. |
 | `login.html`, `js/login.js` | Tela de login, primeiro acesso, importar acessos e troca da senha provisória. |
 | `js/modulos.js` | Módulos: menu, quadro, tema, número no menu e backup. |
 | `js/pwa.js` e `sw.js` | App instalável, modo sem internet e aviso de versão nova. |

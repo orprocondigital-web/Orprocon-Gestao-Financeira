@@ -14,7 +14,7 @@ var CACHE = "gestao-financeira-" + VERSAO.slice(3);
 var CACHE_EXTERNO = "gestao-financeira-externo";
 
 var ARQUIVOS = [
-  "./", "login.html", "js/auth.js" + VERSAO, "js/login.js" + VERSAO,
+  "./", "login.html", "js/config.js" + VERSAO, "js/auth.js" + VERSAO, "js/login.js" + VERSAO,
   "icons/orprocon-logo.png", "icons/orprocon-logo-escuro.png", "icons/orprocon-simbolo.png",
   "css/style.css" + VERSAO,
   "js/storage.js" + VERSAO, "js/core.js" + VERSAO, "js/integracao.js" + VERSAO, "js/importacao.js" + VERSAO,

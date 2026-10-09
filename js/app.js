@@ -2309,6 +2309,7 @@
     $("usuario-avatar").textContent = iniciais(u.nome);
     $("usuario-box").title = (u.nome || "") + (u.perfil === "admin" ? " · administrador" : "");
     document.body.classList.toggle("eh-admin", ehAdmin());
+    $("selo-teste").hidden = !u.teste && u.email !== AuthCore.TESTE_EMAIL;
   }
   function sair(){ (Auth ? Auth.sair() : Promise.resolve()).then(function(){ location.replace("login.html?sair=1"); }); }
   function irParaLogin(motivo){ location.replace("login.html" + (motivo ? "?" + motivo + "=1" : "")); }
@@ -2349,6 +2350,8 @@
     Auth.listarUsuarios().then(function(lista){
       $("usuarios-body").innerHTML = lista.map(function(u){
         var eu = u.id === usuarioLogado.usuarioId || u.id === usuarioLogado.id;
+        var souPrincipal = usuarioLogado.email === AuthCore.ADMIN_EMAIL;
+        var bloqueado = u.principal && !souPrincipal;   // só o principal mexe na conta dele
         var areas = u.perfil === "admin" ? "<span class='tag-area'>Tudo, inclusive usuários</span>"
           : u.areas.map(function(a){ return "<span class='tag-area'>" + escapeHtml(NOME_AREA[a] || a) + "</span>"; }).join("");
         var situacao = !u.ativo ? "<span class='pill inativo'>Desativado</span>"
@@ -2356,15 +2359,17 @@
           : "<span class='pill ativo'>Ativo</span>";
         return "<tr" + (u.ativo ? "" : " class='inativo'") + ">" +
           "<td><strong>" + escapeHtml(u.nome) + (eu ? " <span class='muted small'>(você)</span>" : "") + "</strong><span class='cell-sub'>" + escapeHtml(u.email) + "</span></td>" +
-          "<td>" + (u.perfil === "admin" ? "<span class='pill admin'>Administrador</span>" : "Usuário") + "</td>" +
+          "<td>" + (u.teste ? "<span class='pill provisoria'>Conta de teste</span>"
+                    : u.principal ? "<span class='pill admin'>Administrador principal</span>"
+                    : u.perfil === "admin" ? "<span class='pill admin'>Administrador</span>" : "Usuário") + "</td>" +
           "<td><div class='areas-lista'>" + areas + "</div></td>" +
           "<td>" + situacao + "</td>" +
           "<td class='muted small'>" + dataHora(u.ultimoAcesso) + "</td>" +
-          "<td class='row-actions'>" +
+          "<td class='row-actions'>" + (bloqueado || u.teste ? "" :
             "<button type='button' data-editar='" + u.id + "'>Editar</button>" +
             "<button type='button' data-senha='" + u.id + "'>Nova senha</button>" +
             (eu ? "" : "<button type='button' data-ativo='" + u.id + "'>" + (u.ativo ? "Desativar" : "Ativar") + "</button>" +
-                       "<button type='button' class='danger' data-excluir='" + u.id + "'>Excluir</button>") +
+                       "<button type='button' class='danger' data-excluir='" + u.id + "'>Excluir</button>")) +
           "</td></tr>";
       }).join("");
       var porId = {};
@@ -2400,7 +2405,7 @@
     });
     $("usr-areas").disabled = perfil === "admin";
     $("usr-perfil-ajuda").textContent = perfil === "admin"
-      ? "Administrador acessa tudo e pode criar, alterar e desativar usuários."
+      ? "Para gestores e gerentes: acessa tudo e cadastra, altera e desativa usuários (menos o administrador principal)."
       : "Usuário acessa só as áreas marcadas abaixo.";
   }
 
@@ -2499,7 +2504,7 @@
   var LOGIN_PENDENTE = {};
   Store.init().then(function(ok){
     if (!ok) toast("Este navegador não permite gravar dados. Nada será salvo.");
-    Auth = AuthCore.criarAuthLocal(Store, localStorage);
+    Auth = AuthCore.criarAuthLocal(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste) });
     return Auth.usuarioAtual().then(function(u){
       if (!u || u.trocarSenha) { irParaLogin(u ? "" : "expirou"); throw LOGIN_PENDENTE; }
       usuarioLogado = u;
