@@ -12,10 +12,13 @@ function arquivos(dir) {
     e.isDirectory() ? arquivos(path.join(dir, e.name)) : [path.join(dir, e.name)]);
 }
 
-test("scripts e estilo do index.html estão no sw.js, com a mesma versão", () => {
-  const html = fs.readFileSync(path.join(raiz, "index.html"), "utf8");
+test("scripts e estilo do index.html e do login.html estão no sw.js, com a mesma versão", () => {
+  const html = ["index.html", "login.html"].map((f) => fs.readFileSync(path.join(raiz, f), "utf8")).join("\n");
   const locais = [...html.matchAll(/(?:src|href)="((?:js|css)\/[^"?]+)\?v=([\d.]+)"/g)];
-  assert.ok(locais.length > 5);
+  assert.ok(locais.length > 8);
+  for (const img of new Set([...html.matchAll(/src="(icons\/[^"]+)"/g)].map((m) => m[1]))) {
+    assert.ok(sw.includes(`"${img}"`), `${img} falta no sw.js`);
+  }
   for (const [, arq, v] of locais) {
     assert.equal(v, versaoSw, `${arq} está com ?v=${v} e o sw.js com ${versaoSw}`);
     assert.ok(sw.includes(`"${arq}" + VERSAO`), `${arq} falta no sw.js`);

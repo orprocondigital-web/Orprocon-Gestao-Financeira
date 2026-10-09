@@ -14,25 +14,42 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.12.0">
+<link rel="stylesheet" href="css/style.css?v=0.13.0">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+  // sem sessão válida, vai para o login antes de desenhar a página (a conferência completa é feita no app.js)
+  (function () {
+    var ok = false;
+    try { var s = JSON.parse(localStorage.getItem("gf.sessao") || "null"); ok = !!(s && s.usuarioId && Date.parse(s.expira) > Date.now()); } catch (e) {}
+    if (!ok) location.replace("login.html" + (location.hash ? "?volta=" + encodeURIComponent(location.hash.slice(1)) : ""));
+  })();
 </script>
 </head>
 <body>
 <div class="app">
   <nav class="sidebar" id="sidebar" aria-label="Menu principal">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8.5"/></svg>
-      </span>
+      <img class="brand-simbolo" src="icons/orprocon-simbolo.png" alt="" aria-hidden="true">
       <span class="brand-text">
         <strong>Gestão Financeira</strong>
         <span>Orprocon</span>
       </span>
     </div>
     <div class="nav" id="sidebar-menu"></div>
+    <div class="usuario-box" id="usuario-box">
+      <span class="usuario-avatar" id="usuario-avatar" aria-hidden="true"></span>
+      <span class="usuario-info">
+        <strong id="usuario-nome"></strong>
+        <span id="usuario-email"></span>
+      </span>
+      <button type="button" class="usuario-acao" id="btn-trocar-senha" title="Trocar a minha senha" aria-label="Trocar a minha senha">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5zM12 15v2"/></svg>
+      </button>
+      <button type="button" class="usuario-acao" id="btn-sair" title="Sair" aria-label="Sair do sistema">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
+      </button>
+    </div>
   </nav>
 
   <main>
@@ -218,6 +235,35 @@
     </div>
 
     <!-- MASTER / INTEGRAÇÃO CONTÁBIL -->
+    <!-- USUÁRIOS (só o administrador) -->
+    <div id="view-usuarios" style="display:none;">
+      <section class="panel">
+        <div class="panel-head row">
+          <div>
+            <h2>Usuários</h2>
+            <p class="muted small">Quem pode entrar no sistema e o que cada pessoa vê. Ao criar um usuário, o sistema gera uma senha provisória e a mensagem de acesso para enviar.</p>
+          </div>
+          <div class="panel-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-exportar-acessos" title="Arquivo com os acessos, para a pessoa importar no computador dela (enquanto não há servidor)">Exportar acessos</button>
+            <label class="btn btn-ghost btn-sm" for="file-importar-acessos">Importar acessos</label>
+            <input type="file" id="file-importar-acessos" accept=".json,application/json" hidden>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-novo-usuario">Novo usuário</button>
+          </div>
+        </div>
+        <div class="aviso-fase" role="note">
+          <strong>Fase de testes (sem servidor):</strong> os usuários ficam guardados neste navegador. Para alguém entrar no computador dele,
+          envie também o arquivo de <em>Exportar acessos</em>; na primeira vez ele escolhe "Importar o arquivo de acessos" na tela de login.
+          Toda vez que criar ou mudar usuários, exporte de novo.
+        </div>
+        <div class="table-wrap">
+          <table class="ledger usuarios-tabela">
+            <thead><tr><th>Usuário</th><th>Perfil</th><th>Acesso a</th><th>Situação</th><th>Último acesso</th><th class="col-actions"></th></tr></thead>
+            <tbody id="usuarios-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
     <!-- MÓDULOS (cada um é um site próprio em modulos/, aberto num quadro) -->
     <div id="view-modulo" style="display:none;">
       <div id="modulo-area" class="modulo-area"></div>
@@ -237,10 +283,10 @@
             </button>
             <button type="button" class="btn btn-outline" id="btn-importar-extratos">Importar extratos do banco</button>
             <button type="button" class="btn btn-outline" id="btn-backup">Baixar backup</button>
-            <label class="btn btn-ghost" for="file-restaurar">Restaurar backup</label>
+            <label class="btn btn-ghost so-admin" for="file-restaurar">Restaurar backup</label>
             <input type="file" id="file-restaurar" accept=".json,application/json" hidden>
             <button type="button" class="btn btn-danger-ghost" id="btn-zerar-mes">Zerar mês</button>
-            <button type="button" class="btn btn-danger-ghost" id="btn-apagar-tudo">Apagar tudo</button>
+            <button type="button" class="btn btn-danger-ghost so-admin" id="btn-apagar-tudo">Apagar tudo</button>
           </div>
         </div>
       </section>
@@ -542,17 +588,92 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.12.0"></script>
-<script src="js/core.js?v=0.12.0"></script>
-<script src="js/integracao.js?v=0.12.0"></script>
-<script src="js/importacao.js?v=0.12.0"></script>
-<script src="js/extratos.js?v=0.12.0"></script>
-<script src="js/pdfextrato.js?v=0.12.0"></script>
-<script src="js/conciliacao.js?v=0.12.0"></script>
-<script src="js/nfe.js?v=0.12.0"></script>
-<script src="js/modulos.js?v=0.12.0"></script>
-<script src="js/app.js?v=0.12.0"></script>
-<script src="js/pwa.js?v=0.12.0"></script>
+<!-- Modal: usuário (criar/editar) -->
+<div id="modal-usuario" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-usuario-titulo">
+  <div class="modal-card">
+    <h3 id="modal-usuario-titulo">Novo usuário</h3>
+    <div class="grid-2">
+      <div class="field">
+        <label for="usr-nome">Nome</label>
+        <input type="text" id="usr-nome" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="usr-email">E-mail</label>
+        <input type="email" id="usr-email" autocomplete="off" placeholder="nome@orprocon.com.br">
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Perfil</span>
+      <div class="segmentado" role="radiogroup" aria-label="Perfil">
+        <button type="button" data-perfil="usuario" role="radio">Usuário</button>
+        <button type="button" data-perfil="admin" role="radio">Administrador</button>
+      </div>
+      <span class="muted small" id="usr-perfil-ajuda"></span>
+    </div>
+    <fieldset class="field areas-field" id="usr-areas">
+      <legend class="field-label">Pode acessar</legend>
+    </fieldset>
+    <label class="check" id="usr-ativo-wrap"><input type="checkbox" id="usr-ativo"> Acesso ativo</label>
+    <p class="login-erro" id="usr-erro" role="alert"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="usr-cancelar">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="usr-salvar">Criar usuário</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: mensagem de acesso (depois de criar ou redefinir senha) -->
+<div id="modal-acesso" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-acesso-titulo">
+  <div class="modal-card">
+    <h3 id="modal-acesso-titulo">Acesso criado</h3>
+    <p class="muted small">A senha provisória aparece só agora. Envie a mensagem para a pessoa; no primeiro acesso ela cria a senha dela.</p>
+    <textarea id="acesso-mensagem" class="acesso-mensagem" rows="10" readonly></textarea>
+    <div class="modal-actions acesso-acoes">
+      <button type="button" class="btn btn-ghost" id="acesso-fechar">Fechar</button>
+      <a class="btn btn-outline" id="acesso-email" target="_blank" rel="noopener">Enviar por e-mail</a>
+      <a class="btn btn-outline" id="acesso-whatsapp" target="_blank" rel="noopener">WhatsApp</a>
+      <button type="button" class="btn btn-primary" id="acesso-copiar">Copiar mensagem</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: trocar a minha senha -->
+<div id="modal-senha" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-senha-titulo">
+  <div class="modal-card modal-estreito">
+    <h3 id="modal-senha-titulo">Trocar a minha senha</h3>
+    <div class="field">
+      <label for="senha-atual">Senha atual</label>
+      <input type="password" id="senha-atual" autocomplete="current-password">
+    </div>
+    <div class="field">
+      <label for="senha-nova">Nova senha</label>
+      <input type="password" id="senha-nova" autocomplete="new-password">
+      <span class="muted small">Pelo menos 8 caracteres, com letras e números.</span>
+    </div>
+    <div class="field">
+      <label for="senha-nova2">Repita a nova senha</label>
+      <input type="password" id="senha-nova2" autocomplete="new-password">
+    </div>
+    <p class="login-erro" id="senha-erro" role="alert"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="senha-cancelar">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="senha-salvar">Salvar nova senha</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/storage.js?v=0.13.0"></script>
+<script src="js/core.js?v=0.13.0"></script>
+<script src="js/integracao.js?v=0.13.0"></script>
+<script src="js/importacao.js?v=0.13.0"></script>
+<script src="js/extratos.js?v=0.13.0"></script>
+<script src="js/pdfextrato.js?v=0.13.0"></script>
+<script src="js/conciliacao.js?v=0.13.0"></script>
+<script src="js/nfe.js?v=0.13.0"></script>
+<script src="js/auth.js?v=0.13.0"></script>
+<script src="js/modulos.js?v=0.13.0"></script>
+<script src="js/app.js?v=0.13.0"></script>
+<script src="js/pwa.js?v=0.13.0"></script>
 <div class="aviso-atualizacao" id="aviso-atualizacao" role="status" hidden>
   <span>Nova versão do sistema disponível.</span>
   <button type="button" class="btn btn-primary btn-sm" id="btn-atualizar">Atualizar</button>

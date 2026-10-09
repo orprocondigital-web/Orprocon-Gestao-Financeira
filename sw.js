@@ -9,12 +9,13 @@
  * Versão nova: o navegador baixa este arquivo, instala em segundo plano e o sistema
  * mostra "Nova versão disponível". Ao clicar em Atualizar (ou ao reabrir o app), ela entra.
  */
-var VERSAO = "?v=0.12.0";
+var VERSAO = "?v=0.13.0";
 var CACHE = "gestao-financeira-" + VERSAO.slice(3);
 var CACHE_EXTERNO = "gestao-financeira-externo";
 
 var ARQUIVOS = [
-  "./",
+  "./", "login.html", "js/auth.js" + VERSAO, "js/login.js" + VERSAO,
+  "icons/orprocon-logo.png", "icons/orprocon-logo-escuro.png", "icons/orprocon-simbolo.png",
   "css/style.css" + VERSAO,
   "js/storage.js" + VERSAO, "js/core.js" + VERSAO, "js/integracao.js" + VERSAO, "js/importacao.js" + VERSAO,
   "js/extratos.js" + VERSAO, "js/pdfextrato.js" + VERSAO, "js/conciliacao.js" + VERSAO, "js/nfe.js" + VERSAO,

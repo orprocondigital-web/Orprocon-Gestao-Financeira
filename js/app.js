@@ -39,6 +39,13 @@
   var MENU_SECTIONS = [];
   var itemIndex = {};
 
+  // ---------- usuário logado (o login é feito em login.html; ver js/auth.js) ----------
+  var Auth = null;   // criado depois do Store.init
+  var usuarioLogado = (function(){ try { return JSON.parse(localStorage.getItem(AuthCore.CHAVE_SESSAO) || "null"); } catch(e) { return null; } })();
+  function pode(area){ return AuthCore.podeAcessar(usuarioLogado, area); }
+  function ehAdmin(){ return !!usuarioLogado && usuarioLogado.perfil === "admin"; }
+  var SECOES_INTEGRACAO = { "Bancos": 1, "Unidades": 1, "Outras movimentações": 1, "Cadastros": 1 };
+
   function montarMenu(){
     MENU_SECTIONS = [
       { title: "Visão geral", items: [
@@ -51,6 +58,19 @@
       { title: "Outras movimentações", items: MOVIMENTOS },
       { title: "Cadastros", items: CADASTROS }
     ];
+    if (ehAdmin()) MENU_SECTIONS.push({ title: "Administração", items: [{ id: "usuarios", label: "Usuários", type: "usuarios" }] });
+    // só o que a pessoa pode acessar
+    MENU_SECTIONS = MENU_SECTIONS.map(function(sec){
+      if (SECOES_INTEGRACAO[sec.title] && !pode("integracao")) return null;
+      var items = sec.items.filter(function(item){
+        if (item.type === "master") return pode("integracao");
+        if (item.type === "conciliacao") return pode("conciliacao");
+        if (item.type === "modulo") return pode(item.id);
+        return true;
+      });
+      if (!items.length && !SECOES_INTEGRACAO[sec.title]) return null;
+      return { title: sec.title, items: items };
+    }).filter(Boolean);
     itemIndex = {};
     MENU_SECTIONS.forEach(function(sec){
       sec.items.forEach(function(item){ item.section = sec.title; itemIndex[item.id] = item; });
@@ -158,6 +178,7 @@
   // ---------- menu lateral ----------
   var ICONS = {
     master: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z"/>',
+    usuarios: '<path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1.5a4 4 0 0 0-3-3.87M15.5 4.13a3.5 3.5 0 0 1 0 6.75"/>',
     conciliacao: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
     banco: '<path d="M3 10l9-6 9 6M5 10v8M19 10v8M9.5 10v8M14.5 10v8M3 20h18"/>',
     unidade: '<path d="M4 20V8l8-4 8 4v12M9 20v-6h6v6"/>',
@@ -173,6 +194,7 @@
     if (item.type === "master") return ICONS.master;
     if (item.type === "conciliacao") return ICONS.conciliacao;
     if (item.type === "modulo") return Modulos.porId(item.id).icone;
+    if (item.type === "usuarios") return ICONS.usuarios;
     if (item.type === "cadastro") return ICONS.cadastro;
     if (item.section === "Bancos") return ICONS.banco;
     if (item.section === "Unidades") return ICONS.unidade;
@@ -286,7 +308,8 @@
 
   // ---------- navegação ----------
   function selectTab(id){
-    if (!itemIndex[id]) id = "master";
+    if (!itemIndex[id]) id = itemIndex.master ? "master" : Object.keys(itemIndex)[0];
+    if (!id) return;
     currentTab = id;
     editingId = null;
     var item = itemIndex[id];
@@ -298,10 +321,10 @@
     $("view-title").textContent = item.section === "Bancos" ? nomeDaFonte(item) : item.label;
     $("view-sub").textContent = item.section + (item.section === "Bancos" && item.bank ? " / " + item.bank : "");
 
-    ["view-ledger","view-cadastro","view-master","view-conciliacao","view-modulo"].forEach(function(v){ $(v).style.display = "none"; });
+    ["view-ledger","view-cadastro","view-master","view-conciliacao","view-modulo","view-usuarios"].forEach(function(v){ $(v).style.display = "none"; });
     var ehModulo = item.type === "modulo";
     $("content").classList.toggle("modo-modulo", ehModulo);
-    document.querySelector(".comp-select").hidden = ehModulo;
+    document.querySelector(".comp-select").hidden = ehModulo || item.type === "usuarios";
     if (btn) btn.title = ehModulo ? item.descricao : btn.title;
 
     if (item.type === "ledger") {
@@ -344,6 +367,11 @@
       $("view-modulo").style.display = "block";
       Modulos.abrir(id, $("modulo-area"));
     }
+    else if (item.type === "usuarios") {
+      $("view-usuarios").style.display = "block";
+      renderUsuarios();
+    }
+    try { history.replaceState(null, "", "#" + id); } catch (e) {}
   }
 
   // ---------- lançamentos ----------
@@ -1154,7 +1182,8 @@
       "Baixe o backup antes se quiser guardar.\n\nPara confirmar, digite APAGAR:");
     if (r === null) return;
     if (r.trim().toUpperCase() !== "APAGAR") { alert("Nada foi apagado."); return; }
-    Promise.all(Store.keys().map(function(k){ return Store.remove(k); })).then(function(){
+    // os usuários continuam (para apagar um acesso, use a tela Usuários)
+    Promise.all(Store.keys().filter(function(k){ return k.indexOf("auth:") !== 0; }).map(function(k){ return Store.remove(k); })).then(function(){
       ["system_banks", "system_units", "system_mov_contas", "competencia"].forEach(function(k){ localStorage.removeItem(k); });
       alert("Tudo apagado. A página vai recarregar.");
       location.reload();
@@ -1166,7 +1195,8 @@
 
   function baixarBackup(){
     var dados = {};
-    Store.keys().forEach(function(k){ dados[k] = Store.get(k); });
+    // as contas de usuário não vão no backup de dados (vão pelo "Exportar acessos", só o admin)
+    Store.keys().forEach(function(k){ if (k.indexOf("auth:") !== 0) dados[k] = Store.get(k); });
     var config = {};
     CHAVES_CONFIG.forEach(function(k){ var v = localStorage.getItem(k); if (v !== null) config[k] = v; });
     var backup = { app: "gestao-financeira", formato: 1, geradoEm: new Date().toISOString(), config: config, dados: dados,
@@ -1184,8 +1214,9 @@
       if (!b || b.app !== "gestao-financeira" || !b.dados) { alert("Este arquivo não é um backup deste sistema."); return; }
       var quando = b.geradoEm ? new Date(b.geradoEm).toLocaleString("pt-BR") : "data desconhecida";
       if (!confirm("Restaurar o backup de " + quando + "?\n\nTodos os dados deste navegador serão substituídos pelos do backup.")) return;
-      Promise.all(Store.keys().map(function(k){ return Store.remove(k); })).then(function(){
-        return Promise.all(Object.keys(b.dados).map(function(k){ return Store.set(k, b.dados[k]); }));
+      // as contas de usuário deste navegador ficam como estão
+      Promise.all(Store.keys().filter(function(k){ return k.indexOf("auth:") !== 0; }).map(function(k){ return Store.remove(k); })).then(function(){
+        return Promise.all(Object.keys(b.dados).filter(function(k){ return k.indexOf("auth:") !== 0; }).map(function(k){ return Store.set(k, b.dados[k]); }));
       }).then(function(){
         CHAVES_CONFIG.forEach(function(k){ localStorage.removeItem(k); });
         Object.keys(b.config || {}).forEach(function(k){ localStorage.setItem(k, b.config[k]); });
@@ -2266,15 +2297,216 @@
   if (mqEscuro.addEventListener) mqEscuro.addEventListener("change", atualizarBotaoTema);
   atualizarBotaoTema();
 
+  // ---------- usuário logado: caixa no menu, sair, trocar senha ----------
+  function iniciais(nome){
+    var p = String(nome || "").trim().split(/\s+/).filter(Boolean);
+    return ((p[0] || "?").charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : "")).toUpperCase();
+  }
+  function mostrarUsuario(){
+    var u = usuarioLogado || {};
+    $("usuario-nome").textContent = u.nome || "";
+    $("usuario-email").textContent = u.email || "";
+    $("usuario-avatar").textContent = iniciais(u.nome);
+    $("usuario-box").title = (u.nome || "") + (u.perfil === "admin" ? " · administrador" : "");
+    document.body.classList.toggle("eh-admin", ehAdmin());
+  }
+  function sair(){ (Auth ? Auth.sair() : Promise.resolve()).then(function(){ location.replace("login.html?sair=1"); }); }
+  function irParaLogin(motivo){ location.replace("login.html" + (motivo ? "?" + motivo + "=1" : "")); }
+
+  $("btn-sair").addEventListener("click", sair);
+  $("btn-trocar-senha").addEventListener("click", function(){
+    ["senha-atual", "senha-nova", "senha-nova2"].forEach(function(id){ $(id).value = ""; });
+    $("senha-erro").textContent = "";
+    $("modal-senha").style.display = "flex";
+    setTimeout(function(){ $("senha-atual").focus(); }, 30);
+  });
+  $("senha-cancelar").addEventListener("click", function(){ $("modal-senha").style.display = "none"; });
+  $("senha-salvar").addEventListener("click", function(){
+    var n1 = $("senha-nova").value, n2 = $("senha-nova2").value, p = AuthCore.problemaSenha(n1);
+    if (p) { $("senha-erro").textContent = p; return; }
+    if (n1 !== n2) { $("senha-erro").textContent = "As duas senhas não são iguais."; return; }
+    var b = this; b.disabled = true;
+    Auth.trocarSenha($("senha-atual").value, n1).then(function(){
+      $("modal-senha").style.display = "none";
+      toast("Senha alterada.");
+    }).catch(function(e){ $("senha-erro").textContent = e.message; })
+      .then(function(){ b.disabled = false; });
+  });
+
+  // ---------- administração de usuários (só o admin) ----------
+  var usuarioEditando = null, perfilEscolhido = "usuario";
+  var NOME_AREA = {};
+  AuthCore.AREAS.forEach(function(a){ NOME_AREA[a.id] = a.nome; });
+
+  function dataHora(iso){
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function renderUsuarios(){
+    if (!Auth || !ehAdmin()) return;
+    Auth.listarUsuarios().then(function(lista){
+      $("usuarios-body").innerHTML = lista.map(function(u){
+        var eu = u.id === usuarioLogado.usuarioId || u.id === usuarioLogado.id;
+        var areas = u.perfil === "admin" ? "<span class='tag-area'>Tudo, inclusive usuários</span>"
+          : u.areas.map(function(a){ return "<span class='tag-area'>" + escapeHtml(NOME_AREA[a] || a) + "</span>"; }).join("");
+        var situacao = !u.ativo ? "<span class='pill inativo'>Desativado</span>"
+          : u.trocarSenha ? "<span class='pill provisoria' title='Ainda não criou a própria senha'>Senha provisória</span>"
+          : "<span class='pill ativo'>Ativo</span>";
+        return "<tr" + (u.ativo ? "" : " class='inativo'") + ">" +
+          "<td><strong>" + escapeHtml(u.nome) + (eu ? " <span class='muted small'>(você)</span>" : "") + "</strong><span class='cell-sub'>" + escapeHtml(u.email) + "</span></td>" +
+          "<td>" + (u.perfil === "admin" ? "<span class='pill admin'>Administrador</span>" : "Usuário") + "</td>" +
+          "<td><div class='areas-lista'>" + areas + "</div></td>" +
+          "<td>" + situacao + "</td>" +
+          "<td class='muted small'>" + dataHora(u.ultimoAcesso) + "</td>" +
+          "<td class='row-actions'>" +
+            "<button type='button' data-editar='" + u.id + "'>Editar</button>" +
+            "<button type='button' data-senha='" + u.id + "'>Nova senha</button>" +
+            (eu ? "" : "<button type='button' data-ativo='" + u.id + "'>" + (u.ativo ? "Desativar" : "Ativar") + "</button>" +
+                       "<button type='button' class='danger' data-excluir='" + u.id + "'>Excluir</button>") +
+          "</td></tr>";
+      }).join("");
+      var porId = {};
+      lista.forEach(function(u){ porId[u.id] = u; });
+      var acao = function(attr, fn){
+        Array.prototype.forEach.call($("usuarios-body").querySelectorAll("[" + attr + "]"), function(b){
+          b.addEventListener("click", function(){ fn(porId[b.getAttribute(attr)]); });
+        });
+      };
+      acao("data-editar", abrirUsuario);
+      acao("data-senha", function(u){
+        if (!confirm("Gerar uma nova senha provisória para " + u.nome + "?\n\nA senha atual deixa de funcionar e a pessoa cria uma nova no próximo acesso.")) return;
+        Auth.redefinirSenha(u.id).then(function(r){ renderUsuarios(); mostrarAcesso(r.usuario, r.senhaProvisoria, "Nova senha provisória"); })
+          .catch(function(e){ alert(e.message); });
+      });
+      acao("data-ativo", function(u){
+        if (u.ativo && !confirm("Desativar o acesso de " + u.nome + "? A pessoa não consegue mais entrar até ser ativada de novo.")) return;
+        Auth.atualizarUsuario(u.id, { ativo: !u.ativo }).then(function(){ toast(u.ativo ? "Acesso desativado." : "Acesso ativado."); renderUsuarios(); })
+          .catch(function(e){ alert(e.message); });
+      });
+      acao("data-excluir", function(u){
+        if (!confirm("Excluir o usuário " + u.nome + " (" + u.email + ")? Não dá para desfazer.\n\nSe for só por um tempo, prefira Desativar.")) return;
+        Auth.excluirUsuario(u.id).then(function(){ toast("Usuário excluído."); renderUsuarios(); }).catch(function(e){ alert(e.message); });
+      });
+    }).catch(function(e){ toast(e.message); });
+  }
+
+  function marcarPerfil(perfil){
+    perfilEscolhido = perfil;
+    Array.prototype.forEach.call(document.querySelectorAll("#modal-usuario [data-perfil]"), function(b){
+      var sim = b.dataset.perfil === perfil;
+      b.classList.toggle("ativo", sim); b.setAttribute("aria-checked", sim);
+    });
+    $("usr-areas").disabled = perfil === "admin";
+    $("usr-perfil-ajuda").textContent = perfil === "admin"
+      ? "Administrador acessa tudo e pode criar, alterar e desativar usuários."
+      : "Usuário acessa só as áreas marcadas abaixo.";
+  }
+
+  function abrirUsuario(u){
+    usuarioEditando = u || null;
+    $("modal-usuario-titulo").textContent = u ? "Editar usuário" : "Novo usuário";
+    $("usr-salvar").textContent = u ? "Salvar" : "Criar usuário";
+    $("usr-nome").value = u ? u.nome : "";
+    $("usr-email").value = u ? u.email : "";
+    $("usr-email").readOnly = !!u && u.email === AuthCore.ADMIN_EMAIL;
+    $("usr-ativo-wrap").hidden = !u;
+    $("usr-ativo").checked = u ? u.ativo : true;
+    $("usr-erro").textContent = "";
+    $("usr-areas").innerHTML = '<legend class="field-label">Pode acessar</legend>' + AuthCore.AREAS.map(function(a){
+      var marcado = u ? (u.perfil === "admin" || u.areas.indexOf(a.id) > -1) : false;
+      return '<label class="area-opcao"><input type="checkbox" value="' + a.id + '"' + (marcado ? " checked" : "") + '><span><strong>' +
+        escapeHtml(a.nome) + '</strong>' + (a.detalhe ? '<span>' + escapeHtml(a.detalhe) + '</span>' : '') + '</span></label>';
+    }).join("");
+    marcarPerfil(u ? u.perfil : "usuario");
+    $("modal-usuario").style.display = "flex";
+    setTimeout(function(){ $("usr-nome").focus(); }, 30);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("#modal-usuario [data-perfil]"), function(b){
+    b.addEventListener("click", function(){ marcarPerfil(b.dataset.perfil); });
+  });
+  $("btn-novo-usuario").addEventListener("click", function(){ abrirUsuario(null); });
+  $("usr-cancelar").addEventListener("click", function(){ $("modal-usuario").style.display = "none"; });
+  $("usr-salvar").addEventListener("click", function(){
+    var areas = Array.prototype.map.call($("usr-areas").querySelectorAll("input:checked"), function(i){ return i.value; });
+    var dados = { nome: $("usr-nome").value, email: $("usr-email").value, perfil: perfilEscolhido, areas: areas };
+    var b = this; b.disabled = true; $("usr-erro").textContent = "";
+    var feito = usuarioEditando
+      ? Auth.atualizarUsuario(usuarioEditando.id, Object.assign(dados, { ativo: $("usr-ativo").checked })).then(function(){
+          $("modal-usuario").style.display = "none"; toast("Usuário atualizado.");
+          if (usuarioEditando.id === usuarioLogado.usuarioId) return Auth.usuarioAtual().then(function(u){ if (u) { usuarioLogado = u; usuarioLogado.usuarioId = u.id; mostrarUsuario(); } });
+        })
+      : Auth.criarUsuario(dados).then(function(r){
+          $("modal-usuario").style.display = "none";
+          mostrarAcesso(r.usuario, r.senhaProvisoria, "Acesso criado");
+        });
+    feito.then(renderUsuarios).catch(function(e){ $("usr-erro").textContent = e.message; }).then(function(){ b.disabled = false; });
+  });
+
+  function linkDoSistema(){ return location.origin + location.pathname.replace(/index\.html$/, ""); }
+
+  function mostrarAcesso(u, senha, titulo){
+    $("modal-acesso-titulo").textContent = titulo;
+    var primeiroNome = u.nome.split(" ")[0];
+    var texto = "Olá, " + primeiroNome + "! Segue o seu acesso à Gestão Financeira da Orprocon:\n\n" +
+      "Link: " + linkDoSistema() + "\n" +
+      "E-mail: " + u.email + "\n" +
+      "Senha provisória: " + senha + "\n\n" +
+      "No primeiro acesso o sistema pede para você criar a sua própria senha.\n" +
+      "Nesta fase de testes, na primeira vez neste computador, escolha \"Importar o arquivo de acessos\" e use o arquivo que vou te enviar junto.";
+    $("acesso-mensagem").value = texto;
+    $("acesso-whatsapp").href = "https://wa.me/?text=" + encodeURIComponent(texto);
+    $("acesso-email").href = "mailto:" + encodeURIComponent(u.email) + "?subject=" + encodeURIComponent("Acesso à Gestão Financeira — Orprocon") + "&body=" + encodeURIComponent(texto);
+    $("modal-acesso").style.display = "flex";
+  }
+  $("acesso-fechar").addEventListener("click", function(){ $("modal-acesso").style.display = "none"; $("acesso-mensagem").value = ""; });
+  $("acesso-copiar").addEventListener("click", function(){
+    var t = $("acesso-mensagem");
+    (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(function(){ toast("Mensagem copiada."); })
+      .catch(function(){ t.select(); document.execCommand("copy"); toast("Mensagem copiada."); });
+  });
+
+  $("btn-exportar-acessos").addEventListener("click", function(){
+    Auth.exportarAcessos().then(function(arq){
+      baixarArquivos([{ nome: "acessos-gestao-financeira-" + new Date().toISOString().slice(0, 10) + ".json", conteudo: JSON.stringify(arq) }]);
+      toast("Arquivo de acessos baixado. Envie junto com a mensagem de acesso.");
+    }).catch(function(e){ alert(e.message); });
+  });
+  $("file-importar-acessos").addEventListener("change", function(ev){
+    var f = ev.target.files && ev.target.files[0];
+    this.value = "";
+    if (!f) return;
+    f.text().then(function(t){ return Auth.importarAcessos(JSON.parse(t)); })
+      .then(function(r){ toast(r.novos + " novo(s) e " + r.atualizados + " atualizado(s)."); renderUsuarios(); })
+      .catch(function(e){ alert(e instanceof SyntaxError ? "Este não é um arquivo de acessos do sistema." : e.message); });
+  });
+
+  // sessão: ao voltar para a aba, confere se ainda vale (12 horas sem usar encerram a sessão)
+  document.addEventListener("visibilitychange", function(){
+    if (document.visibilityState !== "visible" || !Auth) return;
+    Auth.usuarioAtual().then(function(u){ if (!u || u.trocarSenha) irParaLogin("expirou"); });
+  });
+
   // ---------- módulos ----------
   window.addEventListener("resize", function(){ if (itemIndex[currentTab] && itemIndex[currentTab].type === "modulo") Modulos.ajustarAltura($("modulo-area")); });
   // o Painel de vencimentos grava os dados dele; o número no menu acompanha
   window.addEventListener("storage", function(ev){ if (ev.key && Modulos.ehDadoDeModulo(ev.key)) refreshCounts(); });
 
   // ---------- início ----------
+  mostrarUsuario();
+  var LOGIN_PENDENTE = {};
   Store.init().then(function(ok){
     if (!ok) toast("Este navegador não permite gravar dados. Nada será salvo.");
-    return migrarParaCompetencias().then(function(mesMigrado){
+    Auth = AuthCore.criarAuthLocal(Store, localStorage);
+    return Auth.usuarioAtual().then(function(u){
+      if (!u || u.trocarSenha) { irParaLogin(u ? "" : "expirou"); throw LOGIN_PENDENTE; }
+      usuarioLogado = u;
+      usuarioLogado.usuarioId = u.id;
+      montarMenu();
+      mostrarUsuario();
+    }).then(function(){ return migrarParaCompetencias(); }).then(function(mesMigrado){
       if (mesMigrado && !localStorage.getItem("competencia")) { competencia = mesMigrado; localStorage.setItem("competencia", mesMigrado); }
       return ok;
     });
@@ -2285,9 +2517,10 @@
     refreshFormOptions();
     buildSidebar();
     populateConcSelect();
-    selectTab(bancos.length ? bancos[0].id : "master");
+    var pedido = decodeURIComponent((location.hash || "").slice(1));
+    selectTab(itemIndex[pedido] ? pedido : (bancos.length && itemIndex[bancos[0].id] ? bancos[0].id : "master"));
     $("content").setAttribute("aria-busy", "false");
-  });
+  }).catch(function(e){ if (e !== LOGIN_PENDENTE) console.error(e); });
 
   window.addEventListener("beforeunload", function(e){
     if (Store.gravando()) { e.preventDefault(); e.returnValue = ""; }

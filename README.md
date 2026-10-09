@@ -142,6 +142,65 @@ Documento vazio vira `0`; documento "9.393.740" vira "9393740"; espaços repetid
 - **Depósito de cheque bloqueado** (valor com `*` no extrato do Sicoob): o dinheiro entra depois, na
   linha "LIBERAÇÃO DE DEPÓSITO".
 
+## Login e usuários
+
+O sistema só abre depois do login (`login.html`). Administrador principal:
+**orprocondigital@gmail.com**.
+
+- **Primeiro acesso:** sem nenhuma conta no navegador, a tela de login pede o nome
+  e a senha do administrador principal. A senha nunca fica no código nem no
+  repositório: é guardada como hash PBKDF2-SHA256 com sal.
+- **Usuários** (menu *Administração*, só o admin): criar, editar, escolher o perfil
+  (*Usuário* ou *Administrador*) e as áreas que a pessoa vê (Integração contábil,
+  Conciliação e cada módulo), gerar nova senha, desativar e excluir. Ao criar ou
+  redefinir, o sistema mostra a **senha provisória** uma única vez e monta a
+  mensagem de acesso (copiar, e-mail ou WhatsApp). No primeiro acesso a pessoa cria
+  a senha dela.
+- **Regras:** senha com 8+ caracteres, letras e números; 5 tentativas erradas
+  bloqueiam por 30 s; a sessão vale 12 horas sem uso; ninguém tira o próprio acesso
+  de admin, e sempre existe pelo menos um administrador ativo.
+- Cada pessoa vê no menu só as áreas liberadas. *Restaurar backup* e *Apagar tudo*
+  são só do admin. O backup de dados **não** leva as contas, e restaurar ou apagar
+  não mexe nelas.
+
+### Fase atual: só front (sem servidor)
+
+As contas ficam no navegador (IndexedDB, chave `auth:usuarios`). Por isso:
+
+- Para alguém entrar **em outro computador**, o admin usa *Exportar acessos* e envia
+  o arquivo junto com a mensagem de acesso; na primeira vez a pessoa escolhe
+  *Importar o arquivo de acessos* na tela de login. Mudou algum usuário? Exporte de novo.
+- **Não é segurança de verdade**: o login organiza as telas e o fluxo para os testes,
+  mas quem tem acesso ao computador consegue contornar, e as páginas dos módulos
+  (`modulos/…`) abrem direto pelo endereço. A proteção real vem com o backend.
+- O login precisa do link (https ou localhost); aberto pelo arquivo do computador
+  ele avisa e não entra.
+
+### Para o backend (Java/Spring)
+
+As telas usam só os métodos do objeto criado em `js/auth.js` (todos devolvem
+Promise). Basta trocar `AuthCore.criarAuthLocal(...)` (em `js/app.js` e
+`js/login.js`) por um adaptador que chame a API abaixo; as telas não mudam.
+
+| Método no front | Endpoint sugerido | Corpo → resposta |
+|---|---|---|
+| `entrar(email, senha)` | `POST /api/auth/login` | `{email, senha}` → `{token, usuario}` (401 errado, 423 bloqueado, 403 desativado) |
+| `sair()` | `POST /api/auth/logout` | — |
+| `usuarioAtual()` | `GET /api/auth/me` | → `usuario` ou 401 |
+| `trocarSenha(atual, nova)` | `POST /api/auth/senha` | `{senhaAtual, novaSenha}` |
+| `precisaConfigurar()` / `configurarAdmin(nome, senha)` | `GET /api/setup` / `POST /api/setup` | só enquanto não existe nenhum usuário |
+| `listarUsuarios()` | `GET /api/usuarios` | → `[usuario]` (só admin) |
+| `criarUsuario(dados)` | `POST /api/usuarios` | `{nome, email, perfil, areas}` → `{usuario, senhaProvisoria}` |
+| `atualizarUsuario(id, dados)` | `PUT /api/usuarios/{id}` | `{nome?, email?, perfil?, areas?, ativo?}` → `usuario` |
+| `redefinirSenha(id)` | `POST /api/usuarios/{id}/redefinir-senha` | → `{usuario, senhaProvisoria}` |
+| `excluirUsuario(id)` | `DELETE /api/usuarios/{id}` | — |
+
+`usuario` = `{id, nome, email, perfil: "admin"|"usuario", areas: ["integracao",
+"conciliacao", "mod-icms", "mod-ibs-cbs", "mod-vencimentos"], ativo, trocarSenha,
+criadoEm, atualizadoEm, ultimoAcesso}`. As regras de negócio (senha, último admin,
+bloqueio por tentativas) estão em `js/auth.js` e nos testes `tests/auth.test.js`,
+que servem de especificação. *Exportar/Importar acessos* deixam de existir com o servidor.
+
 ## Módulos
 
 Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**:
@@ -209,9 +268,11 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/nfe.js` | Leitura dos XMLs de NF-e (parcelas, cancelamentos) para a conciliação. |
 | `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
 | `js/app.js` | Tela. |
+| `js/auth.js` | Login, usuários, perfis, áreas e sessão (fase só front; interface pronta para a API). |
+| `login.html`, `js/login.js` | Tela de login, primeiro acesso, importar acessos e troca da senha provisória. |
 | `js/modulos.js` | Módulos: menu, quadro, tema, número no menu e backup. |
 | `js/pwa.js` e `sw.js` | App instalável, modo sem internet e aviso de versão nova. |
-| `manifest.webmanifest`, `icons/` | Nome, cores e ícones do app. |
+| `manifest.webmanifest`, `icons/` | Nome, cores e ícones do app; logo da Orprocon (claro, escuro e símbolo). |
 | `modulos/` | Os módulos, cada um na sua pasta. |
 | `tests/` | Testes automatizados e um extrato Sicoob fictício. |
 

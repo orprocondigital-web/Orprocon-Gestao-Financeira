@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Entrar · Gestão Financeira</title>
+<link rel="icon" href="icons/favicon-32.png" type="image/png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E6E55">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=0.13.0">
+<script>
+  try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
+</head>
+<body class="pagina-login">
+<main class="login">
+  <section class="login-marca" aria-hidden="true">
+    <img class="logo-claro" src="icons/orprocon-logo.png" alt="">
+    <img class="logo-escuro" src="icons/orprocon-logo-escuro.png" alt="">
+    <h2>Gestão Financeira</h2>
+    <ul>
+      <li>Integração contábil com o SCI Único</li>
+      <li>Extratos bancários e conciliação</li>
+      <li>Apuração de ICMS e auditor IBS/CBS</li>
+      <li>Painel de vencimentos dos clientes</li>
+    </ul>
+  </section>
+
+  <section class="login-card">
+    <div class="login-topo">
+      <img class="logo-claro login-logo-mobile" src="icons/orprocon-logo.png" alt="Orprocon Empresa Contábil">
+      <img class="logo-escuro login-logo-mobile" src="icons/orprocon-logo-escuro.png" alt="Orprocon Empresa Contábil">
+    </div>
+
+    <p class="login-carregando" id="carregando">Carregando…</p>
+
+    <!-- ENTRAR -->
+    <form id="form-entrar" class="login-form" hidden novalidate>
+      <h1>Entrar</h1>
+      <p class="muted">Use o e-mail e a senha que o administrador enviou.</p>
+      <div class="field">
+        <label for="entrar-email">E-mail</label>
+        <input id="entrar-email" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="entrar-senha">Senha</label>
+        <div class="senha-campo">
+          <input id="entrar-senha" type="password" autocomplete="current-password" required>
+          <button type="button" class="ver-senha" data-alvo="entrar-senha" aria-label="Mostrar senha">Mostrar</button>
+        </div>
+      </div>
+      <p class="login-erro" id="entrar-erro" role="alert"></p>
+      <button type="submit" class="btn btn-primary login-botao">Entrar</button>
+      <p class="muted small">Esqueceu a senha? Peça ao administrador para redefinir.</p>
+      <p class="login-importar muted small">Primeira vez neste computador? <button type="button" class="link-btn" data-importar>Importar o arquivo de acessos</button></p>
+    </form>
+
+    <!-- PRIMEIRO ACESSO: cria o administrador -->
+    <form id="form-configurar" class="login-form" hidden novalidate>
+      <h1>Primeiro acesso</h1>
+      <p class="muted">Ainda não há nenhum acesso neste computador. Crie a senha do administrador principal.</p>
+      <div class="field">
+        <label for="cfg-email">E-mail do administrador</label>
+        <input id="cfg-email" type="email" readonly>
+      </div>
+      <div class="field">
+        <label for="cfg-nome">Seu nome</label>
+        <input id="cfg-nome" type="text" autocomplete="name" required>
+      </div>
+      <div class="field">
+        <label for="cfg-senha">Senha</label>
+        <div class="senha-campo">
+          <input id="cfg-senha" type="password" autocomplete="new-password" required>
+          <button type="button" class="ver-senha" data-alvo="cfg-senha" aria-label="Mostrar senha">Mostrar</button>
+        </div>
+        <span class="muted small">Pelo menos 8 caracteres, com letras e números.</span>
+      </div>
+      <div class="field">
+        <label for="cfg-senha2">Repita a senha</label>
+        <input id="cfg-senha2" type="password" autocomplete="new-password" required>
+      </div>
+      <p class="login-erro" id="cfg-erro" role="alert"></p>
+      <button type="submit" class="btn btn-primary login-botao">Criar administrador e entrar</button>
+      <div class="login-ou"><span>ou</span></div>
+      <p class="muted small">Recebeu um arquivo de acessos do administrador? Importe-o para entrar com o seu usuário.</p>
+      <button type="button" class="btn btn-outline login-botao" data-importar>Importar arquivo de acessos</button>
+    </form>
+
+    <!-- TROCAR A SENHA PROVISÓRIA -->
+    <form id="form-trocar" class="login-form" hidden novalidate>
+      <h1>Crie a sua senha</h1>
+      <p class="muted" id="trocar-intro">Você entrou com uma senha provisória. Escolha uma senha só sua para continuar.</p>
+      <div class="field">
+        <label for="trocar-senha">Nova senha</label>
+        <div class="senha-campo">
+          <input id="trocar-senha" type="password" autocomplete="new-password" required>
+          <button type="button" class="ver-senha" data-alvo="trocar-senha" aria-label="Mostrar senha">Mostrar</button>
+        </div>
+        <span class="muted small">Pelo menos 8 caracteres, com letras e números.</span>
+      </div>
+      <div class="field">
+        <label for="trocar-senha2">Repita a nova senha</label>
+        <input id="trocar-senha2" type="password" autocomplete="new-password" required>
+      </div>
+      <p class="login-erro" id="trocar-erro" role="alert"></p>
+      <button type="submit" class="btn btn-primary login-botao">Salvar e entrar</button>
+    </form>
+
+    <p class="login-erro" id="erro-geral" role="alert" hidden></p>
+    <input type="file" id="file-acessos" accept=".json,application/json" hidden>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/storage.js?v=0.13.0"></script>
+<script src="js/auth.js?v=0.13.0"></script>
+<script src="js/login.js?v=0.13.0"></script>
+</body>
+</html>
