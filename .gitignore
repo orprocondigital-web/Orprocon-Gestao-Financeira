@@ -4,3 +4,7 @@ node_modules/
 *.xls
 *.ofx
 *EXTRATO*.txt
+# notas fiscais e arquivos de clientes nunca vão para o repositório (módulos fiscais)
+*.xml
+*.zip
+*.csv

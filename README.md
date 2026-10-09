@@ -1,7 +1,13 @@
-# Gestão Financeira — integração contábil e conciliação bancária
+# Gestão Financeira — Orprocon
 
-Substitui a planilha mensal de lançamentos (`Setembro_v19-CORRETA.xlsm`) usada
-para integrar a movimentação bancária do cliente ao **SCI Único**.
+Sistema da Orprocon que reúne, num só lugar:
+
+- **Integração contábil e conciliação bancária** (substitui a planilha mensal
+  `Setembro_v19-CORRETA.xlsm` usada para levar a movimentação bancária ao **SCI Único**);
+- os **módulos** Apuração de ICMS, Auditor IBS/CBS e Painel de vencimentos
+  (veja *Módulos*, abaixo).
+
+Pode ser **instalado como aplicativo** no computador (veja *App instalável*).
 
 ## O que resolve
 
@@ -95,7 +101,7 @@ planilha, o mês é sugerido pelas datas dos lançamentos.
 ### Backup
 
 Os dados ficam no navegador. *Baixar backup* (no Master) gera um arquivo `.json`
-com tudo — todos os meses, cadastros e configurações. Guarde numa pasta da rede
+com tudo — todos os meses, cadastros, configurações e os dados dos módulos. Guarde numa pasta da rede
 ou no Drive. *Restaurar backup* substitui os dados do navegador pelos do arquivo
 (serve também para levar os dados para outro computador).
 
@@ -136,6 +142,54 @@ Documento vazio vira `0`; documento "9.393.740" vira "9393740"; espaços repetid
 - **Depósito de cheque bloqueado** (valor com `*` no extrato do Sicoob): o dinheiro entra depois, na
   linha "LIBERAÇÃO DE DEPÓSITO".
 
+## Módulos
+
+Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**:
+
+| Módulo | Pasta | O que faz |
+|---|---|---|
+| Apuração de ICMS | `modulos/apuracao-icms/` | Prévia da apuração do mês a partir dos XMLs de NF-e e NFC-e. |
+| Auditor IBS/CBS | `modulos/auditor-ibs-cbs/` | Conferência de CST, base e alíquotas de IBS/CBS (LC 214/2025). |
+| Painel de vencimentos | `modulos/painel-vencimentos/` | Certificados, certidões, alvarás, procurações e licenças dos clientes. |
+
+Cada módulo continua sendo um site próprio (tem o seu `README.md`) e abre num
+quadro na área principal: o código, o visual e os dados de um não interferem nos
+do outro, nem nos da Gestão Financeira. Ao trocar de tela, o módulo fica como estava.
+
+O sistema principal cuida de:
+
+- **tema claro/escuro** de todos (o botão de tema de cada módulo fica escondido);
+- **número no menu** do Painel de vencimentos: documentos vencidos ou que vencem em até 7 dias;
+- **backup**: o *Baixar backup* do Master leva também os dados dos módulos (chaves
+  `icms.*` e `painelVencimentos:*`); *Restaurar* devolve. Backups antigos, sem os
+  módulos, não mexem nos dados deles;
+- **app instalável e sem internet** para os módulos também.
+
+*Apagar tudo* apaga só os dados da Gestão Financeira; cada módulo tem a sua opção de limpar.
+
+**Incluir um módulo novo:** copie a pasta para `modulos/`, acrescente-o em
+`js/modulos.js` (lista `LISTA` e, se guardar dados, `PREFIXOS_DADOS`) e os arquivos
+dele em `sw.js` (lista `MODULOS`). O `npm test` avisa se faltar algum arquivo no `sw.js`.
+
+## App instalável
+
+No Chrome ou no Edge, o botão **Instalar app** (no topo) instala o sistema como
+aplicativo: janela própria, ícone na área de trabalho e no menu Iniciar, e pode ser
+fixado na barra de tarefas. Também pelo menu do navegador: Chrome, *Transmitir, salvar
+e compartilhar → Instalar página como app*; Edge, *Aplicativos → Instalar este site
+como aplicativo*.
+
+- Os dados são os mesmos do site no navegador (o app usa o mesmo armazenamento).
+- **Abre sem internet**: os arquivos do sistema e dos módulos ficam guardados no
+  computador (`sw.js`). As bibliotecas de fora (planilhas, PDF, .zip) são guardadas
+  na primeira vez que forem usadas com internet.
+- **Versão nova:** aparece o aviso *Nova versão do sistema disponível* com o botão
+  *Atualizar*.
+
+**Ao publicar**, aumente a versão em todos os `?v=` do `index.html` **e** em `VERSAO`
+no `sw.js` (o `npm test` confere que estão iguais) — inclusive quando só um
+módulo mudou, senão quem instalou continua com o arquivo antigo.
+
 ## Onde ficam os dados
 
 No **IndexedDB do navegador** de quem usa: nada vai para servidor. Cada
@@ -155,6 +209,10 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/nfe.js` | Leitura dos XMLs de NF-e (parcelas, cancelamentos) para a conciliação. |
 | `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
 | `js/app.js` | Tela. |
+| `js/modulos.js` | Módulos: menu, quadro, tema, número no menu e backup. |
+| `js/pwa.js` e `sw.js` | App instalável, modo sem internet e aviso de versão nova. |
+| `manifest.webmanifest`, `icons/` | Nome, cores e ícones do app. |
+| `modulos/` | Os módulos, cada um na sua pasta. |
 | `tests/` | Testes automatizados e um extrato Sicoob fictício. |
 
 ## Testes

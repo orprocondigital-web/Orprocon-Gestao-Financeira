@@ -45,6 +45,7 @@
         { id: "master", label: "Master", type: "master" },
         { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
       ]},
+      { title: "Módulos", items: Modulos.LISTA.map(function(m){ return { id: m.id, label: m.label, type: "modulo", descricao: m.descricao }; }) },
       { title: "Bancos", items: bancos },
       { title: "Unidades", items: unidades },
       { title: "Outras movimentações", items: MOVIMENTOS },
@@ -171,6 +172,7 @@
   function iconFor(item){
     if (item.type === "master") return ICONS.master;
     if (item.type === "conciliacao") return ICONS.conciliacao;
+    if (item.type === "modulo") return Modulos.porId(item.id).icone;
     if (item.type === "cadastro") return ICONS.cadastro;
     if (item.section === "Bancos") return ICONS.banco;
     if (item.section === "Unidades") return ICONS.unidade;
@@ -271,7 +273,14 @@
   function refreshCounts(){
     Object.keys(itemIndex).forEach(function(id){
       var el = $("count-" + id);
-      if(el) el.textContent = loadEntries(id).length || "";
+      if (!el) return;
+      if (itemIndex[id].type === "modulo") {
+        el.textContent = Modulos.contador(id);
+        el.classList.add("alerta");
+        el.title = el.textContent ? el.textContent + " documento(s) vencido(s) ou vencendo em até 7 dias" : "";
+        return;
+      }
+      el.textContent = loadEntries(id).length || "";
     });
   }
 
@@ -289,7 +298,11 @@
     $("view-title").textContent = item.section === "Bancos" ? nomeDaFonte(item) : item.label;
     $("view-sub").textContent = item.section + (item.section === "Bancos" && item.bank ? " / " + item.bank : "");
 
-    ["view-ledger","view-cadastro","view-master","view-conciliacao"].forEach(function(v){ $(v).style.display = "none"; });
+    ["view-ledger","view-cadastro","view-master","view-conciliacao","view-modulo"].forEach(function(v){ $(v).style.display = "none"; });
+    var ehModulo = item.type === "modulo";
+    $("content").classList.toggle("modo-modulo", ehModulo);
+    document.querySelector(".comp-select").hidden = ehModulo;
+    if (btn) btn.title = ehModulo ? item.descricao : btn.title;
 
     if (item.type === "ledger") {
       $("view-ledger").style.display = "block";
@@ -326,6 +339,10 @@
     }
     else if (item.type === "conciliacao") {
       $("view-conciliacao").style.display = "block";
+    }
+    else if (ehModulo) {
+      $("view-modulo").style.display = "block";
+      Modulos.abrir(id, $("modulo-area"));
     }
   }
 
@@ -1132,7 +1149,8 @@
   }
 
   function apagarTudo(){
-    var r = prompt("Isto apaga TUDO deste navegador: todos os meses, contas, unidades e cadastros.\n" +
+    var r = prompt("Isto apaga todos os dados da Gestão Financeira neste navegador: meses, contas, unidades, cadastros e conciliações.\n" +
+      "Os módulos (ICMS, IBS/CBS, vencimentos) não são apagados: cada um tem a sua opção de limpar.\n" +
       "Baixe o backup antes se quiser guardar.\n\nPara confirmar, digite APAGAR:");
     if (r === null) return;
     if (r.trim().toUpperCase() !== "APAGAR") { alert("Nada foi apagado."); return; }
@@ -1151,7 +1169,8 @@
     Store.keys().forEach(function(k){ dados[k] = Store.get(k); });
     var config = {};
     CHAVES_CONFIG.forEach(function(k){ var v = localStorage.getItem(k); if (v !== null) config[k] = v; });
-    var backup = { app: "gestao-financeira", formato: 1, geradoEm: new Date().toISOString(), config: config, dados: dados };
+    var backup = { app: "gestao-financeira", formato: 1, geradoEm: new Date().toISOString(), config: config, dados: dados,
+      modulos: Modulos.dadosParaBackup() };
     var hoje = new Date().toISOString().slice(0, 10);
     baixarArquivos([{ nome: "backup-gestao-financeira-" + hoje + ".json", conteudo: JSON.stringify(backup) }]);
     toast("Backup baixado. Guarde o arquivo numa pasta da rede ou no Drive.");
@@ -1170,6 +1189,8 @@
       }).then(function(){
         CHAVES_CONFIG.forEach(function(k){ localStorage.removeItem(k); });
         Object.keys(b.config || {}).forEach(function(k){ localStorage.setItem(k, b.config[k]); });
+        // backups antigos não têm os módulos: nesse caso os dados dos módulos ficam como estão
+        if (b.modulos) Modulos.restaurarDados(b.modulos);
         alert("Backup restaurado. A página vai recarregar.");
         location.reload();
       });
@@ -2234,6 +2255,7 @@
     var rotulo = escuro ? "Ativar tema claro" : "Ativar tema escuro";
     $("theme-toggle").setAttribute("aria-label", rotulo);
     $("theme-toggle").title = rotulo;
+    Modulos.definirTema(temaAtual());
   }
   $("theme-toggle").addEventListener("click", function(){
     var novo = temaAtual() === "dark" ? "light" : "dark";
@@ -2243,6 +2265,11 @@
   });
   if (mqEscuro.addEventListener) mqEscuro.addEventListener("change", atualizarBotaoTema);
   atualizarBotaoTema();
+
+  // ---------- módulos ----------
+  window.addEventListener("resize", function(){ if (itemIndex[currentTab] && itemIndex[currentTab].type === "modulo") Modulos.ajustarAltura($("modulo-area")); });
+  // o Painel de vencimentos grava os dados dele; o número no menu acompanha
+  window.addEventListener("storage", function(ev){ if (ev.key && Modulos.ehDadoDeModulo(ev.key)) refreshCounts(); });
 
   // ---------- início ----------
   Store.init().then(function(ok){

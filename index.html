@@ -4,13 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gestão Financeira</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230E6E55'/><path d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="icon" href="icons/favicon-32.png" type="image/png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E6E55">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Gestão Financeira">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.11.0">
+<link rel="stylesheet" href="css/style.css?v=0.12.0">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -25,7 +29,7 @@
       </span>
       <span class="brand-text">
         <strong>Gestão Financeira</strong>
-        <span>Integração contábil</span>
+        <span>Orprocon</span>
       </span>
     </div>
     <div class="nav" id="sidebar-menu"></div>
@@ -38,6 +42,10 @@
         <h1 id="view-title">Selecione uma opção</h1>
       </div>
       <div class="topbar-actions">
+      <button type="button" class="btn btn-outline btn-sm" id="btn-instalar" hidden title="Instala o sistema como aplicativo: janela própria e ícone na área de trabalho">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        Instalar app
+      </button>
       <label class="comp-select" title="Mês de trabalho: cada mês tem os seus lançamentos">
         <span>Competência</span>
         <select id="competencia" aria-label="Competência (mês de trabalho)"></select>
@@ -210,6 +218,11 @@
     </div>
 
     <!-- MASTER / INTEGRAÇÃO CONTÁBIL -->
+    <!-- MÓDULOS (cada um é um site próprio em modulos/, aberto num quadro) -->
+    <div id="view-modulo" style="display:none;">
+      <div id="modulo-area" class="modulo-area"></div>
+    </div>
+
     <div id="view-master" style="display:none;">
       <section class="panel panel-entrada">
         <div class="panel-body entrada">
@@ -529,14 +542,20 @@
   </div>
 </div>
 
-<script src="js/storage.js?v=0.11.0"></script>
-<script src="js/core.js?v=0.11.0"></script>
-<script src="js/integracao.js?v=0.11.0"></script>
-<script src="js/importacao.js?v=0.11.0"></script>
-<script src="js/extratos.js?v=0.11.0"></script>
-<script src="js/pdfextrato.js?v=0.11.0"></script>
-<script src="js/conciliacao.js?v=0.11.0"></script>
-<script src="js/nfe.js?v=0.11.0"></script>
-<script src="js/app.js?v=0.11.0"></script>
+<script src="js/storage.js?v=0.12.0"></script>
+<script src="js/core.js?v=0.12.0"></script>
+<script src="js/integracao.js?v=0.12.0"></script>
+<script src="js/importacao.js?v=0.12.0"></script>
+<script src="js/extratos.js?v=0.12.0"></script>
+<script src="js/pdfextrato.js?v=0.12.0"></script>
+<script src="js/conciliacao.js?v=0.12.0"></script>
+<script src="js/nfe.js?v=0.12.0"></script>
+<script src="js/modulos.js?v=0.12.0"></script>
+<script src="js/app.js?v=0.12.0"></script>
+<script src="js/pwa.js?v=0.12.0"></script>
+<div class="aviso-atualizacao" id="aviso-atualizacao" role="status" hidden>
+  <span>Nova versão do sistema disponível.</span>
+  <button type="button" class="btn btn-primary btn-sm" id="btn-atualizar">Atualizar</button>
+</div>
 </body>
 </html>

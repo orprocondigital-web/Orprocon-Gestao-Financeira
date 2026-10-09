@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditor IBS/CBS — Conferência LC 214/2025</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script>
+  // Aplica o tema antes de desenhar a página (evita "piscar" no claro)
+  (function(){
+    var t=null; try{ t=localStorage.getItem('tema'); }catch(e){}
+    if(t==='dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+  })();
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+
+<!-- Classes geradas/alternadas pelo JavaScript (mantidas para não alterar a lógica) -->
+<style type="text/tailwindcss">
+  @layer components {
+    /* Abas */
+    .tab{ @apply px-4 py-2 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400 transition-colors hover:text-teal-800 hover:bg-white/70 dark:hover:text-teal-300 dark:hover:bg-slate-700/60; }
+    .tab.active{ @apply bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800; }
+    .panel{ @apply hidden pt-6; }
+    .panel.active{ @apply block; }
+
+    /* Dropzone */
+    .dropzone.drag{ @apply border-teal-600 bg-teal-50 dark:bg-teal-500/10 dark:border-teal-400; }
+
+    /* Lista de arquivos */
+    .filelist > div{ @apply flex justify-between gap-4 py-2 px-3 border-b border-slate-100 dark:border-slate-800 last:border-0; }
+    .filelist .pending{ @apply text-slate-400 dark:text-slate-500; }
+    .filelist .ok{ @apply text-emerald-600 dark:text-emerald-400 font-medium; }
+    .filelist .err{ @apply text-red-600 dark:text-red-400 font-medium; }
+
+    /* Botões */
+    .btn{ @apply inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500/40; }
+    .btn.ghost{ @apply bg-white dark:bg-slate-800 text-teal-800 dark:text-teal-300 ring-1 ring-inset ring-slate-300 dark:ring-slate-700 shadow-none hover:bg-slate-50 dark:hover:bg-slate-800; }
+
+    /* Campos */
+    .field label{ @apply block mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400; }
+    .field input{ @apply w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 font-mono text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600 transition focus:border-teal-600 dark:focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20; }
+
+    /* Tabela de resultados */
+    #resultTable thead tr.group th{ @apply bg-teal-900 text-white px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide border-r border-white/10; }
+    #resultTable thead tr.sub th{ @apply bg-teal-800 text-teal-50 px-2 py-1.5 text-center text-[10px] font-medium whitespace-nowrap border-r border-white/10; }
+    #resultTable tbody td{ @apply px-2 py-2 text-right whitespace-nowrap border-b border-r border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200; }
+    #resultTable tbody tr:not(.detail-row):nth-child(4n+3){ @apply bg-slate-50/70 dark:bg-slate-800/40; }
+    #resultTable tbody tr:not(.detail-row):hover{ @apply bg-teal-50/60 dark:bg-teal-400/10; }
+    #resultTable tbody td.item-desc{ @apply text-left font-sans text-[12px] whitespace-normal leading-snug max-w-[240px] text-slate-800 dark:text-slate-100; }
+    #resultTable tbody td.item-n{ @apply text-center text-slate-400 dark:text-slate-500 cursor-pointer select-none hover:text-teal-700; }
+    #resultTable td.detail-cell{ @apply text-left whitespace-normal max-w-[300px] text-[11px] leading-snug; }
+
+    .status-pill{ @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset whitespace-nowrap; }
+    .status-ok{ @apply bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-600/20 dark:ring-emerald-500/30; }
+    .status-warn{ @apply bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-600/20 dark:ring-amber-500/30; }
+    .status-err{ @apply bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20 dark:ring-red-500/30; }
+
+    .detail-msg{ @apply block mb-1 last:mb-0; }
+    .detail-ok{ @apply text-emerald-700 dark:text-emerald-400; }
+    .detail-warn{ @apply text-amber-700 dark:text-amber-300; }
+    .detail-err{ @apply text-red-700 dark:text-red-400; }
+
+    .detail-row td{ @apply !bg-slate-50 dark:!bg-slate-800/60 !text-left !whitespace-normal font-mono text-[11px] text-slate-600 dark:text-slate-300 !px-6 !py-3; }
+    .detail-row ul{ @apply my-1 list-disc pl-5 space-y-0.5; }
+    li.ok{ @apply text-emerald-700 dark:text-emerald-400; }
+    li.warn{ @apply text-amber-700 dark:text-amber-300; }
+    li.err{ @apply text-red-700 dark:text-red-400; }
+
+    /* Barra de rolagem horizontal fixa */
+    .sticky-scrollbar{ @apply fixed bottom-0 z-50 hidden h-4 overflow-x-scroll overflow-y-hidden border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur; }
+    .sticky-scrollbar.visible{ @apply block; }
+    #stickyScrollbarInner{ height:1px; }
+
+    /* Calculadora */
+    .result-line{ @apply flex justify-between py-2.5 border-b border-dashed border-slate-200 dark:border-slate-800 font-mono text-sm text-slate-600 dark:text-slate-300; }
+    .result-line b{ @apply font-semibold text-slate-900 dark:text-white; }
+    .result-total{ @apply mt-2 flex justify-between border-t-2 border-teal-800 dark:border-teal-500 pt-3 font-mono text-base font-bold text-teal-800 dark:text-teal-300; }
+
+    /* Referência */
+    table.ref th{ @apply bg-teal-900 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-white; }
+    table.ref td{ @apply px-4 py-2.5 align-top border-b border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200; }
+    table.ref tr:nth-child(even) td{ @apply bg-slate-50/70 dark:bg-slate-800/40; }
+    table.ref td.cst{ @apply font-mono font-semibold text-teal-800 dark:text-teal-300 whitespace-nowrap; }
+  }
+</style>
+</head>
+
+<body class="transition-colors min-h-screen bg-slate-100 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-100 antialiased">
+
+  <!-- ============ HEADER ============ -->
+  <header class="bg-gradient-to-r from-teal-950 via-teal-900 to-teal-800 text-white">
+    <div class="mx-auto flex max-w-[1800px] flex-wrap items-end justify-between gap-4 px-5 py-6">
+      <div class="flex items-center gap-4">
+        <div class="grid h-12 w-12 place-items-center rounded-xl bg-white/10 ring-1 ring-white/20">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z"/></svg>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">Auditor IBS / CBS</h1>
+          <p class="mt-0.5 text-xs font-medium uppercase tracking-wider text-teal-200">Conferência de itens · NF-e (mod. 55) e NFS-e · Reforma Tributária</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+        <span class="rounded-md bg-white/10 px-2.5 py-1 ring-1 ring-white/15">Base: <b class="text-white">LC 214/2025</b></span>
+        <span class="rounded-md bg-white/10 px-2.5 py-1 ring-1 ring-white/15">Layout: NT 2025.002 (IBSCBS)</span>
+        <span class="rounded-md bg-white/10 px-2.5 py-1 ring-1 ring-white/15" id="clock"></span>
+        <button id="btnTheme" type="button" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro" class="grid h-7 w-7 place-items-center rounded-md bg-white/10 ring-1 ring-white/15 transition hover:bg-white/20">
+          <svg id="iconMoon" class="h-4 w-4 dark:hidden" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
+          <svg id="iconSun" class="hidden h-4 w-4 dark:block" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1800px] px-5 pb-20 pt-6">
+
+    <!-- ============ TABS ============ -->
+    <nav class="inline-flex flex-wrap gap-1 rounded-xl bg-slate-200/70 dark:bg-slate-800/80 p-1">
+      <button class="tab active" data-tab="upload">Conferência de XML</button>
+      <button class="tab" data-tab="calc">Calculadora manual</button>
+      <button class="tab" data-tab="ref">Referência de CST</button>
+    </nav>
+
+    <!-- ================= UPLOAD PANEL ================= -->
+    <section class="panel active" id="panel-upload">
+
+      <div id="dropzone" class="dropzone group cursor-pointer rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-6 py-10 text-center transition hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-500/5">
+        <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 ring-1 ring-teal-100 dark:ring-teal-500/20 transition group-hover:scale-105">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+        </div>
+        <div class="text-base font-semibold text-slate-800 dark:text-slate-100">Solte aqui os XMLs de NF-e ou NFS-e, ou clique para selecionar</div>
+        <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Aceita múltiplos arquivos .xml · processamento local, nada é enviado a servidores</div>
+        <input type="file" id="fileInput" accept=".xml" multiple class="hidden">
+      </div>
+
+      <div class="filelist mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-900 font-mono text-xs text-slate-600 dark:text-slate-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 empty:hidden" id="filelist"></div>
+
+      <div class="my-4">
+        <button class="btn ghost" id="btnToggleManual">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Inserir produto manualmente
+        </button>
+      </div>
+
+      <!-- Formulário manual -->
+      <div id="manualForm" style="display:none;" class="mb-4 rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+        <h3 class="mb-5 border-b border-slate-100 dark:border-slate-800 pb-3 text-base font-semibold text-teal-900 dark:text-teal-300">Dados do produto vendido</h3>
+
+        <div class="grid gap-x-5 gap-y-4 md:grid-cols-2 xl:grid-cols-4">
+          <div class="field md:col-span-2 xl:col-span-4">
+            <label>Descrição do produto</label>
+            <input type="text" id="m_desc" placeholder="ex: MASSA FRESCA TALHARIM 1KG LA NONNA CX C/5 UN">
+          </div>
+          <div class="field"><label>Código do produto</label><input type="text" id="m_cprod" placeholder="ex: CXMFT1"></div>
+          <div class="field"><label>NCM</label><input type="text" id="m_ncm" maxlength="8" placeholder="ex: 19023000"></div>
+          <div class="field"><label>CFOP</label><input type="text" id="m_cfop" maxlength="4" placeholder="ex: 5101"></div>
+          <div class="field"><label>Quantidade</label><input type="number" id="m_qcom" step="0.0001" placeholder="1,0000"></div>
+
+          <div class="field"><label>Valor unitário (R$)</label><input type="number" id="m_vuncom" step="0.0001" placeholder="0,00"></div>
+          <div class="field"><label>CST IBS/CBS</label><input type="text" id="m_cst" maxlength="3" placeholder="ex: 000"></div>
+          <div class="field"><label>cClassTrib</label><input type="text" id="m_classtrib" maxlength="6" placeholder="ex: 000001"></div>
+          <div class="field"><label>Base de cálculo — BC (R$)</label><input type="number" id="m_bc" step="0.01" placeholder="0,00"></div>
+        </div>
+
+        <div class="mt-6 grid gap-5 lg:grid-cols-2">
+          <fieldset class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-4 ring-1 ring-slate-200 dark:ring-slate-800">
+            <legend class="rounded-md bg-teal-700 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white">IBS</legend>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="field"><label>Alíquota IBS - UF (%)</label><input type="number" id="m_pibsuf" step="0.0001" placeholder="0,00"></div>
+              <div class="field"><label>Alíquota IBS - Município (%)</label><input type="number" id="m_pibsmun" step="0.0001" placeholder="0,00"></div>
+              <div class="field sm:col-span-2">
+                <label>Valor IBS informado (R$) <span class="font-normal normal-case text-slate-400 dark:text-slate-500">— opcional, senão calcula automático</span></label>
+                <input type="number" id="m_vibs" step="0.01" placeholder="opcional">
+              </div>
+            </div>
+          </fieldset>
+          <fieldset class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-4 ring-1 ring-slate-200 dark:ring-slate-800">
+            <legend class="rounded-md bg-teal-700 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white">CBS</legend>
+            <div class="grid gap-4">
+              <div class="field"><label>Alíquota CBS (%)</label><input type="number" id="m_pcbs" step="0.0001" placeholder="0,00"></div>
+              <div class="field">
+                <label>Valor CBS informado (R$) <span class="font-normal normal-case text-slate-400 dark:text-slate-500">— opcional, senão calcula automático</span></label>
+                <input type="number" id="m_vcbs" step="0.01" placeholder="opcional">
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="mt-6 flex gap-2">
+          <button class="btn" id="btnAddManual">Adicionar à conferência</button>
+          <button class="btn ghost" id="btnCancelManual">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div id="toolbar" class="mb-3 mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div id="itemCount" class="rounded-lg bg-white dark:bg-slate-900 px-3 py-1.5 font-mono text-xs text-slate-600 dark:text-slate-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">0 itens carregados</div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="btn ghost" id="btnClear">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+            Limpar
+          </button>
+          <button class="btn" id="btnExport">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabela de resultados -->
+      <div id="tableWrap" style="display:none;" class="overflow-x-auto rounded-2xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+        <table id="resultTable" class="w-full min-w-[1620px] border-collapse font-mono text-[11px]">
+          <thead>
+            <tr class="group">
+              <th rowspan="2" class="w-10">#</th>
+              <th rowspan="2" class="!text-left">Item</th>
+              <th rowspan="2" class="w-20">Cód.</th>
+              <th rowspan="2" class="w-20">NCM</th>
+              <th rowspan="2" class="w-14">CFOP</th>
+              <th rowspan="2" class="w-14">Qtd</th>
+              <th rowspan="2">Vlr Unit.</th>
+              <th rowspan="2">Vlr Produto</th>
+              <th rowspan="2" class="w-20">cClassTrib</th>
+              <th colspan="5" class="!bg-teal-700">IBS</th>
+              <th colspan="4" class="!bg-cyan-800">CBS</th>
+              <th rowspan="2" class="w-20">Situação</th>
+              <th rowspan="2">Detalhe</th>
+            </tr>
+            <tr class="sub">
+              <th>CST</th><th>BC</th><th>Alíq. Nominal (UF/Mun)</th><th>Alíq. Efetiva (UF/Mun)</th><th>Valor</th>
+              <th>CST</th><th>Alíq. Nominal</th><th>Alíq. Efetiva</th><th>Valor</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="sticky-scrollbar" id="stickyScrollbar"><div id="stickyScrollbarInner"></div></div>
+
+      <div id="emptyState" class="mt-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 px-6 py-14 text-center">
+        <svg class="mx-auto mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Nenhum documento carregado ainda. Envie um XML para iniciar a conferência.</p>
+      </div>
+    </section>
+
+    <!-- ================= CALCULATOR PANEL ================= -->
+    <section class="panel" id="panel-calc">
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+          <h3 class="mb-5 border-b border-slate-100 dark:border-slate-800 pb-3 text-base font-semibold text-teal-900 dark:text-teal-300">Dados do item</h3>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="field sm:col-span-2"><label>Valor da operação — Base de Cálculo (R$)</label><input type="number" id="c_bc" step="0.01" placeholder="0,00"></div>
+            <div class="field"><label>CST IBS/CBS</label><input type="text" id="c_cst" maxlength="3" placeholder="ex: 000"></div>
+            <div class="field"><label>cClassTrib</label><input type="text" id="c_classtrib" maxlength="6" placeholder="ex: 000001"></div>
+            <div class="field"><label>Alíquota IBS - UF (%)</label><input type="number" id="c_pibsuf" step="0.0001" placeholder="0,00"></div>
+            <div class="field"><label>Alíquota IBS - Município (%)</label><input type="number" id="c_pibsmun" step="0.0001" placeholder="0,00"></div>
+            <div class="field sm:col-span-2"><label>Alíquota CBS (%)</label><input type="number" id="c_pcbs" step="0.0001" placeholder="0,00"></div>
+            <div class="field"><label>Valor IBS informado no XML (R$)</label><input type="number" id="c_vibs" step="0.01" placeholder="opcional"></div>
+            <div class="field"><label>Valor CBS informado no XML (R$)</label><input type="number" id="c_vcbs" step="0.01" placeholder="opcional"></div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 lg:sticky lg:top-6 lg:self-start">
+          <h3 class="mb-3 border-b border-slate-100 dark:border-slate-800 pb-3 text-base font-semibold text-teal-900 dark:text-teal-300">Conferência</h3>
+          <div class="result-line"><span>IBS – UF esperado</span><b id="r_ibsuf">R$ 0,00</b></div>
+          <div class="result-line"><span>IBS – Município esperado</span><b id="r_ibsmun">R$ 0,00</b></div>
+          <div class="result-line"><span>IBS total esperado</span><b id="r_ibstotal">R$ 0,00</b></div>
+          <div class="result-line"><span>CBS esperado</span><b id="r_cbstotal">R$ 0,00</b></div>
+          <div class="result-total"><span>IBS + CBS total esperado</span><span id="r_total">R$ 0,00</span></div>
+          <div id="calc-diagnostic" class="mt-5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= REFERENCE PANEL ================= -->
+    <section class="panel" id="panel-ref">
+      <div class="mb-5 flex gap-3 rounded-xl border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-100">
+        <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg>
+        <p>
+          Tabela oficial de CST do IBS/CBS conforme o Portal da Conformidade Fácil (SVRS) —
+          <a href="https://dfe-portal.svrs.rs.gov.br/Cff/ClassificacaoTributaria" target="_blank" class="font-medium text-amber-700 dark:text-amber-300 underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100">dfe-portal.svrs.rs.gov.br/Cff/ClassificacaoTributaria</a>.
+          Cada CST se desdobra em diversos códigos de cClassTrib (6 dígitos), que detalham o enquadramento exato na LC 214/2025. Consulte o portal para a lista completa e atualizada de cClassTrib de cada CST.
+        </p>
+      </div>
+      <div class="overflow-x-auto rounded-2xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+        <table class="ref w-full border-collapse text-sm">
+          <thead><tr><th>CST</th><th>Descrição</th><th>Indicador predominante</th><th>Exemplos de cClassTrib</th></tr></thead>
+          <tbody>
+            <tr><td class="cst">000</td><td>Tributação integral</td><td>Exige tributação plena</td><td>000001 — situações tributadas integralmente pelo IBS e CBS</td></tr>
+            <tr><td class="cst">010</td><td>Tributação com alíquotas uniformes</td><td>Alíquota uniforme nacional/setorial</td><td>010001 — operações do FGTS; 010002 — serviços financeiros</td></tr>
+            <tr><td class="cst">011</td><td>Tributação com alíquotas uniformes reduzidas</td><td>Redução de alíquota uniforme</td><td>011002 — planos de assistência à saúde; 011004 — concursos e prognósticos</td></tr>
+            <tr><td class="cst">200</td><td>Alíquota reduzida</td><td>Redução de alíquota</td><td>200003 — cesta básica (Anexo I); 200028 — serviços de educação (Anexo II); 200029 — saúde humana (Anexo III)</td></tr>
+            <tr><td class="cst">220</td><td>Alíquota fixa</td><td>Alíquota fixa</td><td>220001/220002 — incorporação imobiliária em regime especial</td></tr>
+            <tr><td class="cst">221</td><td>Alíquota fixa proporcional</td><td>Alíquota fixa proporcional</td><td>221001 — locação/cessão/arrendamento de imóvel sobre receita bruta</td></tr>
+            <tr><td class="cst">222</td><td>Redução de base de cálculo</td><td>Redução de BC</td><td>222001 — transporte internacional de passageiros (ida e volta em conjunto)</td></tr>
+            <tr><td class="cst">400</td><td>Isenção</td><td>Sem tributação</td><td>400001/400002 — transporte público coletivo rodoviário e metroviário</td></tr>
+            <tr><td class="cst">410</td><td>Imunidade e não incidência</td><td>Sem tributação</td><td>410002 — transferência entre estabelecimentos do mesmo contribuinte; 410004 — exportações; 410036 — descontos incondicionais</td></tr>
+            <tr><td class="cst">510</td><td>Diferimento</td><td>Diferimento</td><td>510001 — energia elétrica (importação, geração, comercialização, distribuição, transmissão)</td></tr>
+            <tr><td class="cst">515</td><td>Diferimento com redução de alíquota</td><td>Diferimento + redução</td><td>515001 — insumos agropecuários e aquícolas (Anexo IX)</td></tr>
+            <tr><td class="cst">550</td><td>Suspensão</td><td>Suspensão</td><td>550001 — exportação de bens materiais; 550014 — Zona de Processamento de Exportação; 550020 — Áreas de Livre Comércio</td></tr>
+            <tr><td class="cst">620</td><td>Tributação monofásica</td><td>Monofásica</td><td>620001 — monofásica sobre combustíveis; 620002 — com retenção sobre combustíveis</td></tr>
+            <tr><td class="cst">800</td><td>Transferência de crédito</td><td>Transferência de crédito</td><td>800001 — fusão, cisão ou incorporação; 800002 — transferência de crédito do associado/cooperativa</td></tr>
+            <tr><td class="cst">810</td><td>Ajuste de IBS na ZFM</td><td>Crédito presumido IBS ZFM</td><td>810001 — crédito presumido sobre fornecimentos a partir da ZFM</td></tr>
+            <tr><td class="cst">811</td><td>Ajustes</td><td>Ajuste de competência</td><td>811001 — anulação de crédito por saídas imunes/isentas; 811003 — desenquadramento do Simples Nacional</td></tr>
+            <tr><td class="cst">820</td><td>Tributação em documento específico</td><td>Sem alíquota — apuração externa</td><td>820001 — planos de saúde (art. 234); 820007 — serviços financeiros</td></tr>
+            <tr><td class="cst">830</td><td>Exclusão da base de cálculo</td><td>Sem alíquota</td><td>830001 — exclusão da BC de energia elétrica fornecida pela distribuidora à UC</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="mt-14 border-t border-slate-200 dark:border-slate-800 pt-5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+      Ferramenta de apoio à conferência fiscal — não substitui a validação oficial nos ambientes da SEFAZ/Receita Federal nem a tabela vigente de CST/cClassTrib publicada pelo Comitê Gestor do IBS. Todo processamento de XML ocorre localmente no navegador.
+    </footer>
+  </main>
+
+<script>
+// ---------------- Tabs ----------------
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+    updateStickyScrollbar();
+  });
+});
+
+function updateClock(){
+  const d = new Date();
+  document.getElementById('clock').textContent = 'Sessão: ' + d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR');
+}
+updateClock();
+
+// ---------------- Tema claro/escuro ----------------
+document.getElementById('btnTheme').addEventListener('click', ()=>{
+  const dark = document.documentElement.classList.toggle('dark');
+  try{ localStorage.setItem('tema', dark ? 'dark' : 'light'); }catch(e){}
+});
+
+// ---------------- Helpers ----------------
+function fmtBRL(n){
+  if(n===null || n===undefined || isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtPct(n){
+  if(n===null || n===undefined || isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:4}) + '%';
+}
+function num(v){
+  if(v===null || v===undefined) return null;
+  const s = String(v).trim().replace(',', '.');
+  if(s==='') return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+function textOf(el, tag){
+  if(!el) return null;
+  const found = el.getElementsByTagName(tag);
+  return found.length ? found[0].textContent : null;
+}
+function firstDescendant(el, tag){
+  if(!el) return null;
+  const found = el.getElementsByTagName(tag);
+  return found.length ? found[0] : null;
+}
+
+// ---------------- XML Parsing ----------------
+function parseXmlDoc(doc, filename){
+  const items = [];
+  const parserError = doc.getElementsByTagName('parsererror');
+  if(parserError.length){
+    return { error: 'XML inválido / malformado', items: [] };
+  }
+
+  const nfNumber = extractDocNumber(doc);
+
+  const dets = doc.getElementsByTagName('det');
+  if(dets.length){
+    for(let i=0;i<dets.length;i++){
+      const det = dets[i];
+      const prod = firstDescendant(det, 'prod');
+      const nItem = det.getAttribute('nItem') || (i+1);
+      const cProd = textOf(prod, 'cProd') || '';
+      const ncm = textOf(prod, 'NCM') || '';
+      const cfop = textOf(prod, 'CFOP') || '';
+      const qCom = num(textOf(prod, 'qCom'));
+      const vUnCom = num(textOf(prod, 'vUnCom'));
+      const xProd = textOf(prod, 'xProd') || ('Item ' + nItem);
+      const vProd = num(textOf(prod, 'vProd'));
+
+      let grp = firstDescendant(det, 'IBSCBS') || firstDescendant(det, 'UB');
+      items.push(extractIbsCbs(grp, {
+        doc: filename, nfNumber, nItem, desc: xProd, cProd, ncm, cfop, qCom, vUnCom, vProd
+      }));
+    }
+    return { error:null, items };
+  }
+
+  const groups = [].concat(
+    Array.from(doc.getElementsByTagName('IBSCBS')),
+    Array.from(doc.getElementsByTagName('UB'))
+  );
+  if(groups.length){
+    groups.forEach((grp, idx)=>{
+      let container = grp.parentNode;
+      let desc = null;
+      for(let hops=0; hops<4 && container && !desc; hops++){
+        desc = textOf(container,'xProd') || textOf(container,'discriminacao') || textOf(container,'xServ') || textOf(container,'descricao') || textOf(container,'dDescricao') || textOf(container,'xDescServ');
+        container = container.parentNode;
+      }
+      items.push(extractIbsCbs(grp, {
+        doc: filename, nfNumber, nItem: idx+1, desc: desc || ('Item ' + (idx+1)), vProd: null
+      }));
+    });
+    return { error:null, items };
+  }
+
+  return { error:'Nenhum item ou grupo IBS/CBS encontrado neste XML', items: [] };
+}
+
+function extractDocNumber(doc){
+  const candidates = ['nNF','nNFSe','nDPS','Numero','numero','NumeroNFSe','nDFSe'];
+  for(const tag of candidates){
+    const v = textOf(doc, tag);
+    if(v) return v;
+  }
+  return null;
+}
+
+function extractIbsCbs(grp, meta){
+  const row = {
+    doc: meta.doc, nfNumber: meta.nfNumber ?? null, nItem: meta.nItem, desc: meta.desc, vProd: meta.vProd,
+    cProd: meta.cProd ?? null, ncm: meta.ncm ?? null, cfop: meta.cfop ?? null,
+    qCom: meta.qCom ?? null, vUnCom: meta.vUnCom ?? null,
+    cst: null, cClassTrib: null,
+    bc: null,
+    pIbsUf: null, vIbsUf: null, pRedAliqUf: null, pAliqEfetUf: null,
+    pIbsMun: null, vIbsMun: null, pRedAliqMun: null, pAliqEfetMun: null,
+    vIbs: null,
+    pCbs: null, vCbs: null, pRedAliqCbs: null, pAliqEfetCbs: null,
+    found: !!grp
+  };
+  if(!grp) return row;
+
+  row.cst = textOf(grp, 'CST');
+  row.cClassTrib = textOf(grp, 'cClassTrib');
+
+  const gIbsCbs = firstDescendant(grp, 'gIBSCBS') || grp;
+  row.bc = num(textOf(gIbsCbs, 'vBC'));
+
+  const gIbsUf = firstDescendant(grp, 'gIBSUF');
+  if(gIbsUf){
+    row.pIbsUf = num(textOf(gIbsUf, 'pIBSUF'));
+    row.vIbsUf = num(textOf(gIbsUf, 'vIBSUF'));
+    const redUf = firstDescendant(gIbsUf, 'gRed');
+    if(redUf){
+      row.pRedAliqUf = num(textOf(redUf, 'pRedAliq'));
+      row.pAliqEfetUf = num(textOf(redUf, 'pAliqEfet'));
+    }
+  }
+  const gIbsMun = firstDescendant(grp, 'gIBSMun');
+  if(gIbsMun){
+    row.pIbsMun = num(textOf(gIbsMun, 'pIBSMun'));
+    row.vIbsMun = num(textOf(gIbsMun, 'vIBSMun'));
+    const redMun = firstDescendant(gIbsMun, 'gRed');
+    if(redMun){
+      row.pRedAliqMun = num(textOf(redMun, 'pRedAliq'));
+      row.pAliqEfetMun = num(textOf(redMun, 'pAliqEfet'));
+    }
+  }
+  row.vIbs = num(textOf(grp, 'vIBS'));
+
+  const gCbs = firstDescendant(grp, 'gCBS');
+  if(gCbs){
+    row.pCbs = num(textOf(gCbs, 'pCBS'));
+    row.vCbs = num(textOf(gCbs, 'vCBS'));
+    const redCbs = firstDescendant(gCbs, 'gRed');
+    if(redCbs){
+      row.pRedAliqCbs = num(textOf(redCbs, 'pRedAliq'));
+      row.pAliqEfetCbs = num(textOf(redCbs, 'pAliqEfet'));
+    }
+  } else {
+    row.pCbs = num(textOf(grp, 'pCBS'));
+    row.vCbs = num(textOf(grp, 'vCBS'));
+  }
+  return row;
+}
+
+// ---------------- Validation ----------------
+const TOL = 0.03;
+function validateRow(row){
+  const msgs = [];
+  if(!row.found){
+    msgs.push({level:'err', text:'Grupo IBS/CBS não encontrado neste item — verifique se o XML já contempla a NT 2025.002.'});
+    return { level:'err', msgs };
+  }
+  if(!row.cst){
+    msgs.push({level:'err', text:'CST do IBS/CBS ausente.'});
+  }
+  if(!row.cClassTrib){
+    msgs.push({level:'warn', text:'cClassTrib ausente — necessário para identificar o enquadramento exato na LC 214/2025.'});
+  }
+  if(row.bc===null){
+    msgs.push({level:'warn', text:'Base de cálculo (vBC) não informada — pode ser esperado para CSTs sem incidência (ex: 400, 830).'});
+  }
+
+  if(row.bc!==null && row.vIbsUf!==null){
+    const effUf = row.pAliqEfetUf!==null ? row.pAliqEfetUf : row.pIbsUf;
+    if(effUf!==null){
+      const exp = row.bc * effUf/100;
+      if(Math.abs(exp - row.vIbsUf) > TOL){
+        msgs.push({level:'err', text:`IBS-UF divergente: esperado R$ ${fmtBRL(exp)} (BC × ${fmtPct(effUf)}), informado R$ ${fmtBRL(row.vIbsUf)}.`});
+      } else if(row.pRedAliqUf!==null && row.pRedAliqUf>0){
+        msgs.push({level:'ok', text:`IBS-UF com redução de alíquota de ${fmtPct(row.pRedAliqUf)} — nominal ${fmtPct(row.pIbsUf)}, efetiva ${fmtPct(effUf)}.`});
+      }
+    }
+  }
+  if(row.bc!==null && row.vIbsMun!==null){
+    const effMun = row.pAliqEfetMun!==null ? row.pAliqEfetMun : row.pIbsMun;
+    if(effMun!==null){
+      const exp = row.bc * effMun/100;
+      if(Math.abs(exp - row.vIbsMun) > TOL){
+        msgs.push({level:'err', text:`IBS-Município divergente: esperado R$ ${fmtBRL(exp)} (BC × ${fmtPct(effMun)}), informado R$ ${fmtBRL(row.vIbsMun)}.`});
+      } else if(row.pRedAliqMun!==null && row.pRedAliqMun>0){
+        msgs.push({level:'ok', text:`IBS-Município com redução de alíquota de ${fmtPct(row.pRedAliqMun)} — nominal ${fmtPct(row.pIbsMun)}, efetiva ${fmtPct(effMun)}.`});
+      }
+    }
+  }
+  if(row.vIbsUf!==null && row.vIbsMun!==null && row.vIbs!==null){
+    const exp = row.vIbsUf + row.vIbsMun;
+    if(Math.abs(exp - row.vIbs) > TOL){
+      msgs.push({level:'err', text:`Total do IBS (vIBS) não bate com UF + Município: esperado R$ ${fmtBRL(exp)}, informado R$ ${fmtBRL(row.vIbs)}.`});
+    }
+  }
+  if(row.bc!==null && row.vCbs!==null){
+    const effCbs = row.pAliqEfetCbs!==null ? row.pAliqEfetCbs : row.pCbs;
+    if(effCbs!==null){
+      const exp = row.bc * effCbs/100;
+      if(Math.abs(exp - row.vCbs) > TOL){
+        msgs.push({level:'err', text:`CBS divergente: esperado R$ ${fmtBRL(exp)} (BC × ${fmtPct(effCbs)}), informado R$ ${fmtBRL(row.vCbs)}.`});
+      } else if(row.pRedAliqCbs!==null && row.pRedAliqCbs>0){
+        msgs.push({level:'ok', text:`CBS com redução de alíquota de ${fmtPct(row.pRedAliqCbs)} — nominal ${fmtPct(row.pCbs)}, efetiva ${fmtPct(effCbs)}.`});
+      }
+    }
+  }
+  if(msgs.length===0){
+    msgs.push({level:'ok', text:'Valores e alíquotas consistentes para os campos informados.'});
+  }
+  const level = msgs.some(m=>m.level==='err') ? 'err' : (msgs.some(m=>m.level==='warn') ? 'warn' : 'ok');
+  return { level, msgs };
+}
+
+// ---------------- State & rendering ----------------
+let allRows = [];
+
+function addFiles(fileList){
+  const files = Array.from(fileList).filter(f=>f.name.toLowerCase().endsWith('.xml'));
+  if(!files.length) return;
+  document.getElementById('toolbar').style.display='flex';
+  files.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      let statusEl = logFile(file.name, 'processando…', null);
+      try{
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(e.target.result, 'text/xml');
+        const res = parseXmlDoc(doc, file.name);
+        if(res.error && res.items.length===0){
+          updateFileLog(statusEl, res.error, false);
+        } else {
+          allRows = allRows.concat(res.items);
+          updateFileLog(statusEl, res.items.length + ' item(ns) encontrados', true);
+          render();
+        }
+      }catch(err){
+        updateFileLog(statusEl, 'Erro ao processar: ' + err.message, false);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  });
+}
+
+function logFile(name, status){
+  const wrap = document.getElementById('filelist');
+  const div = document.createElement('div');
+  div.innerHTML = `<span class="truncate">${escapeHtml(name)}</span><span class="pending shrink-0">${status}</span>`;
+  wrap.appendChild(div);
+  return div.querySelector('.pending');
+}
+function updateFileLog(el, text, ok){
+  el.textContent = text;
+  el.className = (ok ? 'ok' : 'err') + ' shrink-0';
+}
+
+function render(){
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  const rows = allRows;
+
+  document.getElementById('tableWrap').style.display = allRows.length ? 'block':'none';
+  document.getElementById('emptyState').style.display = allRows.length ? 'none':'block';
+
+  const nfNumbers = [...new Set(rows.map(r=>r.nfNumber).filter(Boolean))];
+  const nfLabel = nfNumbers.length===1 ? ` — NF nº ${escapeHtml(nfNumbers[0])}` : (nfNumbers.length>1 ? ` — ${nfNumbers.length} notas distintas` : '');
+
+  document.getElementById('itemCount').textContent = (allRows.length + ' item(ns) carregados de ' + new Set(allRows.map(r=>r.doc)).size + ' documento(s)') + nfLabel;
+
+  rows.forEach((row, idx)=>{
+    const v = validateRow(row);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="item-n" data-idx="${idx}">${idx+1} ▾</td>
+      <td class="item-desc">${escapeHtml(row.desc)}</td>
+      <td>${escapeHtml(row.cProd ?? '—')}</td>
+      <td>${escapeHtml(row.ncm ?? '—')}</td>
+      <td>${escapeHtml(row.cfop ?? '—')}</td>
+      <td>${row.qCom ?? '—'}</td>
+      <td>${row.vUnCom!==null && row.vUnCom!==undefined ? fmtBRL(row.vUnCom) : '—'}</td>
+      <td>${row.vProd!==null && row.vProd!==undefined ? fmtBRL(row.vProd) : '—'}</td>
+      <td>${escapeHtml(row.cClassTrib ?? '—')}</td>
+      <td>${row.cst ?? '—'}</td>
+      <td>${fmtBRL(row.bc)}</td>
+      <td>${fmtPct(row.pIbsUf)} / ${fmtPct(row.pIbsMun)}</td>
+      <td>${fmtPct(row.pAliqEfetUf ?? row.pIbsUf)} / ${fmtPct(row.pAliqEfetMun ?? row.pIbsMun)}</td>
+      <td>${fmtBRL(row.vIbs)}</td>
+      <td>${row.cst ?? '—'}</td>
+      <td>${fmtPct(row.pCbs)}</td>
+      <td>${fmtPct(row.pAliqEfetCbs ?? row.pCbs)}</td>
+      <td>${fmtBRL(row.vCbs)}</td>
+      <td class="col-situacao" style="text-align:center;"><span class="status-pill status-${v.level}">${v.level==='ok'?'OK':v.level==='warn'?'Atenção':'Erro'}</span></td>
+      <td class="detail-cell">${v.msgs.map(m=>`<span class="detail-msg detail-${m.level}">${escapeHtml(m.text)}</span>`).join('')}</td>
+    `;
+    tbody.appendChild(tr);
+
+    const detailTr = document.createElement('tr');
+    detailTr.className = 'detail-row';
+    detailTr.style.display = 'none';
+    const td = document.createElement('td');
+    td.colSpan = 20;
+    td.innerHTML = '<ul>' + v.msgs.map(m=>`<li class="${m.level}">${escapeHtml(m.text)}</li>`).join('') +
+      (row.cClassTrib ? `<li>cClassTrib informado: <b>${escapeHtml(row.cClassTrib)}</b></li>` : '') +
+      `<li>Documento de origem: <b>${escapeHtml(row.doc)}</b></li>` + '</ul>';
+    detailTr.appendChild(td);
+    tbody.appendChild(detailTr);
+
+    tr.querySelector('.item-n').addEventListener('click', ()=>{
+      detailTr.style.display = detailTr.style.display==='none' ? 'table-row' : 'none';
+    });
+  });
+
+  updateStickyScrollbar();
+}
+
+function escapeHtml(s){
+  if(s===null||s===undefined) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------------- Upload wiring ----------------
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+dropzone.addEventListener('click', ()=>fileInput.click());
+fileInput.addEventListener('change', e=>{ addFiles(e.target.files); e.target.value=''; });
+['dragenter','dragover'].forEach(evt=>dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(evt=>dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e=>{ addFiles(e.dataTransfer.files); });
+
+// ---------------- Sticky horizontal scrollbar ----------------
+const stickyBar = document.getElementById('stickyScrollbar');
+const stickyInner = document.getElementById('stickyScrollbarInner');
+let syncingScroll = false;
+
+function updateStickyScrollbar(){
+  const tableWrap = document.getElementById('tableWrap');
+  const table = document.getElementById('resultTable');
+  const panelVisible = document.getElementById('panel-upload').classList.contains('active');
+  if(!panelVisible || !tableWrap || tableWrap.style.display==='none' || allRows.length===0){
+    stickyBar.classList.remove('visible');
+    return;
+  }
+  const needsScroll = table.scrollWidth > tableWrap.clientWidth + 2;
+  if(!needsScroll){
+    stickyBar.classList.remove('visible');
+    return;
+  }
+
+  const rect = tableWrap.getBoundingClientRect();
+  const intersectsViewport = rect.top < window.innerHeight && rect.bottom > 0;
+  const nativeScrollbarVisible = rect.bottom <= window.innerHeight;
+
+  if(intersectsViewport && !nativeScrollbarVisible){
+    stickyBar.classList.add('visible');
+    stickyBar.style.left = rect.left + 'px';
+    stickyBar.style.width = rect.width + 'px';
+    stickyInner.style.width = table.scrollWidth + 'px';
+    if(!syncingScroll){
+      syncingScroll = true;
+      stickyBar.scrollLeft = tableWrap.scrollLeft;
+      syncingScroll = false;
+    }
+  } else {
+    stickyBar.classList.remove('visible');
+  }
+}
+
+document.getElementById('tableWrap').addEventListener('scroll', ()=>{
+  if(syncingScroll) return;
+  syncingScroll = true;
+  stickyBar.scrollLeft = document.getElementById('tableWrap').scrollLeft;
+  syncingScroll = false;
+});
+stickyBar.addEventListener('scroll', ()=>{
+  if(syncingScroll) return;
+  syncingScroll = true;
+  document.getElementById('tableWrap').scrollLeft = stickyBar.scrollLeft;
+  syncingScroll = false;
+});
+window.addEventListener('scroll', updateStickyScrollbar, { passive:true });
+window.addEventListener('resize', updateStickyScrollbar);
+
+// ---------------- Manual product entry ----------------
+const manualForm = document.getElementById('manualForm');
+document.getElementById('btnToggleManual').addEventListener('click', ()=>{
+  manualForm.style.display = manualForm.style.display==='none' ? 'block' : 'none';
+  if(manualForm.style.display==='block') document.getElementById('m_desc').focus();
+});
+document.getElementById('btnCancelManual').addEventListener('click', ()=>{
+  manualForm.style.display = 'none';
+  clearManualFields();
+});
+function clearManualFields(){
+  ['m_desc','m_cprod','m_ncm','m_cfop','m_qcom','m_vuncom','m_cst','m_classtrib','m_bc','m_pibsuf','m_pibsmun','m_vibs','m_pcbs','m_vcbs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m_desc').focus();
+}
+document.getElementById('btnAddManual').addEventListener('click', ()=>{
+  const desc = document.getElementById('m_desc').value.trim();
+  const bc = num(document.getElementById('m_bc').value);
+  const pIbsUf = num(document.getElementById('m_pibsuf').value);
+  const pIbsMun = num(document.getElementById('m_pibsmun').value);
+  const pCbs = num(document.getElementById('m_pcbs').value);
+
+  if(!desc){
+    document.getElementById('m_desc').focus();
+    return;
+  }
+
+  const vIbsUf = (bc!==null && pIbsUf!==null) ? bc*pIbsUf/100 : null;
+  const vIbsMun = (bc!==null && pIbsMun!==null) ? bc*pIbsMun/100 : null;
+  const vIbsManual = num(document.getElementById('m_vibs').value);
+  const vCbsManual = num(document.getElementById('m_vcbs').value);
+  const vIbsCalc = (vIbsUf!==null || vIbsMun!==null) ? (vIbsUf||0)+(vIbsMun||0) : null;
+  const vCbsCalc = (bc!==null && pCbs!==null) ? bc*pCbs/100 : null;
+
+  const row = {
+    doc: 'Inserido manualmente',
+    nItem: allRows.length+1,
+    desc,
+    cProd: document.getElementById('m_cprod').value.trim() || null,
+    ncm: document.getElementById('m_ncm').value.trim() || null,
+    cfop: document.getElementById('m_cfop').value.trim() || null,
+    qCom: num(document.getElementById('m_qcom').value),
+    vUnCom: num(document.getElementById('m_vuncom').value),
+    vProd: bc,
+    cst: document.getElementById('m_cst').value.trim() || null,
+    cClassTrib: document.getElementById('m_classtrib').value.trim() || null,
+    bc,
+    pIbsUf, vIbsUf,
+    pIbsMun, vIbsMun,
+    vIbs: vIbsManual!==null ? vIbsManual : vIbsCalc,
+    pCbs,
+    vCbs: vCbsManual!==null ? vCbsManual : vCbsCalc,
+    found: true
+  };
+  allRows.push(row);
+  document.getElementById('toolbar').style.display='flex';
+  render();
+
+  clearManualFields();
+});
+
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  allRows = [];
+  document.getElementById('filelist').innerHTML='';
+  render();
+});
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  if(!allRows.length) return;
+  const exportRows = allRows;
+
+  const n = (v)=> (v===null || v===undefined || v==='') ? '' : String(v).replace('.', ',');
+  const csvField = (v)=> '"' + String(v==null? '' : v).replace(/"/g,'""') + '"';
+
+  const headers = [
+    'Documento','Item','Descrição do produto','Código','NCM','CFOP','Quantidade','Valor Unitário','Valor Produto',
+    'CST IBS','cClassTrib',
+    'BC IBS/CBS',
+    'Alíquota Nominal IBS-UF (%)','Redução IBS-UF (%)','Alíquota Efetiva IBS-UF (%)','Valor IBS-UF',
+    'Alíquota Nominal IBS-Mun (%)','Redução IBS-Mun (%)','Alíquota Efetiva IBS-Mun (%)','Valor IBS-Mun',
+    'Valor IBS - Total',
+    'CST CBS','Alíquota Nominal CBS (%)','Redução CBS (%)','Alíquota Efetiva CBS (%)','Valor CBS',
+    'Valor Total (IBS + CBS)',
+    'Situação'
+  ];
+  const lines = [headers.join(';')];
+
+  exportRows.forEach(r=>{
+    const v = validateRow(r);
+    const statusLabel = v.level==='ok' ? 'OK' : (v.level==='warn' ? 'Atenção' : 'Erro');
+    const totalIbsCbs = (r.vIbs!==null || r.vCbs!==null) ? (r.vIbs||0)+(r.vCbs||0) : null;
+    lines.push([
+      csvField(r.doc),
+      r.nItem,
+      csvField(r.desc||''),
+      csvField(r.cProd||''),
+      csvField(r.ncm||''),
+      csvField(r.cfop||''),
+      n(r.qCom),
+      n(r.vUnCom),
+      n(r.vProd),
+      csvField(r.cst||''),
+      csvField(r.cClassTrib||''),
+      n(r.bc),
+      n(r.pIbsUf), n(r.pRedAliqUf), n(r.pAliqEfetUf ?? r.pIbsUf), n(r.vIbsUf),
+      n(r.pIbsMun), n(r.pRedAliqMun), n(r.pAliqEfetMun ?? r.pIbsMun), n(r.vIbsMun),
+      n(r.vIbs),
+      csvField(r.cst||''), n(r.pCbs), n(r.pRedAliqCbs), n(r.pAliqEfetCbs ?? r.pCbs), n(r.vCbs),
+      n(totalIbsCbs),
+      csvField(statusLabel)
+    ].join(';'));
+  });
+
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = 'conferencia_ibs_cbs_' + stamp + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ---------------- Calculator ----------------
+const calcIds = ['c_bc','c_pibsuf','c_pibsmun','c_pcbs','c_vibs','c_vcbs','c_cst','c_classtrib'];
+calcIds.forEach(id=>document.getElementById(id).addEventListener('input', runCalc));
+
+function runCalc(){
+  const bc = num(document.getElementById('c_bc').value);
+  const pIbsUf = num(document.getElementById('c_pibsuf').value);
+  const pIbsMun = num(document.getElementById('c_pibsmun').value);
+  const pCbs = num(document.getElementById('c_pcbs').value);
+  const vIbsInformed = num(document.getElementById('c_vibs').value);
+  const vCbsInformed = num(document.getElementById('c_vcbs').value);
+
+  const ibsUf = (bc!==null && pIbsUf!==null) ? bc*pIbsUf/100 : null;
+  const ibsMun = (bc!==null && pIbsMun!==null) ? bc*pIbsMun/100 : null;
+  const ibsTotal = (ibsUf!==null || ibsMun!==null) ? (ibsUf||0)+(ibsMun||0) : null;
+  const cbsTotal = (bc!==null && pCbs!==null) ? bc*pCbs/100 : null;
+  const grandTotal = (ibsTotal!==null || cbsTotal!==null) ? (ibsTotal||0)+(cbsTotal||0) : null;
+
+  document.getElementById('r_ibsuf').textContent = 'R$ ' + fmtBRL(ibsUf);
+  document.getElementById('r_ibsmun').textContent = 'R$ ' + fmtBRL(ibsMun);
+  document.getElementById('r_ibstotal').textContent = 'R$ ' + fmtBRL(ibsTotal);
+  document.getElementById('r_cbstotal').textContent = 'R$ ' + fmtBRL(cbsTotal);
+  document.getElementById('r_total').textContent = 'R$ ' + fmtBRL(grandTotal);
+
+  const diag = document.getElementById('calc-diagnostic');
+  const msgs = [];
+  if(vIbsInformed!==null && ibsTotal!==null){
+    const diff = Math.abs(vIbsInformed - ibsTotal);
+    msgs.push(diff <= TOL
+      ? {level:'ok', text:'Valor de IBS informado confere com o calculado.'}
+      : {level:'err', text:`Valor de IBS informado (R$ ${fmtBRL(vIbsInformed)}) diverge do calculado (R$ ${fmtBRL(ibsTotal)}), diferença de R$ ${fmtBRL(diff)}.`});
+  }
+  if(vCbsInformed!==null && cbsTotal!==null){
+    const diff = Math.abs(vCbsInformed - cbsTotal);
+    msgs.push(diff <= TOL
+      ? {level:'ok', text:'Valor de CBS informado confere com o calculado.'}
+      : {level:'err', text:`Valor de CBS informado (R$ ${fmtBRL(vCbsInformed)}) diverge do calculado (R$ ${fmtBRL(cbsTotal)}), diferença de R$ ${fmtBRL(diff)}.`});
+  }
+  if(!msgs.length){
+    diag.innerHTML = '';
+  } else {
+    diag.innerHTML = '<div class="space-y-2">' +
+      msgs.map(m=>`<div class="flex items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-inset ${m.level==='ok'?'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 ring-emerald-600/20 dark:ring-emerald-500/30':'bg-red-50 dark:bg-red-500/10 text-red-800 dark:text-red-300 ring-red-600/20 dark:ring-red-500/30'}">
+        <span class="font-bold">${m.level==='ok'?'✓':'✕'}</span><span>${escapeHtml(m.text)}</span></div>`).join('') + '</div>';
+  }
+}
+runCalc();
+</script>
+</body>
+</html>

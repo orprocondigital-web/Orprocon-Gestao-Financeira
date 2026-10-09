@@ -501,3 +501,19 @@ hr.sep-item { border: 0; border-top: 1px dashed var(--line); margin: 6px 0; }
 .pill.sobanco { background: var(--warn-soft); color: var(--warn); }
 .pill.sobal { background: var(--info-soft); color: var(--info); }
 #forn-mostrar { height: 30px; width: auto; font-size: 13px; }
+
+/* aplicativo instalado: aviso de versão nova */
+.aviso-atualizacao { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 60;
+  display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 16px; border-radius: var(--r);
+  background: var(--ink); color: var(--surface); font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.aviso-atualizacao[hidden] { display: none; }
+#btn-instalar[hidden] { display: none; }
+@media (display-mode: standalone) { #btn-instalar { display: none; } }
+
+/* módulos (ICMS, IBS/CBS, vencimentos): ocupam a área principal inteira */
+.content.modo-modulo { padding: 0; max-width: none; }
+.modulo-area { position: relative; width: 100%; }
+.modulo-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--canvas); }
+.modulo-frame[hidden] { display: none; }
+.comp-select[hidden] { display: none; }
+.acct-count.alerta { background: var(--debit-soft); border-color: transparent; color: var(--debit); font-weight: 650; }
