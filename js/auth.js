@@ -32,7 +32,8 @@
     { id: "conciliacao", nome: "Conciliação", detalhe: "Extrato × sistema e extrato × planilha" },
     { id: "mod-icms", nome: "Apuração de ICMS", detalhe: "" },
     { id: "mod-ibs-cbs", nome: "Auditor IBS/CBS", detalhe: "" },
-    { id: "mod-vencimentos", nome: "Painel de vencimentos", detalhe: "" }
+    { id: "mod-vencimentos", nome: "Painel de vencimentos", detalhe: "" },
+    { id: "mod-em-dia", nome: "Em Dia", detalhe: "Fechamento do mês e diário dos setores" }
   ];
   var IDS_AREAS = AREAS.map(function (a) { return a.id; });
 

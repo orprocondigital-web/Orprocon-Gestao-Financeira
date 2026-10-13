@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Em Dia · Acompanhamento do fechamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/style.css">
+<link rel="stylesheet" href="css/em-dia.css">
+<script>
+  // tema do sistema principal (quando aberto dentro dele, o sistema também aplica)
+  try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
+</head>
+<body>
+<div class="ed">
+  <header class="ed-topo">
+    <div class="ed-marca">
+      <h1>Em Dia</h1>
+      <span class="muted small">Fechamento do mês, diário e passagem de bastão</span>
+    </div>
+    <div class="ed-mes" role="group" aria-label="Competência">
+      <button type="button" class="btn btn-ghost btn-sm" data-acao="mes-anterior" aria-label="Mês anterior">‹</button>
+      <div class="ed-mes-rotulo"><span class="muted small">Competência</span><strong id="mes-rotulo"></strong></div>
+      <button type="button" class="btn btn-ghost btn-sm" data-acao="mes-seguinte" aria-label="Mês seguinte">›</button>
+    </div>
+    <div class="ed-eu" id="eu"></div>
+  </header>
+  <nav class="ed-abas" id="abas" aria-label="Telas do Em Dia"></nav>
+  <main id="tela" class="ed-tela"></main>
+</div>
+
+<div class="modal" id="modal" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal-card ed-modal" id="modal-card"></div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/dados.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

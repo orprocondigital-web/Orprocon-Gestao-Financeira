@@ -4,7 +4,7 @@ Sistema da Orprocon que reúne, num só lugar:
 
 - **Integração contábil e conciliação bancária** (substitui a planilha mensal
   `Setembro_v19-CORRETA.xlsm` usada para levar a movimentação bancária ao **SCI Único**);
-- os **módulos** Apuração de ICMS, Auditor IBS/CBS e Painel de vencimentos
+- os **módulos** Apuração de ICMS, Auditor IBS/CBS, Painel de vencimentos e Em Dia
   (veja *Módulos*, abaixo).
 
 Pode ser **instalado como aplicativo** no computador (veja *App instalável*).
@@ -237,6 +237,7 @@ Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**:
 | Apuração de ICMS | `modulos/apuracao-icms/` | Prévia da apuração do mês a partir dos XMLs de NF-e e NFC-e. |
 | Auditor IBS/CBS | `modulos/auditor-ibs-cbs/` | Conferência de CST, base e alíquotas de IBS/CBS (LC 214/2025). |
 | Painel de vencimentos | `modulos/painel-vencimentos/` | Certificados, certidões, alvarás, procurações e licenças dos clientes. |
+| Em Dia | `modulos/em-dia/` | Fechamento do mês por cliente, diário de cada setor (Contábil, Fiscal, Pessoal/DP) e passagem de bastão quando alguém falta. |
 
 Cada módulo continua sendo um site próprio (tem o seu `README.md`) e abre num
 quadro na área principal: o código, o visual e os dados de um não interferem nos
@@ -247,7 +248,7 @@ O sistema principal cuida de:
 - **tema claro/escuro** de todos (o botão de tema de cada módulo fica escondido);
 - **número no menu** do Painel de vencimentos: documentos vencidos ou que vencem em até 7 dias;
 - **backup**: o *Baixar backup* do Master leva também os dados dos módulos (chaves
-  `icms.*` e `painelVencimentos:*`); *Restaurar* devolve. Backups antigos, sem os
+  `icms.*`, `painelVencimentos:*` e `emDia:*`); *Restaurar* devolve. Backups antigos, sem os
   módulos, não mexem nos dados deles;
 - **app instalável e sem internet** para os módulos também.
 
