@@ -100,6 +100,8 @@
 
   function render() {
     $("mes-rotulo").textContent = D.rotuloMes(mes);
+    $("limpar").innerHTML = gestor && (estado.clientes.length || estado.diario.length)
+      ? '<button type="button" class="btn btn-ghost btn-sm" data-acao="limpar">Limpar dados…</button>' : "";
     $("eu").innerHTML = eu ? avatar(eu.id) + "<div><strong>" + esc(eu.nome) + '</strong><div class="muted small">' +
       esc([gestor ? "Gestor" : "", nomeSetor(meuSetor())].filter(Boolean).join(" · ") || "Contador") + "</div></div>" : "";
     var abas = ABAS.filter(function (a) { return !a.gestor || gestor; });
@@ -116,8 +118,9 @@
 
   function semClientes() {
     return '<div class="panel"><div class="ed-vazio"><strong>Nenhum cliente cadastrado ainda</strong>' +
-      (gestor ? 'Cadastre os clientes em <b>Clientes</b>, ou veja como fica com uma demonstração.<br>' +
-        '<button type="button" class="btn btn-primary" data-acao="exemplo">Carregar dados de exemplo</button>'
+      (gestor ? 'Comece cadastrando os clientes, ou veja como fica com uma demonstração (dá para tirar depois em <b>Limpar dados</b>).<br>' +
+        '<button type="button" class="btn btn-primary" data-acao="ir-clientes">Cadastrar clientes</button> ' +
+        '<button type="button" class="btn btn-outline" data-acao="exemplo">Carregar dados de exemplo</button>'
         : "Peça ao gestor para cadastrar os clientes e as etapas do fechamento.") + "</div></div>";
   }
 
@@ -558,6 +561,18 @@
       '<p class="error-msg" data-erro></p><div class="modal-actions"><button type="button" class="btn btn-ghost" data-fechar>Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div></form>', true);
   }
 
+  function modalLimpar() {
+    var ex = D.temExemplo(estado);
+    abrirModal("<h3>Limpar dados do Em Dia</h3>" +
+      '<p class="muted">Os dados ficam só neste navegador. Se quiser guardar, baixe antes um backup no Master.</p>' +
+      '<div class="ed-limpar">' +
+      (ex ? '<button type="button" class="ed-limpar-op" data-acao="limpar-exemplo"><strong>Tirar só os dados de exemplo</strong>' +
+        '<span>Remove os clientes e as pessoas fictícias e o que foi registrado para eles. O que você cadastrou continua.</span></button>' : "") +
+      '<button type="button" class="ed-limpar-op perigo" data-acao="apagar-tudo"><strong>Apagar tudo e começar do zero</strong>' +
+        "<span>Clientes, tarefas, diários, ausências e equipe. As etapas voltam ao padrão. Não dá para desfazer.</span></button>" +
+      '</div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-fechar>Cancelar</button></div>', true);
+  }
+
   function modalAusencia(pessoaId) {
     var p = D.porId(estado.equipe, pessoaId);
     if (!p) return;
@@ -718,9 +733,20 @@
       mes = r.mes; try { localStorage.setItem(CHAVE_MES, mes); } catch (e) {}
       salvar(); toast("Dados de exemplo carregados (" + r.clientes + " clientes fictícios)."); render(); return;
     }
+    if (a === "limpar") { modalLimpar(); return; }
+    if (a === "ir-clientes") { aba = "clientes"; try { localStorage.setItem(CHAVE_ABA, aba); } catch (e) {} render(); modalCliente(); return; }
+    if (a === "limpar-exemplo") {
+      var rx = D.removerExemplo(estado);
+      salvar(); fecharModal(); filtros.diario.setor = null; filtros.bastaoPessoa = "";
+      toast("Dados de exemplo removidos (" + rx.clientes + " clientes, " + rx.equipe + " pessoas)."); render(); return;
+    }
     if (a === "apagar-tudo") {
       if (!confirm("Apagar TODOS os dados do Em Dia neste navegador (clientes, etapas, equipe, diário)? Não dá para desfazer.\n\nDica: baixe antes um backup no Master.")) return;
-      estado = D.estadoVazio(); D.registrarMembro(estado, eu); salvar(); toast("Dados do Em Dia apagados."); render(); return;
+      estado = D.estadoVazio(); D.registrarMembro(estado, eu); salvar(); fecharModal();
+      filtros.diario.setor = null; filtros.bastaoPessoa = ""; aba = "hoje";
+      try { localStorage.setItem(CHAVE_ABA, aba); localStorage.removeItem(CHAVE_MES); } catch (e) {}
+      mes = D.somarMes(D.mesDe(hoje()), -1);
+      toast("Dados do Em Dia apagados. Comece cadastrando os clientes."); render(); return;
     }
   });
 

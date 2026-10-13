@@ -408,7 +408,7 @@
       if (e.clientes.some(function (c) { return c.nome === n[0]; })) return;
       var c = { id: uid("c"), nome: n[0], cnpj: "", regime: n[1],
         responsaveis: { contabil: i % 2 ? pessoas[0] : pessoas[1], fiscal: pessoas[2], pessoal: pessoas[3] },
-        etapas: null, contato: "", obs: "Cliente fictício para demonstração.", ativo: true, criadoEm: new Date().toISOString() };
+        etapas: null, contato: "", obs: "Cliente fictício para demonstração.", ativo: true, exemplo: true, criadoEm: new Date().toISOString() };
       if (i === 0) c.responsaveis.contabil = eu.id;
       e.clientes.push(c); criados.push(c);
     });
@@ -447,7 +447,40 @@
     return { mes: mes, clientes: criados.length };
   }
 
+  /** Tira só o que veio de "Carregar dados de exemplo": clientes, pessoas fictícias, tarefas e diário deles. */
+  function removerExemplo(e) {
+    var ehEx = function (c) { return c.exemplo === true || c.obs === "Cliente fictício para demonstração."; };
+    var clientes = {}, pessoas = {};
+    e.clientes.forEach(function (c) { if (ehEx(c)) clientes[c.id] = true; });
+    e.equipe.forEach(function (p) { if (String(p.id).indexOf("exemplo-") === 0) pessoas[p.id] = true; });
+    var antes = { clientes: e.clientes.length, equipe: e.equipe.length, diario: e.diario.length };
+    e.clientes = e.clientes.filter(function (c) { return !clientes[c.id]; });
+    e.equipe = e.equipe.filter(function (p) { return !pessoas[p.id]; });
+    e.diario = e.diario.filter(function (x) { return !clientes[x.clienteId] && !pessoas[x.autor]; });
+    Object.keys(e.meses).forEach(function (m) {
+      Object.keys(e.meses[m]).forEach(function (cid) { if (clientes[cid]) delete e.meses[m][cid]; });
+      Object.keys(e.meses[m]).forEach(function (cid) {
+        Object.keys(e.meses[m][cid]).forEach(function (et) {
+          var r = e.meses[m][cid][et];
+          if (pessoas[r.responsavel]) r.responsavel = "";
+        });
+      });
+    });
+    e.clientes.forEach(function (c) {
+      var r = c.responsaveis || {};
+      Object.keys(r).forEach(function (k) { if (pessoas[r[k]]) r[k] = ""; });
+    });
+    return { clientes: antes.clientes - e.clientes.length, equipe: antes.equipe - e.equipe.length, diario: antes.diario - e.diario.length };
+  }
+
+  /** Tem algo de exemplo? (para mostrar o botão certo) */
+  function temExemplo(e) {
+    return e.clientes.some(function (c) { return c.exemplo === true || c.obs === "Cliente fictício para demonstração."; }) ||
+      e.equipe.some(function (p) { return String(p.id).indexOf("exemplo-") === 0; });
+  }
+
   return {
+    removerExemplo: removerExemplo, temExemplo: temExemplo,
     VERSAO: VERSAO, STATUS: STATUS, NOME_STATUS: NOME_STATUS, AREAS: AREAS, NOME_AREA: NOME_AREA, REGIMES: REGIMES,
     SETORES: SETORES, ehSetor: ehSetor, setorPorFuncao: setorPorFuncao, setorDoRegistro: setorDoRegistro, setorDe: setorDe, resumoSetores: resumoSetores,
     etapasPadrao: etapasPadrao, estadoVazio: estadoVazio, normalizar: normalizar, uid: uid,

@@ -194,6 +194,20 @@ describe("equipe e resumo", () => {
     assert.equal(e.clientes.length, 8, "rodar de novo não duplica");
     for (const s of ["contabil", "fiscal", "pessoal"]) assert.ok(D.filtrarDiario(e, { setor: s }).length > 0, "exemplo tem diário no setor " + s);
   });
+  test("tirar só os dados de exemplo mantém o que foi cadastrado", () => {
+    const e = D.estadoVazio();
+    D.exemplo(e, { id: "u1", nome: "Ana", perfil: "admin" }, "2026-11-05");
+    e.clientes.push({ id: "real", nome: "Cliente Real Ltda", regime: "Simples Nacional", responsaveis: { contabil: "exemplo-1", fiscal: "u1" }, etapas: null, ativo: true });
+    D.registrarDiario(e, { autor: "u1", clienteId: "real", setor: "fiscal", feito: "registro real" });
+    assert.ok(D.temExemplo(e));
+    const r = D.removerExemplo(e);
+    assert.deepEqual([r.clientes, r.equipe], [8, 3]);
+    assert.deepEqual(e.clientes.map((c) => c.id), ["real"]);
+    assert.deepEqual(e.equipe.map((p) => p.id), ["u1"]);
+    assert.deepEqual(e.diario.map((d) => d.feito), ["registro real"]);
+    assert.equal(e.clientes[0].responsaveis.contabil, "", "responsável fictício sai do cliente real");
+    assert.ok(!D.temExemplo(e));
+  });
   test("normalizar recupera estado vazio ou antigo", () => {
     const e = D.normalizar(null);
     assert.ok(e.etapas.length > 10 && Array.isArray(e.diario));
