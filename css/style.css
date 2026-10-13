@@ -563,31 +563,12 @@ body.pagina-login { min-height: 100vh; min-height: 100dvh; background: var(--can
 .link-btn { border: 0; background: none; padding: 0; color: var(--brand); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .login-ou { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12.5px; }
 .login-ou::before, .login-ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-.login-ajuda { display: grid; gap: 6px; }
-.login-ajuda p { margin: 0; }
 @media (max-width: 860px) {
-  .login { grid-template-columns: 1fr; align-items: start; }
+  .login { grid-template-columns: 1fr; }
   .login-marca { display: none; }
-  .login-card { justify-content: flex-start; padding: 0 16px calc(28px + env(safe-area-inset-bottom)); }
-  /* faixa da marca no topo, de borda a borda */
-  .login-topo {
-    display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 0 -16px 24px;
-    padding: calc(28px + env(safe-area-inset-top)) 16px 22px; border-bottom: 1px solid var(--line);
-    background: radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, #E39B2B 14%, var(--surface)) 0%, var(--surface) 70%);
-  }
-  .login-logo-mobile { width: 190px; max-width: 70%; height: auto; }
-  .login-topo-nome { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
-  .teste-card { padding: 18px 16px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-  .teste-card h1, .login-form h1 { font-size: 22px; }
-  .teste-card .login-ou { display: none; }
-  .login-erro:empty { display: none; }
-  .login-form { gap: 14px; }
-  /* campos e botões no tamanho do dedo; 16px evita o zoom automático do iPhone */
-  .login-form input { height: 48px; font-size: 16px; }
-  .login-botao { height: 48px; font-size: 16px; }
-  .ver-senha { padding: 10px 10px; }
-  .login-ajuda { gap: 12px; margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--line); text-align: center; line-height: 1.45; }
-  .login-ajuda .link-btn { display: block; margin: 2px auto 0; padding: 4px 0; }
+  .login-topo { display: block; margin-bottom: 24px; }
+  .login-logo-mobile { width: 180px; height: auto; }
+  .login-card { padding: 32px 16px; }
 }
 
 /* ------------------------------------------------------------- usuário logado e administração */
@@ -608,6 +589,8 @@ body.pagina-login { min-height: 100vh; min-height: 100dvh; background: var(--can
 .usuarios-tabela td { vertical-align: middle; }
 .usuarios-tabela .cell-sub { display: block; }
 .usuarios-tabela tr.inativo td:not(:last-child) { opacity: .55; }
+.usuarios-tabela td.row-actions { white-space: normal; position: static; box-shadow: none; min-width: 168px; }
+.usuarios-tabela td:nth-child(5) { min-width: 92px; }
 .areas-lista { display: flex; flex-wrap: wrap; gap: 4px; }
 .tag-area { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
 .pill.admin { background: #E39B2B22; color: #B4741A; }
@@ -634,6 +617,8 @@ body.pagina-login { min-height: 100vh; min-height: 100dvh; background: var(--can
 @media (max-width: 640px) { #modal-usuario .grid-2 { grid-template-columns: 1fr; } }
 
 body:not(.eh-admin) .so-admin { display: none !important; }
+.modo-api .so-local { display: none !important; }
+.login-servidor { margin-top: 14px; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
 
 /* modo de teste */
 .teste-card { display: grid; gap: 14px; margin-bottom: 18px; }

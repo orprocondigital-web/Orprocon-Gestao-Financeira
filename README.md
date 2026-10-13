@@ -191,13 +191,25 @@ As contas ficam no navegador (IndexedDB, chave `auth:usuarios`). Por isso:
 - O login precisa do link (https ou localhost); aberto pelo arquivo do computador
   ele avisa e não entra.
 
-### Para o backend (Java/Spring)
+### Com o servidor (API Java/Spring)
 
-As telas usam só os métodos do objeto criado em `js/auth.js` (todos devolvem
-Promise). Basta trocar `AuthCore.criarAuthLocal(...)` (em `js/app.js` e
-`js/login.js`) por um adaptador que chame a API abaixo; as telas não mudam.
+A API fica no repositório privado `Orprocon-Gestao-Financeira-API`. O front escolhe
+sozinho onde estão os usuários (`AuthCore.criar`, em `js/auth.js`):
 
-| Método no front | Endpoint sugerido | Corpo → resposta |
+- `apiUrl` vazio no `js/config.js` → modo navegador (o de cima);
+- `apiUrl` preenchido (`https://...`) → login e usuários pelo servidor
+  (`criarAuthApi` + `js/api.js`). O modo de teste e o arquivo de acessos deixam de
+  existir nesse modo; a tela avisa quando está usando um servidor de teste.
+
+**Testar com a API rodando no seu computador**, sem mudar o site publicado: abra
+`login.html?api=http://localhost:8080` uma vez (o navegador lembra). Para voltar:
+`login.html?api=sair`. Por esse caminho só são aceitos endereços do próprio
+computador, para ninguém mandar um link que desvie o login para outro servidor.
+
+Nesta etapa só o login e os usuários vão para o servidor; os dados (lançamentos,
+conciliações) continuam no navegador até os próximos pacotes.
+
+| Método no front | Endpoint | Corpo → resposta |
 |---|---|---|
 | `entrar(email, senha)` | `POST /api/auth/login` | `{email, senha}` → `{token, usuario}` (401 errado, 423 bloqueado, 403 desativado) |
 | `sair()` | `POST /api/auth/logout` | — |
