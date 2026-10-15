@@ -1,0 +1,303 @@
+# Gestão Financeira — Orprocon
+
+Sistema da Orprocon que reúne, num só lugar:
+
+- **Integração contábil e conciliação bancária** (substitui a planilha mensal
+  `Setembro_v19-CORRETA.xlsm` usada para levar a movimentação bancária ao **SCI Único**);
+- os **módulos** Apuração de ICMS, Auditor IBS/CBS e Painel de vencimentos
+  (veja *Módulos*, abaixo).
+
+Pode ser **instalado como aplicativo** no computador (veja *App instalável*).
+
+## O que resolve
+
+Todo mês, cada movimentação de cada conta bancária do cliente precisa ser
+classificada (categoria, unidade/filial, natureza do gasto, fornecedor ou
+cliente) e virar lançamento contábil no SCI Único. Na planilha isso é feito com
+macros VBA (versão de referência: v30). O sistema faz o mesmo fluxo:
+
+1. **Importar a planilha do mês** (Master → *Importar planilha do mês*): lê a
+   pasta de trabalho inteira e reconhece sozinho as contas bancárias (abas
+   terminadas em "Conta <número>", que vira a conta contábil), Pagamento em
+   dinheiro, Juros recebidos e os cadastros (clientes, fornecedores, plano de
+   contas, tabelas). As abas de unidade e o Master da planilha são ignorados:
+   o sistema gera essas informações. Antes de importar, mostra o que vai entrar
+   e os problemas encontrados (ex.: unidade repetida na Tabela de unidades).
+2. **Conferir e ajustar** os lançamentos nas contas. O que falta classificar
+   aparece como *Pendente*.
+3. **Master**: classificados e pendentes por unidade e por banco, e os botões
+   *Distribuir por unidade*, *Gerar TXTs (formato atual)* e *Gerar TXTs (SCI Único)*.
+4. **Conciliação** do extrato do banco (`.xlsx`, `.csv` ou `.txt` do Sicoob).
+
+### Importar extratos do banco
+
+No Master (ou na tela de uma conta), *Importar extratos do banco* aceita vários
+arquivos de uma vez: **PDF**, **OFX**, **TXT do Sicoob**, CSV ou planilha.
+
+- A conta é reconhecida pelo número que vem no extrato. Se nenhuma ou mais de
+  uma conta bater, a pessoa escolhe.
+- Cada lançamento vai para o mês da sua data. Importar o mesmo extrato de novo
+  não duplica nada (no OFX, pelo código único de cada lançamento).
+- Categoria, unidade, natureza e conta são **sugeridas** pelo que já foi
+  classificado antes (primeiro pelo CPF/CNPJ, depois pelo nome, por último
+  pelo histórico, só quando ele é sempre classificado igual). Sugestões ficam
+  marcadas até alguém confirmar, e o sistema avisa ao gerar o TXT.
+- **Conferência de saldos (PDF):** para cada dia, saldo anterior + lançamentos
+  lidos = saldo informado pelo banco. Se fechar, nada ficou de fora.
+
+PDFs testados (saldos conferidos em 100% dos dias): Banco do Brasil, Caixa,
+Itaú, Santander, Sicoob, Sicredi, Unicred, Ailos (Acentra), Banrisul, Inter,
+Nubank e C6. PDF que é imagem (digitalizado, como o do Bradesco enviado) não
+tem texto: nesse caso, use o OFX do banco.
+
+### Conciliação
+
+Dois modos, no topo da tela:
+
+- **Conta do sistema** — o extrato (PDF, OFX, TXT, CSV ou planilha) é cruzado com os
+  lançamentos da conta, nos meses que o extrato cobre. A conta é reconhecida pelo número.
+- **Extrato × planilha** — avulso, sem conta cadastrada e sem gravar nada: cruza o extrato
+  com uma planilha de contas pagas a fornecedores (ou recebidas de clientes). As colunas são
+  reconhecidas pelo nome (data de pagamento, valor pago, NF, fornecedor, CNPJ) e mostradas na
+  tela. Valores iguais no mesmo período são desempatados pelo CNPJ ou pelo nome do
+  fornecedor no histórico do banco.
+
+Nos dois: tolerância de data, filtro, **Exportar resultado** (CSV) e **Limpar**.
+
+**XMLs das NF-e** (soltos ou em .zip, como vêm da SIEG) também servem no lugar da planilha:
+cada parcela da nota (cobr/dup) vira um título pelo vencimento; nota sem parcela vira um título
+com o valor total. Compras para "pagamentos", vendas para "recebimentos"; a empresa é o CNPJ
+que mais aparece nas notas. Notas canceladas saem se o XML do evento vier junto. Parcelas que
+vencem depois do extrato ficam fora ("a vencer"). Pagamento antecipado ou atrasado casa até
+30 dias, desde que o CNPJ ou o nome do fornecedor esteja no histórico do banco.
+
+**Balancete de fornecedores do Único** (Saldo anterior / Débito / Crédito / Saldo atual por
+fornecedor) também é aceito no Extrato × planilha: o sistema reconhece o formato e confere por
+**total pago a cada fornecedor** (soma das saídas do extrato × Débito do balancete). O pagamento
+é ligado ao fornecedor pela raiz do CNPJ (MEI) ou pelo nome, mesmo cortado e abreviado pelo
+banco ("DELUPO COM DE F"). O que não for reconhecido a pessoa liga uma vez (ou marca "não é
+fornecedor"); a escolha fica salva pelo CNPJ e vale nos meses seguintes. Aceita vários extratos
+juntos e avisa quando o período do balancete não é o mesmo dos extratos.
+
+**Conciliação manual** — o que ficou pendente mas está certo: marque as caixinhas e
+- *Conciliar selecionados*: junta um ou mais itens do banco com um ou mais da planilha/sistema
+  (ex.: um débito que pagou vários boletos). Se as somas não batem, pede o motivo;
+- *Marcar como conferido*: item sem par que está certo (ex.: tarifa), com observação.
+
+Cada um tem *Desfazer*. No modo por conta ficam salvos junto com a conta.
+
+**Conciliações externas salvas** (modo Extrato × planilha):
+- a conciliação em andamento é gravada sozinha a cada mudança: se a página fechar, ela volta;
+- *Salvar conciliação* guarda com nome (ex.: "Fan Metal – Julho de 2026"); a lista
+  *Conciliações salvas* reabre ou exclui;
+- tudo entra no backup do Master. *Limpar* avisa se houver trabalho à mão não salvo.
+
+### Competência (mês)
+
+Cada mês tem os seus lançamentos, escolhido no seletor *Competência* do topo.
+Os cadastros e as contas bancárias valem para todos os meses. Ao importar a
+planilha, o mês é sugerido pelas datas dos lançamentos.
+
+### Backup
+
+Os dados ficam no navegador. *Baixar backup* (no Master) gera um arquivo `.json`
+com tudo — todos os meses, cadastros, configurações e os dados dos módulos. Guarde numa pasta da rede
+ou no Drive. *Restaurar backup* substitui os dados do navegador pelos do arquivo
+(serve também para levar os dados para outro computador).
+
+### Regras contábeis
+
+Iguais às da macro v30 e conferidas linha a linha com os TXTs de agosto/2026
+(4.510 de 4.510 linhas idênticas). O HP pela natureza vale para qualquer categoria.
+
+| Categoria | Débito | Crédito | HP |
+|---|---|---|---|
+| Recebimento | conta do banco | 18 (2284 se natureza = Juros Recebidos) | 3708 |
+| Pagamento | 148 | conta do banco | 3026 |
+| Despesa | coluna Conta (ou 148) | conta do banco | 3712 se natureza = Despesas Bancárias; 2020 se Transferência Banco; senão vazio |
+| Aplicações | coluna Conta (ou 148) | conta do banco | — |
+| Aplicações com natureza "resgate" | conta do banco | coluna Conta (ou 148) | — |
+| Resgate | conta do banco | coluna Conta (ou 148) | — |
+
+### Formato do TXT do SCI Único
+
+Um arquivo por unidade (`UNICO_Matriz.txt`), importado na empresa da unidade (código SCI da Tabela de unidades).
+UTF-8 **com BOM**, fim de linha CRLF, sem cabeçalho, 16 campos separados por vírgula:
+
+```
+000001,20260803,502,627,3.00,,"0 - PEDAGIO",DCTO0,DESPESA_Matriz,,,,,,,A
+```
+
+sequência (6 dígitos, reinicia por arquivo) · data AAAAMMDD · débito · crédito · valor com ponto ·
+HP · complemento `"doc - nome"` · `DCTO` + documento · lote `CATEGORIA_Unidade` · CNPJ no débito
+(Recebimento, Despesa, Aplicações) · CNPJ no crédito (Pagamento) · 4 campos vazios · `A`.
+
+Documento vazio vira `0`; documento "9.393.740" vira "9393740"; espaços repetidos no nome viram um só.
+
+### O que não vai para o Único
+
+- **Pendências** (baixadas junto, em `PENDENCIAS_UNICO.csv`, com o motivo): sem conta de débito ou
+  crédito, categoria sem regra (ex.: nome de unidade digitado na Categoria) e **valor digitado fora do
+  padrão** ("2.29598C", "8,934,48C"). A planilha antiga gravava esses valores como 0,00 ou 100× maiores.
+- **Depósito de cheque bloqueado** (valor com `*` no extrato do Sicoob): o dinheiro entra depois, na
+  linha "LIBERAÇÃO DE DEPÓSITO".
+
+## Login e usuários
+
+O sistema só abre depois do login (`login.html`). Administrador principal:
+**orprocondigital@gmail.com**.
+
+- **Primeiro acesso:** sem nenhuma conta no navegador, a tela de login pede o nome
+  e a senha do administrador principal. A senha nunca fica no código nem no
+  repositório: é guardada como hash PBKDF2-SHA256 com sal.
+- **Usuários** (menu *Administração*, só o admin): criar, editar, escolher o perfil
+  (*Usuário* ou *Administrador*) e as áreas que a pessoa vê (Integração contábil,
+  Conciliação e cada módulo), gerar nova senha, desativar e excluir. Ao criar ou
+  redefinir, o sistema mostra a **senha provisória** uma única vez e monta a
+  mensagem de acesso (copiar, e-mail ou WhatsApp). No primeiro acesso a pessoa cria
+  a senha dela.
+- **Gestores e gerentes** podem ser administradores (perfil *Administrador*): acessam
+  tudo e cadastram usuários, mas **não alteram, desativam nem excluem o administrador
+  principal** — só ele mexe na própria conta.
+- **Regras:** senha com 8+ caracteres, letras e números; 5 tentativas erradas
+  bloqueiam por 30 s; a sessão vale 12 horas sem uso; ninguém tira o próprio acesso
+  de admin, e sempre existe pelo menos um administrador ativo.
+- Cada pessoa vê no menu só as áreas liberadas. *Restaurar backup* e *Apagar tudo*
+  são só do admin. O backup de dados **não** leva as contas, e restaurar ou apagar
+  não mexe nelas.
+
+### Modo de teste
+
+Enquanto `modoTeste: true` em `js/config.js`, a tela de login mostra **Entrar no modo
+de teste**: quem recebe o link entra sem e-mail e sem senha, numa conta de teste
+(administrador, para ver tudo; marcada com o selo *Modo de teste* no topo). Ela não
+atrapalha o primeiro acesso do admin principal (link *Criar o primeiro acesso* na tela
+de login) e não vai no arquivo de acessos.
+
+**Fim dos testes:** mude para `modoTeste: false`, aumente a versão (`?v=` e `sw.js`) e
+publique. O botão some, a conta de teste deixa de existir, e passa a valer: o admin
+principal entra com o e-mail dele, e cada pessoa com o arquivo de acessos.
+
+### Fase atual: só front (sem servidor)
+
+As contas ficam no navegador (IndexedDB, chave `auth:usuarios`). Por isso:
+
+- Para alguém entrar **em outro computador**, o admin usa *Exportar acessos* e envia
+  o arquivo junto com a mensagem de acesso; na primeira vez a pessoa escolhe
+  *Importar o arquivo de acessos* na tela de login. Mudou algum usuário? Exporte de novo.
+- **Não é segurança de verdade**: o login organiza as telas e o fluxo para os testes,
+  mas quem tem acesso ao computador consegue contornar, e as páginas dos módulos
+  (`modulos/…`) abrem direto pelo endereço. A proteção real vem com o backend.
+- O login precisa do link (https ou localhost); aberto pelo arquivo do computador
+  ele avisa e não entra.
+
+### Para o backend (Java/Spring)
+
+As telas usam só os métodos do objeto criado em `js/auth.js` (todos devolvem
+Promise). Basta trocar `AuthCore.criarAuthLocal(...)` (em `js/app.js` e
+`js/login.js`) por um adaptador que chame a API abaixo; as telas não mudam.
+
+| Método no front | Endpoint sugerido | Corpo → resposta |
+|---|---|---|
+| `entrar(email, senha)` | `POST /api/auth/login` | `{email, senha}` → `{token, usuario}` (401 errado, 423 bloqueado, 403 desativado) |
+| `sair()` | `POST /api/auth/logout` | — |
+| `usuarioAtual()` | `GET /api/auth/me` | → `usuario` ou 401 |
+| `trocarSenha(atual, nova)` | `POST /api/auth/senha` | `{senhaAtual, novaSenha}` |
+| `precisaConfigurar()` / `configurarAdmin(nome, senha)` | `GET /api/setup` / `POST /api/setup` | só enquanto não existe nenhum usuário |
+| `listarUsuarios()` | `GET /api/usuarios` | → `[usuario]` (só admin) |
+| `criarUsuario(dados)` | `POST /api/usuarios` | `{nome, email, perfil, areas}` → `{usuario, senhaProvisoria}` |
+| `atualizarUsuario(id, dados)` | `PUT /api/usuarios/{id}` | `{nome?, email?, perfil?, areas?, ativo?}` → `usuario` |
+| `redefinirSenha(id)` | `POST /api/usuarios/{id}/redefinir-senha` | → `{usuario, senhaProvisoria}` |
+| `excluirUsuario(id)` | `DELETE /api/usuarios/{id}` | — |
+
+`usuario` = `{id, nome, email, perfil: "admin"|"usuario", areas: ["integracao",
+"conciliacao", "mod-icms", "mod-ibs-cbs", "mod-vencimentos"], ativo, trocarSenha,
+criadoEm, atualizadoEm, ultimoAcesso}`. As regras de negócio (senha, último admin,
+bloqueio por tentativas) estão em `js/auth.js` e nos testes `tests/auth.test.js`,
+que servem de especificação. *Exportar/Importar acessos* deixam de existir com o servidor.
+
+## Módulos
+
+Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**:
+
+| Módulo | Pasta | O que faz |
+|---|---|---|
+| Apuração de ICMS | `modulos/apuracao-icms/` | Prévia da apuração do mês a partir dos XMLs de NF-e e NFC-e. |
+| Auditor IBS/CBS | `modulos/auditor-ibs-cbs/` | Conferência de CST, base e alíquotas de IBS/CBS (LC 214/2025). |
+| Painel de vencimentos | `modulos/painel-vencimentos/` | Certificados, certidões, alvarás, procurações e licenças dos clientes. |
+
+Cada módulo continua sendo um site próprio (tem o seu `README.md`) e abre num
+quadro na área principal: o código, o visual e os dados de um não interferem nos
+do outro, nem nos da Gestão Financeira. Ao trocar de tela, o módulo fica como estava.
+
+O sistema principal cuida de:
+
+- **tema claro/escuro** de todos (o botão de tema de cada módulo fica escondido);
+- **número no menu** do Painel de vencimentos: documentos vencidos ou que vencem em até 7 dias;
+- **backup**: o *Baixar backup* do Master leva também os dados dos módulos (chaves
+  `icms.*` e `painelVencimentos:*`); *Restaurar* devolve. Backups antigos, sem os
+  módulos, não mexem nos dados deles;
+- **app instalável e sem internet** para os módulos também.
+
+*Apagar tudo* apaga só os dados da Gestão Financeira; cada módulo tem a sua opção de limpar.
+
+**Incluir um módulo novo:** copie a pasta para `modulos/`, acrescente-o em
+`js/modulos.js` (lista `LISTA` e, se guardar dados, `PREFIXOS_DADOS`) e os arquivos
+dele em `sw.js` (lista `MODULOS`). O `npm test` avisa se faltar algum arquivo no `sw.js`.
+
+## App instalável
+
+No Chrome ou no Edge, o botão **Instalar app** (no topo) instala o sistema como
+aplicativo: janela própria, ícone na área de trabalho e no menu Iniciar, e pode ser
+fixado na barra de tarefas. Também pelo menu do navegador: Chrome, *Transmitir, salvar
+e compartilhar → Instalar página como app*; Edge, *Aplicativos → Instalar este site
+como aplicativo*.
+
+- Os dados são os mesmos do site no navegador (o app usa o mesmo armazenamento).
+- **Abre sem internet**: os arquivos do sistema e dos módulos ficam guardados no
+  computador (`sw.js`). As bibliotecas de fora (planilhas, PDF, .zip) são guardadas
+  na primeira vez que forem usadas com internet.
+- **Versão nova:** aparece o aviso *Nova versão do sistema disponível* com o botão
+  *Atualizar*.
+
+**Ao publicar**, aumente a versão em todos os `?v=` do `index.html` **e** em `VERSAO`
+no `sw.js` (o `npm test` confere que estão iguais) — inclusive quando só um
+módulo mudou, senão quem instalou continua com o arquivo antigo.
+
+## Onde ficam os dados
+
+No **IndexedDB do navegador** de quem usa: nada vai para servidor. Cada
+navegador e cada computador tem os seus dados. Limpar os dados de navegação
+apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
+
+## Estrutura
+
+| Arquivo | Papel |
+|---|---|
+| `js/core.js` | Valores, datas, leitura de planilhas e extratos, conciliação, exportação. |
+| `js/integracao.js` | Porte das macros VBA: coleta, contas contábeis, distribuição, TXTs, Master. |
+| `js/importacao.js` | Leitura da planilha inteira: reconhece as abas, a competência e os problemas. |
+| `js/extratos.js` | OFX, TXT do Sicoob e CSV; conta do extrato, sem duplicar, sugestão de classificação. |
+| `js/pdfextrato.js` | Extratos em PDF (texto com posição, via pdf.js) e conferência de saldos. |
+| `js/conciliacao.js` | Conciliação avulsa: planilha de fornecedores/clientes × extrato. |
+| `js/nfe.js` | Leitura dos XMLs de NF-e (parcelas, cancelamentos) para a conciliação. |
+| `js/storage.js` | Armazenamento em IndexedDB e migração dos formatos antigos. |
+| `js/app.js` | Tela. |
+| `js/auth.js` | Login, usuários, perfis, áreas e sessão (fase só front; interface pronta para a API). |
+| `js/config.js` | Liga/desliga o modo de teste. |
+| `login.html`, `js/login.js` | Tela de login, primeiro acesso, importar acessos e troca da senha provisória. |
+| `js/modulos.js` | Módulos: menu, quadro, tema, número no menu e backup. |
+| `js/pwa.js` e `sw.js` | App instalável, modo sem internet e aviso de versão nova. |
+| `manifest.webmanifest`, `icons/` | Nome, cores e ícones do app; logo da Orprocon (claro, escuro e símbolo). |
+| `modulos/` | Os módulos, cada um na sua pasta. |
+| `tests/` | Testes automatizados e um extrato Sicoob fictício. |
+
+## Testes
+
+Requer Node.js 18 ou mais novo, sem dependências:
+
+```
+npm test
+```
+
+**Nunca** coloque extratos, planilhas ou cadastros reais no repositório. Use dados fictícios.

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>E2E Test</title>
+</head>
+<body>
+  <iframe id="app-frame" src="../index.html" style="width:1200px;height:800px;"></iframe>
+  <div id="e2e-results">Running E2E tests...</div>
+  <script>
+    const results = [];
+    function assert(cond, msg) {
+      if (!cond) throw new Error(msg || "Assertion failed");
+    }
+
+    const frame = document.getElementById("app-frame");
+    frame.onload = function() {
+      setTimeout(async function() {
+        const doc = frame.contentDocument;
+        const win = frame.contentWindow;
+
+        // Test 1: Verificar se modal-add-unit tem os campos de CNPJ e Código SCI
+        try {
+          const nomeInput = doc.getElementById("modal-unit-name");
+          const cnpjInput = doc.getElementById("modal-unit-cnpj");
+          const codInput = doc.getElementById("modal-unit-codigo");
+          assert(nomeInput, "modal-unit-name deve existir");
+          assert(cnpjInput, "modal-unit-cnpj deve existir");
+          assert(codInput, "modal-unit-codigo deve existir");
+          results.push({ name: "Campos de CNPJ e SCI no modal de nova unidade", passed: true });
+        } catch(e) {
+          results.push({ name: "Campos de CNPJ e SCI no modal de nova unidade", passed: false, error: e.message });
+        }
+
+        // Test 2: Adicionar uma nova unidade com CNPJ e Código
+        try {
+          doc.getElementById("modal-unit-name").value = "Filial Chapecó Nova";
+          doc.getElementById("modal-unit-cnpj").value = "11.222.333/0001-44";
+          doc.getElementById("modal-unit-codigo").value = "175";
+          doc.getElementById("modal-unit-save").click();
+
+          // Verifica se a unidade foi adicionada à barra lateral
+          const unitBtn = doc.querySelector(".acct-btn[title='Filial Chapecó Nova']");
+          assert(unitBtn, "Botão da unidade deve estar na barra lateral");
+
+          // Verifica se tem botão de menos (-) ao lado dela
+          const parentRow = unitBtn.closest(".nav-item-row");
+          assert(parentRow, "Botão deve estar dentro de .nav-item-row");
+          const delBtn = parentRow.querySelector(".nav-item-del");
+          assert(delBtn, "Botão de exclusão (-) deve existir ao lado da unidade");
+          assert(delBtn.title.includes("Filial Chapecó Nova"), "Title do botão de exclusão deve indicar a unidade");
+
+          results.push({ name: "Adicionar unidade e exibir botão de menos (-) na barra lateral", passed: true });
+        } catch(e) {
+          results.push({ name: "Adicionar unidade e exibir botão de menos (-) na barra lateral", passed: false, error: e.message });
+        }
+
+        // Test 3: Verificar botão de remover unidade na visualização da unidade
+        try {
+          const noteDelBtn = doc.getElementById("btn-remover-unidade");
+          assert(noteDelBtn, "Botão #btn-remover-unidade deve existir no ledger-note");
+          results.push({ name: "Botão Remover unidade presente no ledger-note", passed: true });
+        } catch(e) {
+          results.push({ name: "Botão Remover unidade presente no ledger-note", passed: false, error: e.message });
+        }
+
+        // Test 4: Remover a unidade com o botão de menos (-)
+        try {
+          win.confirm = function() { return true; }; // simula confirmação
+          const unitBtn = doc.querySelector(".acct-btn[title='Filial Chapecó Nova']");
+          const delBtn = unitBtn.closest(".nav-item-row").querySelector(".nav-item-del");
+          delBtn.click();
+
+          // Aguarda atualização
+          const removedBtn = doc.querySelector(".acct-btn[title='Filial Chapecó Nova']");
+          assert(!removedBtn, "Unidade não deve mais existir na barra lateral");
+          results.push({ name: "Remover unidade pelo botão de menos (-)", passed: true });
+        } catch(e) {
+          results.push({ name: "Remover unidade pelo botão de menos (-)", passed: false, error: e.message });
+        }
+
+        // Test 5: Adicionar dados bancários e testar geração de TXT
+        try {
+          // Adiciona conta bancária pelo modal
+          doc.getElementById("modal-bank-select").value = "Sicoob";
+          doc.getElementById("modal-bank-cc").value = "24402-3";
+          doc.getElementById("modal-bank-contabil").value = "643";
+          doc.getElementById("modal-bank-save").click();
+
+          // Adiciona lançamento pelo formulário
+          doc.getElementById("f-data").value = "2026-09-01";
+          doc.getElementById("f-desc").value = "PIX RECEBIDO CLIENTE";
+          doc.getElementById("f-valor").value = "500,00";
+          doc.getElementById("btn-c").click();
+          doc.getElementById("f-categoria").value = "Recebimento";
+          doc.getElementById("f-unidade").value = "Matriz";
+          doc.getElementById("entry-form").dispatchEvent(new win.Event("submit", { cancelable: true, bubbles: true }));
+
+          // Clica em Master no menu
+          doc.getElementById("btn-master").click();
+
+          // Dispara geração do SCI Único
+          win.confirm = function() { return true; };
+          doc.getElementById("btn-master-txt-unico").click();
+
+          // Verifica se a caixa de downloads foi exibida
+          const dlBox = doc.getElementById("master-downloads");
+          assert(dlBox.style.display !== "none", "Caixa de downloads deve estar visível");
+          assert(dlBox.textContent.includes("UNICO_Matriz.txt"), "Downloads deve conter UNICO_Matriz.txt");
+
+          // Dispara geração do formato atual
+          doc.getElementById("btn-master-txt-atual").click();
+          assert(dlBox.textContent.includes("RECEBIMENTO_Matriz.txt"), "Downloads deve conter RECEBIMENTO_Matriz.txt");
+
+          results.push({ name: "Geração de TXT (SCI Único e Formato Atual) com painel de download", passed: true });
+        } catch(e) {
+          results.push({ name: "Geração de TXT (SCI Único e Formato Atual) com painel de download", passed: false, error: e.message, stack: e.stack });
+        }
+
+        // Conclui e expõe resultados
+        const allPassed = results.every(function(r){ return r.passed; });
+        let html = "<h1>E2E Tests " + (allPassed ? "PASSED" : "FAILED") + "</h1><ul>";
+        results.forEach(function(r){
+          html += "<li style='color:" + (r.passed ? "green" : "red") + "'>" +
+            (r.passed ? "PASS" : "FAIL") + ": " + r.name +
+            (r.error ? " (" + r.error + ")" : "") + "</li>";
+        });
+        html += "</ul>";
+        document.getElementById("e2e-results").innerHTML = html;
+        window.__E2E_RESULTS__ = { allPassed: allPassed, results: results };
+      }, 500);
+    };
+  </script>
+</body>
+</html>

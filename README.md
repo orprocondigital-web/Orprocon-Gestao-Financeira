@@ -4,6 +4,8 @@ Sistema da Orprocon que reúne, num só lugar:
 
 - **Integração contábil e conciliação bancária** (substitui a planilha mensal
   `Setembro_v19-CORRETA.xlsm` usada para levar a movimentação bancária ao **SCI Único**);
+- o **Controle de horas** do DP: folhas de presença dos funcionários dos clientes que não
+  têm cartão ponto (gera a planilha para o cliente, importa, confere e fecha o mês);
 - os **módulos** Apuração de ICMS, Auditor IBS/CBS, Painel de vencimentos e Em Dia
   (veja *Módulos*, abaixo).
 
@@ -230,7 +232,8 @@ que servem de especificação. *Exportar/Importar acessos* deixam de existir com
 
 ## Módulos
 
-Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**:
+Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**
+(o Controle de horas fica em **Visão geral**, logo abaixo de Conciliação):
 
 | Módulo | Pasta | O que faz |
 |---|---|---|
@@ -238,6 +241,7 @@ Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**:
 | Auditor IBS/CBS | `modulos/auditor-ibs-cbs/` | Conferência de CST, base e alíquotas de IBS/CBS (LC 214/2025). |
 | Painel de vencimentos | `modulos/painel-vencimentos/` | Certificados, certidões, alvarás, procurações e licenças dos clientes. |
 | Em Dia | `modulos/em-dia/` | Fechamento do mês por cliente, diário de cada setor (Contábil, Fiscal, Pessoal/DP) e passagem de bastão quando alguém falta. |
+| Controle de horas | `modulos/controle-horas/` | Folhas de presença dos clientes sem cartão ponto: cadastro de empresas e funcionários, planilha para o cliente (uma aba por funcionário), importação, conferência com horas extras, atrasos, noturno e alertas, fechamento do mês e resumo em Excel. Regras de cálculo ajustáveis por empresa. |
 
 Cada módulo continua sendo um site próprio (tem o seu `README.md`) e abre num
 quadro na área principal: o código, o visual e os dados de um não interferem nos
@@ -248,14 +252,14 @@ O sistema principal cuida de:
 - **tema claro/escuro** de todos (o botão de tema de cada módulo fica escondido);
 - **número no menu** do Painel de vencimentos: documentos vencidos ou que vencem em até 7 dias;
 - **backup**: o *Baixar backup* do Master leva também os dados dos módulos (chaves
-  `icms.*`, `painelVencimentos:*` e `emDia:*`); *Restaurar* devolve. Backups antigos, sem os
+  `icms.*`, `painelVencimentos:*`, `emDia:*` e `horas:*`); *Restaurar* devolve. Backups antigos, sem os
   módulos, não mexem nos dados deles;
 - **app instalável e sem internet** para os módulos também.
 
 *Apagar tudo* apaga só os dados da Gestão Financeira; cada módulo tem a sua opção de limpar.
 
 **Incluir um módulo novo:** copie a pasta para `modulos/`, acrescente-o em
-`js/modulos.js` (lista `LISTA` e, se guardar dados, `PREFIXOS_DADOS`) e os arquivos
+`js/modulos.js` (lista `LISTA` e, se guardar dados, `PREFIXOS_DADOS`; com `secao: "Visão geral"` ele aparece nessa seção do menu em vez de *Módulos*) e os arquivos
 dele em `sw.js` (lista `MODULOS`). O `npm test` avisa se faltar algum arquivo no `sw.js`.
 
 ## App instalável

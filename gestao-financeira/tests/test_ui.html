@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>UI Test</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand"></div>
+    <div class="nav" id="sidebar-menu"></div>
+  </nav>
+  <main>
+    <div class="crumb" id="view-sub"></div>
+    <h1 id="view-title"></h1>
+    <div class="content" id="content">
+      <div id="view-ledger" style="display:none;">
+        <section class="notice" id="ledger-note" hidden>
+          <div class="notice-actions">
+            <button type="button" class="btn btn-primary" id="btn-redistribuir">Distribuir por unidade</button>
+            <button type="button" class="btn btn-danger-ghost" id="btn-remover-unidade">Remover unidade</button>
+          </div>
+        </section>
+        <section class="toolbar" id="ledger-toolbar">
+          <input type="file" id="file-import-ledger" hidden>
+          <span id="import-filename-ledger"></span>
+          <button type="button" class="btn btn-ghost" id="edit-contabil"></button>
+          <button type="button" class="btn btn-ghost" id="clear-acct-top"></button>
+          <button type="button" class="btn btn-danger-ghost" id="delete-acct"></button>
+        </section>
+        <div id="import-status-ledger"></div>
+        <section class="panel" id="ledger-form-panel">
+          <form id="entry-form">
+            <input type="date" id="f-data" required>
+            <div id="f-datamov-wrap" style="display:none"><input type="date" id="f-datamov"></div>
+            <input type="text" id="f-desc" required>
+            <input type="text" id="f-doc">
+            <select id="f-modelo"></select>
+            <input type="text" id="f-valor" required>
+            <button type="button" id="btn-c" class="on-c active">C</button>
+            <button type="button" id="btn-d" class="on-d">D</button>
+            <select id="f-categoria"></select>
+            <select id="f-unidade"></select>
+            <input type="text" id="f-natureza" list="dl-naturezas">
+            <datalist id="dl-naturezas"></datalist>
+            <input type="text" id="f-conta">
+            <input type="text" id="f-nome" list="dl-nomes">
+            <datalist id="dl-nomes"></datalist>
+            <input type="text" id="f-cpf">
+            <div id="form-error"></div>
+            <button type="submit" id="submit-btn">Adicionar</button>
+            <button type="button" id="cancel-edit" style="display:none"></button>
+          </form>
+        </section>
+        <table id="ledger-table"><thead><tr id="ledger-head"></tr></thead><tbody id="ledger-body"></tbody></table>
+        <div id="ledger-empty"></div>
+        <div id="totals"></div>
+        <button id="export-clip"></button><button id="export-csv"></button><button id="clear-acct"></button>
+      </div>
+
+      <div id="view-cadastro" style="display:none;">
+        <input type="file" id="file-import-cadastro" hidden>
+        <span id="import-filename-cadastro"></span>
+        <button id="clear-cadastro"></button>
+        <div id="import-status-cadastro"></div>
+        <table id="cadastro-table"><thead><tr id="cadastro-head"></tr></thead><tbody id="cadastro-body"></tbody></table>
+      </div>
+
+      <div id="view-master" style="display:none;">
+        <div id="master-resumo"></div>
+        <button type="button" id="btn-master-distribuir">Distribuir</button>
+        <button type="button" id="btn-master-txt-atual">Gerar TXTs (formato atual)</button>
+        <button type="button" id="btn-master-txt-unico">Gerar TXTs (SCI Único)</button>
+        <div id="master-status"></div>
+        <div id="master-downloads" style="display:none;"></div>
+        <tbody id="master-body-unidades"></tbody>
+        <tbody id="master-body-bancos"></tbody>
+      </div>
+
+      <div id="view-conciliacao" style="display:none;">
+        <select id="conc-acct"></select>
+        <input type="number" id="conc-tolerancia" value="3">
+        <input type="file" id="file-import-conc" hidden>
+        <span id="import-filename-conc"></span>
+        <div id="import-status-conc"></div>
+        <div id="conc-results-panel" style="display:none;">
+          <div id="conc-totals"></div>
+          <input type="search" id="conc-filter">
+          <tbody id="conc-body"></tbody>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+<button id="theme-toggle"></button>
+
+<div id="modal-add-account" class="modal" style="display:none;">
+  <select id="modal-bank-select"><option value="Sicoob">Sicoob</option></select>
+  <input type="text" id="modal-bank-cc">
+  <input type="text" id="modal-bank-contabil">
+  <input type="text" id="modal-bank-ag">
+  <button id="modal-bank-cancel"></button>
+  <button id="modal-bank-save"></button>
+</div>
+
+<div id="modal-add-unit" class="modal" style="display:none;">
+  <input type="text" id="modal-unit-name">
+  <input type="text" id="modal-unit-cnpj">
+  <input type="text" id="modal-unit-codigo">
+  <button id="modal-unit-cancel"></button>
+  <button id="modal-unit-save"></button>
+</div>
+
+<script src="../js/storage.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/integracao.js"></script>
+<script src="../js/app.js"></script>
+
+<div id="test-output" style="margin:20px;font-family:sans-serif;">Running tests...</div>
+
+<script>
+(function() {
+  var out = [];
+  function assert(cond, msg) { if (!cond) throw new Error(msg || "Assertion failed"); }
+
+  // Garante que o menu e elementos estejam montados
+  document.getElementById("content").setAttribute("aria-busy", "false");
+  window.montarMenu && window.montarMenu();
+  window.buildSidebar && window.buildSidebar();
+
+    // Test 1: Verificar se modal de unidade tem campos CNPJ e Código SCI
+    try {
+      assert(document.getElementById("modal-unit-name"), "modal-unit-name existe");
+      assert(document.getElementById("modal-unit-cnpj"), "modal-unit-cnpj existe");
+      assert(document.getElementById("modal-unit-codigo"), "modal-unit-codigo existe");
+      out.push("PASS: Modal de nova unidade com CNPJ e Código SCI opcionais");
+    } catch(e) { out.push("FAIL: Modal nova unidade: " + e.message); }
+
+    // Test 2: Adicionar unidade com o modal
+    try {
+      document.getElementById("modal-unit-name").value = "Filial Chapecó";
+      document.getElementById("modal-unit-cnpj").value = "11.222.333/0001-44";
+      document.getElementById("modal-unit-codigo").value = "175";
+      document.getElementById("modal-unit-save").click();
+
+      var btn = document.querySelector(".acct-btn[title='Filial Chapecó']");
+      assert(btn, "Botão da unidade deve aparecer na barra lateral");
+
+      var row = btn.closest(".nav-item-row");
+      assert(row, "Unidade deve estar em .nav-item-row");
+      var delBtn = row.querySelector(".nav-item-del");
+      assert(delBtn, "Botão com sinal de menos (-) deve estar presente");
+      assert(delBtn.title.includes("Filial Chapecó"), "Title do botão de menos está correto");
+      out.push("PASS: Adicionar unidade e exibir botão de menos (-) na barra lateral");
+    } catch(e) { out.push("FAIL: Adicionar unidade: " + e.message); }
+
+    // Test 3: Remover unidade pelo botão de menos (-)
+    try {
+      window.confirm = function() { return true; };
+      var btn = document.querySelector(".acct-btn[title='Filial Chapecó']");
+      var delBtn = btn.closest(".nav-item-row").querySelector(".nav-item-del");
+      delBtn.click();
+
+      var removed = document.querySelector(".acct-btn[title='Filial Chapecó']");
+      assert(!removed, "Unidade deve ser removida da barra lateral");
+      out.push("PASS: Remover unidade pelo botão de menos (-)");
+    } catch(e) { out.push("FAIL: Remover unidade: " + e.message); }
+
+    // Test 4: Botão remover unidade no ledger-note
+    try {
+      assert(document.getElementById("btn-remover-unidade"), "Botão #btn-remover-unidade deve existir no ledger-note");
+      out.push("PASS: Botão Remover unidade presente no ledger-note");
+    } catch(e) { out.push("FAIL: Botão remover unidade no ledger-note: " + e.message); }
+
+    // Test 5: Adicionar banco e movimentação, e testar geração de TXT
+    try {
+      document.getElementById("modal-bank-select").value = "Sicoob";
+      document.getElementById("modal-bank-cc").value = "24402-3";
+      document.getElementById("modal-bank-contabil").value = "643";
+      document.getElementById("modal-bank-save").click();
+
+      document.getElementById("f-data").value = "2026-09-01";
+      document.getElementById("f-desc").value = "PIX RECEBIDO CLIENTE";
+      document.getElementById("f-valor").value = "500,00";
+      document.getElementById("btn-c").click();
+      document.getElementById("f-categoria").value = "Recebimento";
+      document.getElementById("f-unidade").value = "Matriz";
+      document.getElementById("entry-form").dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+
+      // Vai para a visão Master
+      document.getElementById("btn-master").click();
+
+      // Dispara geração do SCI Único
+      window.confirm = function() { return true; };
+      document.getElementById("btn-master-txt-unico").click();
+
+      var dlBox = document.getElementById("master-downloads");
+      assert(dlBox && dlBox.style.display !== "none", "Caixa de downloads deve estar visível");
+      assert(dlBox.textContent.includes("UNICO_Matriz.txt"), "Downloads deve conter UNICO_Matriz.txt");
+
+      // Dispara geração formato atual
+      document.getElementById("btn-master-txt-atual").click();
+      assert(dlBox.textContent.includes("RECEBIMENTO_Matriz.txt"), "Downloads deve conter RECEBIMENTO_Matriz.txt");
+      out.push("PASS: Geração de TXTs (SCI Único e Formato Atual) com painel e ZIP");
+    } catch(e) { out.push("FAIL: Geração de TXT: " + e.message); }
+
+    document.getElementById("test-output").innerHTML = "<h3>Resultados:</h3><ul>" +
+      out.map(function(item){
+        var isPass = item.indexOf("PASS:") === 0;
+        return "<li style='color:" + (isPass ? "green" : "red") + "'>" + item + "</li>";
+      }).join("") + "</ul>";
+})();
+</script>
+</body>
+</html>

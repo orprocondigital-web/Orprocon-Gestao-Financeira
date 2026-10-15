@@ -33,7 +33,8 @@
     { id: "mod-icms", nome: "Apuração de ICMS", detalhe: "" },
     { id: "mod-ibs-cbs", nome: "Auditor IBS/CBS", detalhe: "" },
     { id: "mod-vencimentos", nome: "Painel de vencimentos", detalhe: "" },
-    { id: "mod-em-dia", nome: "Em Dia", detalhe: "Fechamento do mês e diário dos setores" }
+    { id: "mod-em-dia", nome: "Em Dia", detalhe: "Fechamento do mês e diário dos setores" },
+    { id: "mod-horas", nome: "Controle de horas", detalhe: "Folhas de presença dos funcionários dos clientes (DP)" }
   ];
   var IDS_AREAS = AREAS.map(function (a) { return a.id; });
 

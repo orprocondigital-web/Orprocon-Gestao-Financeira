@@ -46,13 +46,18 @@
   function ehAdmin(){ return !!usuarioLogado && usuarioLogado.perfil === "admin"; }
   var SECOES_INTEGRACAO = { "Bancos": 1, "Unidades": 1, "Outras movimentações": 1, "Cadastros": 1 };
 
+  /** Módulos de uma seção do menu (secao vazia = seção "Módulos"). */
+  function itensModulo(secao){
+    return Modulos.LISTA.filter(function(m){ return (m.secao || null) === secao; })
+      .map(function(m){ return { id: m.id, label: m.label, type: "modulo", descricao: m.descricao }; });
+  }
   function montarMenu(){
     MENU_SECTIONS = [
       { title: "Visão geral", items: [
         { id: "master", label: "Master", type: "master" },
         { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
-      ]},
-      { title: "Módulos", items: Modulos.LISTA.map(function(m){ return { id: m.id, label: m.label, type: "modulo", descricao: m.descricao }; }) },
+      ].concat(itensModulo("Visão geral")) },
+      { title: "Módulos", items: itensModulo(null) },
       { title: "Bancos", items: bancos },
       { title: "Unidades", items: unidades },
       { title: "Outras movimentações", items: MOVIMENTOS },
