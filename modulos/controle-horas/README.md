@@ -8,14 +8,16 @@ A folha em papel assinada continua sendo o documento do cliente; este módulo é
 
 ## Fluxo do mês
 
-1. **Funcionários**: cadastre a empresa e os funcionários (um a um ou vários de uma vez,
-   `Nome; Função` por linha). Cada funcionário tem a sua carga por dia da semana.
-2. **Gerar planilha para o cliente**: sai um `.xlsx` com uma aba por funcionário ativo, já com o
-   nome, os dias do mês, a lista de ocorrências e o total do dia calculado. Não tem limite de
-   funcionários (50, 80…: uma aba para cada). Sem macros, abre em qualquer Excel.
+1. **Empresa**: cadastre o cliente. Cadastrar os funcionários é opcional.
+2. **Gerar planilha para o cliente**: sai um `.xlsx` com uma aba por funcionário. Sem cadastro,
+   escolha quantas abas em branco mandar: o cliente escreve o nome de cada funcionário no alto da
+   aba (campo amarelo). Com cadastro, as abas já vêm com os nomes, e dá para mandar algumas em branco
+   a mais para funcionário novo. Sobrou aba: fica em branco e é ignorada. Faltou: o cliente copia
+   uma aba (explicado na planilha). Sem macros, abre em qualquer Excel.
 3. **Importar planilha preenchida**: o sistema liga cada aba ao funcionário (pela marca escondida
    na aba e, se não tiver, pelo nome). Funcionário que não existe é cadastrado com a carga padrão.
-   Aba em branco é ignorada e não apaga nada.
+   Aba em branco é ignorada e não apaga nada. Assim o cadastro de funcionários se monta sozinho na
+   primeira importação; depois é só conferir a carga de cada um.
 4. **Conferir**: cada folha mostra trabalhado, extras por faixa (%), atrasos, noturno e alertas
    (intervalo curto, mais de 2h extras no dia, interjornada menor que 11h, horário faltando…).
    Dá para corrigir direto na tabela (Enter desce para o dia seguinte) e **Marcar como revisada**.

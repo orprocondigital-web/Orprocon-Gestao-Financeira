@@ -94,7 +94,7 @@
       '<button type="button" class="btn btn-outline btn-sm" data-acao="remover-exemplo">Remover exemplo</button></div>';
     if (fechado) html += '<div class="hr-aviso fechado"><span><strong>Mês fechado</strong> em ' + esc(new Date(m.fechadoEm).toLocaleString("pt-BR")) +
       ". O cálculo usa as regras e os feriados da data do fechamento.</span>" + '<button type="button" class="btn btn-ghost btn-sm" data-acao="reabrir">Reabrir mês</button></div>';
-    if (!ativos.length) html += '<div class="hr-aviso atencao"><span>Esta empresa ainda não tem funcionários. Cadastre-os em <b>Funcionários</b> para gerar a planilha com uma aba para cada um, ou importe uma planilha preenchida: os nomes dela viram o cadastro.</span>' +
+    if (!ativos.length) html += '<div class="hr-aviso info"><span><strong>Sem funcionários cadastrados — e tudo bem.</strong> Gere a planilha com abas em branco: o cliente escreve o nome de cada funcionário e, na importação, o sistema cadastra sozinho. Se preferir, cadastre antes em <b>Funcionários</b> e a planilha já sai com os nomes.</span>' +
       '<button type="button" class="btn btn-soft btn-sm" data-aba="funcionarios">Cadastrar funcionários</button></div>';
     html += '<div class="stats hr-stats">' +
       stat("Folhas recebidas", g.comFolha + " de " + g.funcionarios, R.rotuloMes(mes), true) +
@@ -293,8 +293,13 @@
     try {
       if (tipo === "empresa-nova") {
         var nova = H.salvarEmpresa(estado, { nome: val(form, "nome"), cnpj: val(form, "cnpj") }, Number(mes.slice(0, 4)));
-        empId = nova.id; guardar("horas:empresa", empId); aba = "funcionarios"; folhaAberta = null;
-        salvar(); fecharModal(); toast("Empresa cadastrada. Agora cadastre os funcionários."); render(); return;
+        empId = nova.id; guardar("horas:empresa", empId); aba = "mes"; folhaAberta = null;
+        salvar(); fecharModal(); toast("Empresa cadastrada. Já pode gerar a planilha para o cliente."); render(); return;
+      }
+      if (tipo === "gerar") {
+        var nb = Math.round(Number(val(form, "branco")) || 0), temCad = H.ativos(emp).length > 0;
+        if (nb < 0 || nb > 300 || (!temCad && nb < 1)) throw new Error(temCad ? "Use de 0 a 300 abas em branco." : "Use de 1 a 300 abas.");
+        fecharModal(); gerarPlanilha(nb); return;
       }
       if (tipo === "empresa") {
         H.salvarEmpresa(estado, { id: emp.id, nome: val(form, "nome"), cnpj: val(form, "cnpj"), cargaPadrao: lerCarga(form) });
@@ -338,16 +343,28 @@
 
   // ---------------------------------------------------------------- gerar, importar, exportar
 
-  function gerarPlanilha() {
+  /** Antes de gerar: quantas abas em branco (o cliente escreve o nome). Sem cadastro, a planilha sai só com abas em branco. */
+  function modalGerar() {
+    var emp = empresa(), n = H.ativos(emp).length;
+    abrirModal('<h3>Gerar planilha para o cliente</h3><form data-form="gerar">' +
+      '<p class="muted small" style="margin:0">' + R.rotuloMes(mes).replace(/^./, function (c) { return c.toUpperCase(); }) + ' · ' + esc(emp.nome) + '</p>' +
+      (n ? '<p style="margin:0">Vai uma aba com o nome de cada funcionário cadastrado (<b>' + n + '</b>).</p>'
+         : '<p style="margin:0">Não precisa cadastrar os funcionários: o cliente escreve o nome em cada aba e, quando a planilha voltar, o sistema cadastra sozinho quem ele preencheu.</p>') +
+      '<div class="field"><label for="g-branco">' + (n ? "Abas em branco a mais (para funcionário novo)" : "Quantas abas (uma por funcionário do cliente)") + '</label>' +
+      '<input id="g-branco" name="branco" type="number" min="' + (n ? 0 : 1) + '" max="300" value="' + (n ? 2 : 10) + '"></div>' +
+      '<p class="muted small" style="margin:0">Na dúvida, mande algumas a mais: aba que sobrar em branco é ignorada na importação. Se faltar, o cliente copia uma aba (está explicado na planilha).</p>' +
+      '<p class="error-msg" data-erro></p><div class="modal-actions"><button type="button" class="btn btn-ghost" data-fechar>Cancelar</button><button type="submit" class="btn btn-primary">Gerar e baixar</button></div></form>');
+  }
+
+  function gerarPlanilha(emBranco) {
     var emp = empresa(), funcs = H.ativos(emp);
-    if (!funcs.length && !confirm("Esta empresa não tem funcionários cadastrados. Gerar a planilha com uma folha em branco?")) return;
     toast("Gerando a planilha…");
     carregarScript(EXCELJS_URL, "ExcelJS").then(function (ExcelJS) {
-      var wb = P.gerar(ExcelJS, emp, funcs, mes);
+      var wb = P.gerar(ExcelJS, emp, funcs, mes, { emBranco: emBranco });
       return wb.xlsx.writeBuffer();
     }).then(function (buf) {
       baixar("Folha_de_presenca_" + nomeArquivo(emp.nome) + "_" + mes + ".xlsx", new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-      toast("Planilha gerada com " + Math.max(1, funcs.length) + " folha(s). Envie ao cliente.");
+      toast("Planilha gerada com " + (funcs.length + emBranco) + " aba(s) de funcionário. Envie ao cliente.");
     }).catch(function (e) { alert(e.message); });
   }
 
@@ -494,7 +511,7 @@
       }
       render(); window.scrollTo(0, 0); return;
     }
-    if (a === "gerar") { gerarPlanilha(); return; }
+    if (a === "gerar") { modalGerar(); return; }
     if (a === "importar") { $("arquivo").value = ""; $("arquivo").click(); return; }
     if (a === "exportar") { exportarResumo(); return; }
     if (a === "imprimir") { window.print(); return; }

@@ -169,6 +169,24 @@ describe("planilha do cliente", { skip: !(ExcelJS && XLSX) && "exceljs/xlsx não
     assert.equal(lido.folhas[1].id, "f2");
     assert.deepEqual(lido.folhas[1].dias, {});
   });
+  test("sem cadastro: abas em branco; o cliente escreve o nome e a importação cadastra", async () => {
+    const wb = P.gerar(ExcelJS, { nome: "Cliente Exemplo Ltda" }, [], "2026-09", { emBranco: 3 });
+    assert.deepEqual(wb.worksheets.map((w) => w.name).slice(2), ["01 Funcionário", "02 Funcionário", "03 Funcionário"]);
+    const ws = wb.getWorksheet("02 Funcionário");
+    ws.getCell("B3").value = "Paula Exemplo"; ws.getCell("B4").value = "Auxiliar";
+    ws.getCell("C8").value = "08:00"; ws.getCell("F8").value = "17:00";
+    const buf = await wb.xlsx.writeBuffer();
+    const lido = P.ler(XLSX, XLSX.read(buf, { type: "buffer" }));
+    const cheias = lido.folhas.filter((f) => Object.keys(f.dias).length);
+    assert.deepEqual(cheias.map((f) => [f.nome, f.funcao]), [["Paula Exemplo", "Auxiliar"]]);
+    const D = require("../modulos/controle-horas/js/dados.js");
+    const e = D.estadoVazio(), emp = D.salvarEmpresa(e, { nome: "Cliente Exemplo Ltda" }, 2026);
+    const r = D.aplicarImportacao(e, emp.id, "2026-09", lido);
+    assert.deepEqual([r.importadas, r.criados, r.ignoradas], [1, ["Paula Exemplo"], []], "abas que sobraram em branco não atrapalham");
+    // com cadastro: nomes + abas extras em branco
+    const wb2 = P.gerar(ExcelJS, { nome: "X" }, [{ id: "f1", nome: "Maria Exemplo" }], "2026-09", { emBranco: 2 });
+    assert.deepEqual(wb2.worksheets.map((w) => w.name).slice(2), ["01 Maria Exemplo", "02 Funcionário", "03 Funcionário"]);
+  });
   test("nome de aba: até 31 caracteres, sem repetir", () => {
     const usados = {};
     assert.equal(P.nomeAba("Maria", usados, 1), "01 Maria");

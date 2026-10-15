@@ -14,6 +14,7 @@ test("vencimentos urgentes: vencidos e até 7 dias", () => {
 test("dados dos módulos vão no backup; os do sistema não", () => {
   assert.ok(M.ehDadoDeModulo("icms.rules"));
   assert.ok(M.ehDadoDeModulo("painelVencimentos:v1"));
+  assert.ok(M.ehDadoDeModulo("emDia:v1"));
   assert.ok(!M.ehDadoDeModulo("system_banks"));
   assert.ok(!M.ehDadoDeModulo("tema"));
 });

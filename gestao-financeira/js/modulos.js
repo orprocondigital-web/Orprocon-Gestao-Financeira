@@ -27,11 +27,15 @@
     { id: "mod-vencimentos", label: "Painel de vencimentos", pasta: "modulos/painel-vencimentos/",
       descricao: "Certificados, certidões, alvarás, procurações e licenças dos clientes",
       icone: '<path d="M7 3v3M17 3v3M4 8h16M5 5h14v15H5zM12 12v3l2 1"/>',
-      botaoTema: "#btnTema", tema: "classe", chaveDados: "painelVencimentos:v1" }
+      botaoTema: "#btnTema", tema: "classe", chaveDados: "painelVencimentos:v1" },
+    { id: "mod-em-dia", label: "Em Dia", pasta: "modulos/em-dia/",
+      descricao: "Fechamento do mês, diário de cada setor (Contábil, Fiscal, Pessoal) e passagem de bastão",
+      icone: '<path d="M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M9 13l2 2 4-4"/>',
+      botaoTema: "#ed-sem-botao-tema", tema: "data-theme" }
   ];
 
   /** Chaves do localStorage que pertencem aos módulos (vão no backup do sistema). */
-  var PREFIXOS_DADOS = ["icms.", "painelVencimentos:"];
+  var PREFIXOS_DADOS = ["icms.", "painelVencimentos:", "emDia:"];
 
   function porId(id) { return LISTA.filter(function (m) { return m.id === id; })[0] || null; }
   function ehDadoDeModulo(chave) { return PREFIXOS_DADOS.some(function (p) { return chave.indexOf(p) === 0; }); }

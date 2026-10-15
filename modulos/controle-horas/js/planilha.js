@@ -13,7 +13,7 @@
   var MARCA = "modelo: folha-presenca v1";
   var IGNORAR = { "COMO PREENCHER": 1, "EMPRESA": 1, "EXEMPLO": 1 };
   var L0 = 8;          // linha do dia 1
-  var AZUL = "FF2445B0", AZUL_CLARO = "FFE9EEFC", CINZA = "FFF3F5F8", LINHA = "FFCDD3DD", TINTA = "FF172033", ENTRADA = "FF1F4ED8", MUDO = "FF5F6A7D", ALERTA = "FFFBE9E7";
+  var AZUL = "FF2445B0", AZUL_CLARO = "FFE9EEFC", CINZA = "FFF3F5F8", LINHA = "FFCDD3DD", TINTA = "FF172033", ENTRADA = "FF1F4ED8", MUDO = "FF5F6A7D", ALERTA = "FFFBE9E7", AMARELO = "FFFFF4C2";
   var COLS = ["Dia", "Semana", "Entrada", "Saída intervalo", "Volta intervalo", "Saída", "Ocorrência", "Observação", "Total do dia"];
   var LARG = [17, 9, 11, 13, 13, 11, 14, 34, 11];
 
@@ -34,7 +34,10 @@
    * Gera a planilha do cliente. ExcelJS = a biblioteca; empresa = {nome, cnpj}; funcionarios = [{id, nome, funcao, quadro}];
    * mes = "2026-09". Devolve o Workbook (use wb.xlsx.writeBuffer()).
    */
-  function gerar(ExcelJS, empresa, funcionarios, mes) {
+  function gerar(ExcelJS, empresa, funcionarios, mes, opcoes) {
+    opcoes = opcoes || {};
+    var emBranco = Math.max(0, Math.min(300, Number(opcoes.emBranco) || 0));
+    if (!funcionarios.length && !emBranco) emBranco = 1;
     var wb = new ExcelJS.Workbook();
     wb.creator = "Orprocon"; wb.created = new Date();
 
@@ -45,15 +48,18 @@
     w.getCell("B3").value = "Mês de " + R.rotuloMes(mes) + ". Preencha e envie ao Departamento Pessoal da Orprocon no fim do mês."; w.getCell("B3").font = fonte({ size: 11, color: { argb: MUDO } });
     var linhas = [
       ["Uma aba para cada funcionário", true],
-      ["As abas já vêm com o nome de cada funcionário. Preencha os horários de cada dia, como na folha de papel: Entrada, Saída para o intervalo, Volta do intervalo e Saída.", false],
+      [funcionarios.length && !emBranco ? "As abas já vêm com o nome de cada funcionário. Preencha os horários de cada dia, como na folha de papel: Entrada, Saída para o intervalo, Volta do intervalo e Saída."
+        : "Use uma aba para cada funcionário. " + (funcionarios.length ? "As que já têm nome são dos funcionários que conhecemos; nas abas \"Funcionário\", " : "Em cada aba, ") +
+          "escreva o NOME do funcionário no campo Funcionário (no alto, em amarelo) e a função. Depois preencha os horários de cada dia, como na folha de papel: Entrada, Saída para o intervalo, Volta do intervalo e Saída.", false],
       ["• Horário com dois pontos: 09:00, 12:30, 18:05.", false],
       ["• Dia sem intervalo (ex.: sábado de manhã): preencha só Entrada e Saída.", false],
       ["• Saiu depois da meia-noite? Use a hora normal (ex.: entrou 22:00, saiu 02:00): a planilha entende que virou o dia.", false],
       ["• Falta, atestado, folga, feriado, férias ou suspensão: escolha na coluna Ocorrência e deixe os horários em branco.", false],
       ["• A coluna Total do dia é calculada sozinha, para conferir. Fica vermelha se faltar um horário ou se passar de 10 horas.", false],
       ["", false],
-      ["Funcionário novo ou que saiu?", true],
-      ["Avise o Departamento Pessoal: a próxima planilha já vem atualizada. Não mude o nome das abas nem os títulos das colunas.", false],
+      ["Sobrou ou faltou aba?", true],
+      ["Sobrou: deixe a aba em branco, ela é desconsiderada. Faltou: clique com o botão direito numa aba em branco > Mover ou copiar > marque \"Criar uma cópia\" > OK, e escreva o nome do funcionário nela.", false],
+      ["Não mude os títulos das colunas. Funcionário que saiu: deixe a aba dele em branco e avise o Departamento Pessoal.", false],
       ["", false],
       ["A folha de papel assinada pelo funcionário continua valendo: guarde-a normalmente.", false]
     ];
@@ -74,7 +80,9 @@
 
     // --- uma aba por funcionário
     var usados = { "COMO PREENCHER": 1, "EMPRESA": 1 };
-    (funcionarios.length ? funcionarios : [{ id: "", nome: "", funcao: "", quadro: "" }]).forEach(function (f, i) {
+    var todas = funcionarios.slice();
+    for (var b = 0; b < emBranco; b++) todas.push({ id: "", nome: "", funcao: "", quadro: "", branco: true });
+    todas.forEach(function (f, i) {
       folha(wb, nomeAba(f.nome, usados, i + 1), f);
     });
     return wb;
@@ -96,7 +104,9 @@
       a.value = p[0]; a.font = fonte({ bold: true }); a.fill = preenchido(AZUL_CLARO); a.border = borda;
       ws.mergeCells(r, 2, r, 9);
       var b = ws.getCell(r, 2); b.value = p[1] || ""; b.font = fonte({ size: 11, color: { argb: ENTRADA } }); b.border = borda;
+      if (f.branco && i < 2) b.fill = preenchido(AMARELO);   // aba em branco: o cliente escreve nome e função aqui
     });
+    if (f.branco) { ws.getCell("J3").value = "← escreva o nome do funcionário"; ws.getCell("J3").font = fonte({ size: 9, italic: true, color: { argb: MUDO } }); }
     ws.getCell("K1").value = "id:" + (f.id || "");
     ws.getColumn(11).hidden = true;
     var cab = ws.getRow(L0 - 1); cab.height = 30;
