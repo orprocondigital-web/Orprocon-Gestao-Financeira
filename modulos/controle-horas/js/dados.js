@@ -239,10 +239,23 @@
     return { empresa: emp, mes: mes };
   }
 
+  /** Empresas de exemplo (as criadas pelo botão "Ver com dados de exemplo"). */
+  function empresasExemplo(e) { return e.empresas.filter(function (x) { return x.exemplo === true; }); }
+  function temExemplo(e) { return empresasExemplo(e).length > 0; }
+  /** Tira só o exemplo; as empresas de verdade ficam. Devolve quantas saíram. */
+  function removerExemplo(e) {
+    var ex = empresasExemplo(e);
+    ex.forEach(function (x) { excluirEmpresa(e, x.id); });
+    return ex.length;
+  }
+  /** Zera o módulo (empresas, funcionários e meses). */
+  function limparTudo(e) { e.empresas = []; e.meses = {}; }
+
   return {
     CARGA_PADRAO: CARGA_PADRAO, uid: uid, porId: porId, estadoVazio: estadoVazio, normalizar: normalizar,
     salvarEmpresa: salvarEmpresa, excluirEmpresa: excluirEmpresa, salvarFuncionario: salvarFuncionario, adicionarVarios: adicionarVarios, ativos: ativos,
     mesDe: mesDe, regrasDoMes: regrasDoMes, feriadosDoMes: feriadosDoMes, folhaDe: folhaDe, atualizarDia: atualizarDia, marcarRevisada: marcarRevisada,
-    fecharMes: fecharMes, reabrirMes: reabrirMes, aplicarImportacao: aplicarImportacao, resumoMes: resumoMes, exemplo: exemplo
+    fecharMes: fecharMes, reabrirMes: reabrirMes, aplicarImportacao: aplicarImportacao, resumoMes: resumoMes, exemplo: exemplo,
+    temExemplo: temExemplo, removerExemplo: removerExemplo, limparTudo: limparTudo
   };
 });

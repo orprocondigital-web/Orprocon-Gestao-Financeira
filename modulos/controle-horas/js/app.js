@@ -90,6 +90,8 @@
     var ativos = H.ativos(emp);
     var extrasTxt = Object.keys(g.extras).sort(function (a, b) { return a - b; }).map(function (p) { return p + "%: " + h(g.extras[p]); }).join(" · ");
     var html = "";
+    if (emp.exemplo) html += '<div class="hr-aviso info"><span><strong>Dados de exemplo.</strong> Empresa e funcionários fictícios para conhecer o módulo. Quando quiser começar de verdade, remova o exemplo (as empresas que você cadastrou ficam).</span>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-acao="remover-exemplo">Remover exemplo</button></div>';
     if (fechado) html += '<div class="hr-aviso fechado"><span><strong>Mês fechado</strong> em ' + esc(new Date(m.fechadoEm).toLocaleString("pt-BR")) +
       ". O cálculo usa as regras e os feriados da data do fechamento.</span>" + '<button type="button" class="btn btn-ghost btn-sm" data-acao="reabrir">Reabrir mês</button></div>';
     if (!ativos.length) html += '<div class="hr-aviso atencao"><span>Esta empresa ainda não tem funcionários. Cadastre-os em <b>Funcionários</b> para gerar a planilha com uma aba para cada um, ou importe uma planilha preenchida: os nomes dela viram o cadastro.</span>' +
@@ -219,6 +221,13 @@
 
   // ---------------------------------------------------------------- Regras de cálculo
 
+  function painelLimpeza() {
+    return '<section class="panel"><div class="panel-head"><h2>Começar do zero</h2><p class="muted small">Para os testes: tirar o exemplo ou apagar tudo deste módulo. Não mexe na Gestão Financeira nem nos outros módulos.</p></div>' +
+      '<div class="hr-acoes" style="border-bottom:0">' +
+      (H.temExemplo(estado) ? '<button type="button" class="btn btn-outline btn-sm" data-acao="remover-exemplo">Remover dados de exemplo</button>' : "") +
+      '<button type="button" class="btn btn-danger-ghost btn-sm" data-acao="limpar-tudo">Apagar tudo do Controle de horas</button></div></section>';
+  }
+
   function telaRegras(emp) {
     var rg = emp.regras;
     var pct = function (n, v) { return '<input name="' + n + '" type="number" min="0" max="300" step="1" value="' + esc(v) + '">'; };
@@ -245,7 +254,8 @@
       '<div class="field"><label for="r-int">Intervalo mínimo (min)</label><input id="r-int" name="intervaloMinimo" type="number" min="0" value="' + esc(rg.intervaloMinimo) + '"><span class="dica">Para jornada acima de 6h.</span></div>' +
       '<div class="field"><label for="r-lim">Hora extra máxima por dia</label><input id="r-lim" name="limiteExtraDia" value="' + esc(R.fmtHora(rg.limiteExtraDia)) + '"></div>' +
       '<div class="field"><label for="r-inter">Descanso mínimo entre jornadas</label><input id="r-inter" name="interjornada" value="' + esc(R.fmtHora(rg.interjornada)) + '"></div></div></div>' +
-      '<p class="error-msg" data-erro></p><div class="hr-rodape"><button type="button" class="btn btn-ghost btn-sm" data-acao="regras-padrao">Voltar ao padrão</button><button type="submit" class="btn btn-primary">Salvar regras</button></div></form></section>';
+      '<p class="error-msg" data-erro></p><div class="hr-rodape"><button type="button" class="btn btn-ghost btn-sm" data-acao="regras-padrao">Voltar ao padrão</button><button type="submit" class="btn btn-primary">Salvar regras</button></div></form></section>' +
+      painelLimpeza();
   }
 
   // ---------------------------------------------------------------- Feriados
@@ -510,6 +520,16 @@
       emp.feriados = emp.feriados.concat(novos); salvar(); toast(novos.length ? novos.length + " feriado(s) nacional(is) adicionado(s)." : "Os feriados nacionais já estavam na lista."); render(); return;
     }
     if (a === "feriado-remover") { emp.feriados = emp.feriados.filter(function (f) { return f.data !== el.dataset.data; }); salvar(); render(); return; }
+    if (a === "remover-exemplo") {
+      if (!confirm("Remover a empresa de exemplo com os funcionários e folhas fictícios?\n\nAs empresas que você cadastrou não são mexidas.")) return;
+      H.removerExemplo(estado); empId = ""; aba = "mes"; folhaAberta = null; salvar(); toast("Exemplo removido."); render(); return;
+    }
+    if (a === "limpar-tudo") {
+      var n = estado.empresas.length;
+      if (!confirm("Apagar TUDO do Controle de horas: " + n + " empresa(s), funcionários, folhas e meses fechados?\n\nNão dá para desfazer. Dica: baixe antes um backup no Master.")) return;
+      if (n && prompt("Para confirmar, digite APAGAR") !== "APAGAR") { toast("Nada foi apagado."); return; }
+      H.limparTudo(estado); empId = ""; aba = "mes"; folhaAberta = null; salvar(); toast("Controle de horas zerado."); render(); return;
+    }
     if (a === "empresa-excluir") {
       if (!confirm("Excluir " + emp.nome + " com todos os funcionários e folhas? Não dá para desfazer.\n\nDica: baixe antes um backup no Master.")) return;
       H.excluirEmpresa(estado, emp.id); empId = ""; aba = "mes"; salvar(); toast("Empresa excluída."); render(); return;

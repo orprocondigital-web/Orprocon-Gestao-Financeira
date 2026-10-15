@@ -2486,8 +2486,9 @@
       "Link: " + linkDoSistema() + "\n" +
       "E-mail: " + u.email + "\n" +
       "Senha provisória: " + senha + "\n\n" +
-      "No primeiro acesso o sistema pede para você criar a sua própria senha.\n" +
-      "Nesta fase de testes, na primeira vez neste computador, escolha \"Importar o arquivo de acessos\" e use o arquivo que vou te enviar junto.";
+      "No primeiro acesso o sistema pede para você criar a sua própria senha." +
+      (Auth && Auth.modo === "api" ? "" :
+        "\nNesta fase de testes, na primeira vez neste computador, escolha \"Importar o arquivo de acessos\" e use o arquivo que vou te enviar junto.");
     $("acesso-mensagem").value = texto;
     $("acesso-whatsapp").href = "https://wa.me/?text=" + encodeURIComponent(texto);
     $("acesso-email").href = "mailto:" + encodeURIComponent(u.email) + "?subject=" + encodeURIComponent("Acesso à Gestão Financeira — Orprocon") + "&body=" + encodeURIComponent(texto);
@@ -2532,7 +2533,8 @@
   var dicaCarregando = setTimeout(function(){ $("carregando-dica").hidden = false; }, 2500);
   Store.init().then(function(ok){
     if (!ok) toast("Este navegador não permite gravar dados. Nada será salvo.");
-    Auth = AuthCore.criarAuthLocal(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste) });
+    Auth = AuthCore.criar(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste), apiUrl: window.CONFIG && CONFIG.apiUrl });
+    document.body.classList.toggle("modo-api", Auth.modo === "api");
     return Auth.usuarioAtual().then(function(u){
       if (!u || u.trocarSenha) { irParaLogin(u ? "" : "expirou"); throw LOGIN_PENDENTE; }
       usuarioLogado = u;

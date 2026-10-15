@@ -245,4 +245,17 @@ describe("cadastro, meses e importação", () => {
     H.exemplo(e, new Date(2026, 9, 15));
     assert.equal(e.empresas.length, 1, "rodar de novo não duplica");
   });
+  test("remover exemplo tira só o fictício; limpar tudo zera o módulo", () => {
+    const e = H.estadoVazio();
+    const real = H.salvarEmpresa(e, { nome: "Cliente Real Exemplo" }, 2026);
+    H.salvarFuncionario(real, { nome: "Fulano Exemplo" });
+    const ex = H.exemplo(e, new Date(2026, 9, 15));
+    assert.ok(H.temExemplo(e));
+    assert.equal(H.removerExemplo(e), 1);
+    assert.deepEqual(e.empresas.map((x) => x.nome), ["Cliente Real Exemplo"]);
+    assert.equal(e.meses[ex.empresa.id], undefined);
+    assert.ok(!H.temExemplo(e));
+    H.limparTudo(e);
+    assert.deepEqual([e.empresas, e.meses], [[], {}]);
+  });
 });

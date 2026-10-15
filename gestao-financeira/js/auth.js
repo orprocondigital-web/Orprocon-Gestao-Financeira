@@ -6,9 +6,9 @@
  * Isso organiza as telas e o fluxo, mas NÃO é segurança de verdade: quem tem acesso ao
  * computador consegue contornar. A proteção real vem com o backend.
  *
- * PRÓXIMA FASE (backend Java/Spring): troque criarAuthLocal por um adaptador que chame a API
- * descrita no README (seção "Login e usuários"). As telas usam só os métodos do objeto
- * devolvido (todos devolvem Promise), então não precisam mudar.
+ * COM O SERVIDOR (backend Java/Spring): criarAuthApi chama a API descrita no README (seção
+ * "Login e usuários"). AuthCore.criar escolhe o adaptador pelo CONFIG.apiUrl. As telas usam só
+ * os métodos do objeto devolvido (todos devolvem Promise), então funcionam com os dois.
  *
  * Testado em tests/auth.test.js.
  */
@@ -363,6 +363,136 @@
     return api;
   }
 
+  // ---------------------------------------------------------------- servidor (API Java)
+
+  function apiCliente() {
+    if (typeof ApiCliente !== "undefined") return ApiCliente;
+    if (typeof require === "function") return require("./api.js");
+    throw erro("sem-api", "O arquivo js/api.js não foi carregado.");
+  }
+
+  /**
+   * Adaptador do servidor: os mesmos métodos do criarAuthLocal, mas quem guarda os usuários e confere
+   * a senha é a API (contrato no README). A sessão local guarda o token e um resumo do usuário.
+   * opcoes.fetch e opcoes.agora: para os testes.
+   */
+  function criarAuthApi(apiUrl, sessao, opcoes) {
+    opcoes = opcoes || {};
+    var agora = opcoes.agora || function () { return new Date(); };
+
+    function lerSessao() {
+      try {
+        var s = JSON.parse(sessao.getItem(CHAVE_SESSAO) || "null");
+        if (!s || !s.token || !s.usuarioId || Date.parse(s.expira) <= agora().getTime()) return null;
+        return s;
+      } catch (e) { return null; }
+    }
+    function limparSessao() { sessao.removeItem(CHAVE_SESSAO); }
+    function gravarSessao(u, token) {
+      var anterior = lerSessao();
+      var s = { usuarioId: u.id, nome: u.nome, email: u.email, perfil: u.perfil, areas: (u.areas || []).slice(),
+        expira: new Date(agora().getTime() + HORAS_SESSAO * 3600000).toISOString(),
+        token: token || (anterior && anterior.token) || "" };
+      sessao.setItem(CHAVE_SESSAO, JSON.stringify(s));
+    }
+    function doServidor(u) {
+      return { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, areas: (u.areas || []).slice(), ativo: u.ativo !== false,
+        trocarSenha: !!u.trocarSenha, criadoEm: u.criadoEm || "", atualizadoEm: u.atualizadoEm || "", ultimoAcesso: u.ultimoAcesso || "",
+        principal: !!u.principal, teste: false };
+    }
+    function comSenha(r) { return { usuario: doServidor(r.usuario), senhaProvisoria: r.senhaProvisoria }; }
+    function semArquivo() {
+      return Promise.reject(erro("com-servidor", "Com o servidor, os acessos ficam guardados nele: não é preciso arquivo de acessos."));
+    }
+
+    var api = apiCliente().criar(apiUrl, {
+      token: function () { var s = lerSessao(); return s ? s.token : ""; },
+      semSessao: limparSessao,
+      fetch: opcoes.fetch
+    });
+    var caminho = function (id) { return "/api/usuarios/" + encodeURIComponent(id); };
+
+    return {
+      modo: "api",
+      servidor: api.base,
+      ADMIN_EMAIL: ADMIN_EMAIL,
+      modoTeste: false,
+
+      precisaConfigurar: function () {
+        return api.get("/api/setup").then(function (r) { return !!(r && r.precisaConfigurar); });
+      },
+      configurarAdmin: function (nome, senha) {
+        var p = problemaSenha(senha);
+        if (p) return Promise.reject(erro("senha-fraca", p));
+        return api.post("/api/setup", { nome: nome, senha: senha }).then(doServidor);
+      },
+      entrarTeste: function () {
+        return Promise.reject(erro("sem-teste", "O modo de teste não existe quando o sistema usa o servidor."));
+      },
+      entrar: function (email, senha) {
+        return api.post("/api/auth/login", { email: normEmail(email), senha: senha }).then(function (r) {
+          gravarSessao(r.usuario, r.token);
+          return doServidor(r.usuario);
+        });
+      },
+      sair: function () {
+        var aberta = lerSessao();
+        var aviso = aberta ? api.post("/api/auth/logout").catch(function () {}) : Promise.resolve();
+        return aviso.then(limparSessao);
+      },
+      /** Confere a sessão no servidor. Sem internet, usa o resumo guardado (o sistema abre do mesmo jeito). */
+      usuarioAtual: function () {
+        var s = lerSessao();
+        if (!s) return Promise.resolve(null);
+        return api.get("/api/auth/me").then(function (u) {
+          if (!u || u.ativo === false) { limparSessao(); return null; }
+          gravarSessao(u);
+          return doServidor(u);
+        }).catch(function (e) {
+          if (e.codigo === "sem-conexao") {
+            return { id: s.usuarioId, nome: s.nome, email: s.email, perfil: s.perfil, areas: s.areas || [], ativo: true,
+              trocarSenha: false, principal: s.email === ADMIN_EMAIL, teste: false, semConexao: true };
+          }
+          if (e.status === 401 || e.status === 403) { limparSessao(); return null; }
+          throw e;
+        });
+      },
+      trocarSenha: function (senhaAtual, novaSenha) {
+        var p = problemaSenha(novaSenha);
+        if (p) return Promise.reject(erro("senha-fraca", p));
+        return api.post("/api/auth/senha", { senhaAtual: senhaAtual, novaSenha: novaSenha }).then(function (u) {
+          gravarSessao(u);
+          return doServidor(u);
+        });
+      },
+
+      listarUsuarios: function () {
+        return api.get("/api/usuarios").then(function (l) { return (l || []).map(doServidor); });
+      },
+      criarUsuario: function (dados) {
+        return api.post("/api/usuarios", { nome: dados.nome, email: dados.email, perfil: dados.perfil, areas: dados.areas || [] }).then(comSenha);
+      },
+      atualizarUsuario: function (id, dados) {
+        return api.put(caminho(id), dados).then(doServidor);
+      },
+      redefinirSenha: function (id) {
+        return api.post(caminho(id) + "/redefinir-senha").then(comSenha);
+      },
+      excluirUsuario: function (id) {
+        return api.del(caminho(id)).then(function () {});
+      },
+
+      exportarAcessos: semArquivo,
+      importarAcessos: semArquivo
+    };
+  }
+
+  /** Escolhe o adaptador: com CONFIG.apiUrl, o servidor; sem, o navegador (fase de testes). */
+  function criar(armazenamento, sessao, opcoes) {
+    opcoes = opcoes || {};
+    return opcoes.apiUrl ? criarAuthApi(opcoes.apiUrl, sessao, opcoes) : criarAuthLocal(armazenamento, sessao, opcoes);
+  }
+
   /** Sessão válida no localStorage? (usado antes de desenhar a página, sem esperar o IndexedDB) */
   function temSessao(ls, agoraMs) {
     try {
@@ -374,6 +504,6 @@
   return {
     ADMIN_EMAIL: ADMIN_EMAIL, TESTE_EMAIL: TESTE_EMAIL, AREAS: AREAS, CHAVE_USUARIOS: CHAVE_USUARIOS, CHAVE_SESSAO: CHAVE_SESSAO,
     problemaSenha: problemaSenha, senhaProvisoria: senhaProvisoria, gerarHash: gerarHash, conferirHash: conferirHash,
-    podeAcessar: podeAcessar, criarAuthLocal: criarAuthLocal, temSessao: temSessao, emailValido: emailValido
+    podeAcessar: podeAcessar, criarAuthLocal: criarAuthLocal, criarAuthApi: criarAuthApi, criar: criar, temSessao: temSessao, emailValido: emailValido
   };
 });

@@ -139,7 +139,15 @@
 
   Store.init({ prefixo: "auth:" }).then(function (ok) {
     if (!ok) throw new Error("Este navegador não permite guardar dados. Verifique se não está numa janela anônima.");
-    auth = AuthCore.criarAuthLocal(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste) });
+    auth = AuthCore.criar(Store, localStorage, { modoTeste: !!(window.CONFIG && CONFIG.modoTeste), apiUrl: window.CONFIG && CONFIG.apiUrl });
+    if (auth.modo === "api") {
+      document.body.classList.add("modo-api");
+      $("cfg-intro").textContent = "Ainda não há nenhum acesso no servidor. Crie a senha do administrador principal.";
+      if (/localhost|127\.0\.0\.1/.test(auth.servidor)) {
+        $("login-servidor").hidden = false;
+        $("login-servidor").textContent = "Usando o servidor de teste em " + auth.servidor + ". Para voltar ao modo sem servidor, abra login.html?api=sair";
+      }
+    }
     $("cfg-email").value = AuthCore.ADMIN_EMAIL;
     try { $("entrar-email").value = localStorage.getItem("gf.ultimoEmail") || ""; } catch (e) {}
     var params = new URLSearchParams(location.search);
