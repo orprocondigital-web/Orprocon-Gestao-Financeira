@@ -903,3 +903,26 @@ button.capa-mini:focus-visible { outline: none; box-shadow: var(--focus); }
 .modal-usuario-card .areas-field { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .modal-usuario-card .areas-field > legend { grid-column: 1 / -1; }
 @media (max-width: 640px) { .modal-usuario-card .areas-field { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Integração contábil: bancos, unidades, movimentos e cadastros ficam dentro dela no menu ---------- */
+.nav-item-integracao .acct-btn { padding-right: 38px; }
+.nav-partes { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.nav-partes:hover { background: var(--surface-2); color: var(--ink); }
+.nav-partes:focus-visible { outline: none; box-shadow: var(--focus); }
+.nav-partes .ico { width: 16px; height: 16px; transition: transform .15s; }
+.nav-partes[aria-expanded="false"] .ico { transform: rotate(-90deg); }
+.nav-sub { margin: 2px 0 6px 20px; padding-left: 8px; border-left: 1px solid var(--line); }
+.nav-sub[hidden] { display: none; }
+.nav-sub .nav-section-parte { margin-top: 6px; }
+.nav-sub .nav-section-parte:first-child { margin-top: 2px; }
+.nav-sub .nav-title { padding: 4px 6px; font-size: 11px; }
+.nav-sub .acct-btn { padding-top: 7px; padding-bottom: 7px; font-size: 13.5px; }
+.nav-sub .nav-subtitle { padding-left: 30px; }
+@media (min-width: 901px) {
+  .menu-recolhido .nav-partes { display: none; }
+  .menu-recolhido .nav-sub { margin-left: 0; padding-left: 0; border-left: 0; }
+}
+.cad-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cad-campos .field:first-child { grid-column: 1 / -1; }
+@media (max-width: 560px) { .cad-campos { grid-template-columns: minmax(0, 1fr); } }

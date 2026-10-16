@@ -56,6 +56,21 @@ aconteceu e chamar no WhatsApp. A mensagem já leva a tela em que a pessoa
 estava, o usuário e a versão do sistema. Quem atende e o número ficam em
 `js/config.js` (`CONFIG.suporte`); sem número, o botão some.
 
+### Menu
+
+No menu, **Bancos**, **Unidades**, **Outras movimentações** e **Cadastros** ficam dentro da
+**Integração contábil** (são as partes dela, vindas da planilha do mês). Ficam recolhidos e abrem
+pela seta ao lado de *Integração contábil*, ou sozinhos ao entrar nela ou numa conta.
+
+### Cadastros à mão
+
+Clientes, Fornecedores, Plano de contas, Centro de custos, Tabela de bancos e Tabela de unidades
+podem ser preenchidos sem planilha: **Novo item** em cada cadastro, e **Editar** em cada linha.
+Com a planilha já importada, o formulário usa as colunas dela; começando do zero, usa as colunas
+que a integração precisa (Plano de contas: Natureza e Conta contábil; Tabela de unidades: Unidade,
+CNPJ e Código SCI; Tabela de bancos: Banco, Descrição e Conta contábil). Importar a planilha do mês
+(com *cadastros* marcado) substitui os cadastros; importar só a aba pergunta se adiciona ou substitui.
+
 ### Importar extratos do banco
 
 Na Integração contábil (ou na tela de uma conta), *Importar extratos do banco* aceita vários

@@ -25,12 +25,15 @@
     { id: "mov-compras", label: "Digitação de compras", type: "ledger", bank: "Movimento", sheetName: "Digitação Compras (Nova-teste)" }
   ];
   var CADASTROS = [
-    { id: "cad-clientes", label: "Clientes", type: "cadastro", sheetName: "Clientes" },
-    { id: "cad-fornecedores", label: "Fornecedores", type: "cadastro", sheetName: "Fornecedores" },
-    { id: "cad-plano", label: "Plano de contas", type: "cadastro", sheetName: "Plano de Contas" },
-    { id: "cad-custos", label: "Centro de custos", type: "cadastro", sheetName: "Centro de Custos" },
-    { id: "cad-bancos", label: "Tabela de bancos", type: "cadastro", sheetName: "Tabela de Bancos" },
-    { id: "cad-unidades", label: "Tabela de unidades", type: "cadastro", sheetName: "Tabela de Unidades" }
+    // colunas: usadas quando o cadastro começa do zero, sem planilha. A ordem importa: a integração lê
+    // a natureza e a conta (Plano de contas), o Caixa e a conta (Tabela de bancos) e o CNPJ e o código SCI
+    // da unidade (Tabela de unidades) pela posição, igual às abas da planilha.
+    { id: "cad-clientes", label: "Clientes", type: "cadastro", sheetName: "Clientes", colunas: ["Nome", "CPF/CNPJ"] },
+    { id: "cad-fornecedores", label: "Fornecedores", type: "cadastro", sheetName: "Fornecedores", colunas: ["Nome", "CPF/CNPJ"] },
+    { id: "cad-plano", label: "Plano de contas", type: "cadastro", sheetName: "Plano de Contas", colunas: ["Natureza", "Conta contábil"] },
+    { id: "cad-custos", label: "Centro de custos", type: "cadastro", sheetName: "Centro de Custos", colunas: ["Unidade", "Centro de custo"] },
+    { id: "cad-bancos", label: "Tabela de bancos", type: "cadastro", sheetName: "Tabela de Bancos", colunas: ["Banco", "Descrição", "Conta contábil"] },
+    { id: "cad-unidades", label: "Tabela de unidades", type: "cadastro", sheetName: "Tabela de Unidades", colunas: ["Unidade", "CNPJ", "Código SCI"] }
   ];
 
   var contasMov = (function(){ try { return JSON.parse(localStorage.getItem("system_mov_contas")) || {}; } catch(e){ return {}; } })();
@@ -219,9 +222,42 @@
     return Object.assign({}, SECOES_FECHADAS_PADRAO);
   }
   function guardarFechadas(v){ try { localStorage.setItem("menu:fechadas", JSON.stringify(v)); } catch(e) {} }
+  // Bancos, Unidades, Outras movimentações e Cadastros são partes da Integração contábil:
+  // no menu ficam dentro dela (recolhidos), e abrem quando se entra na Integração contábil.
+  function integracaoAberta(){ try { return localStorage.getItem("menu:integracao") === "aberta"; } catch(e) { return false; } }
+  function abrirIntegracao(sim){
+    try { localStorage.setItem("menu:integracao", sim ? "aberta" : "fechada"); } catch(e) {}
+    var sub = $("nav-sub-integracao"), bt = $("btn-integracao-partes");
+    if (sub) sub.hidden = !sim;
+    if (bt) { bt.setAttribute("aria-expanded", sim ? "true" : "false"); bt.title = sim ? "Esconder bancos, unidades e cadastros" : "Mostrar bancos, unidades e cadastros"; }
+  }
   function abrirSecaoDe(id){
     var item = itemIndex[id], f = secoesFechadas();
+    if (item && (id === "master" || SECOES_INTEGRACAO[item.section]) && !integracaoAberta()) abrirIntegracao(true);
     if (item && f[item.section]) { delete f[item.section]; guardarFechadas(f); var el = document.querySelector('.nav-section[data-secao="' + item.section + '"]'); if (el) el.classList.remove("fechada"); }
+  }
+
+  /** Põe, logo abaixo de "Integração contábil", a seta e a área recolhível com as partes dela. */
+  function montarPartesIntegracao(secEl){
+    var btn = secEl.querySelector("#btn-master");
+    var linha = document.createElement("div");
+    linha.className = "nav-item nav-item-integracao";
+    btn.parentNode.insertBefore(linha, btn);
+    linha.appendChild(btn);
+    var seta = document.createElement("button");
+    seta.type = "button";
+    seta.id = "btn-integracao-partes";
+    seta.className = "nav-partes";
+    seta.setAttribute("aria-controls", "nav-sub-integracao");
+    seta.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    seta.addEventListener("click", function(ev){ ev.stopPropagation(); abrirIntegracao(!integracaoAberta()); });
+    linha.appendChild(seta);
+    var sub = document.createElement("div");
+    sub.id = "nav-sub-integracao";
+    sub.className = "nav-sub";
+    linha.parentNode.insertBefore(sub, linha.nextSibling);
+    setTimeout(function(){ abrirIntegracao(integracaoAberta()); }, 0);
+    return sub;
   }
 
   function botaoDoMenu(item, sec){
@@ -240,7 +276,9 @@
     var wrap = $("sidebar-menu");
     wrap.innerHTML = "";
     var fechadas = secoesFechadas();
+    var subIntegracao = null;   // onde entram Bancos, Unidades, Outras movimentações e Cadastros
     MENU_SECTIONS.forEach(function(sec){
+      var destino = SECOES_INTEGRACAO[sec.title] && subIntegracao ? subIntegracao : wrap;
       var secEl = document.createElement("div");
       if (!sec.title) {   // "Início": fica no topo, sem título nem botão de recolher
         secEl.className = "nav-section nav-section-topo";
@@ -335,7 +373,9 @@
         });
         secEl.appendChild(group);
       });
-      wrap.appendChild(secEl);
+      if (sec.title === "Contábil" && $("sidebar-menu") && secEl.querySelector("#btn-master")) subIntegracao = montarPartesIntegracao(secEl);
+      if (destino !== wrap) secEl.classList.add("nav-section-parte");
+      destino.appendChild(secEl);
     });
     refreshCounts();
   }
@@ -661,13 +701,14 @@
     if(!currentTab) return;
     var entries = loadEntries(currentTab);
     var cab = cabecalhoCadastro(currentTab);
+    if (!cab.length) cab = itemIndex[currentTab].colunas || [];   // começando do zero: as colunas padrão
     var nCols = Math.min(Math.max(cab.length, 1), 4);
     $("cadastro-head").innerHTML = (cab.length ? cab.slice(0, nCols) : ["Nome"]).map(function(h){ return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "<th class='col-actions'></th>";
 
     var body = $("cadastro-body");
     body.innerHTML = "";
     if(entries.length === 0){
-      body.innerHTML = "<tr><td colspan='" + (nCols + 1) + "' class='empty'><strong>Nenhum item cadastrado</strong><br>Importe a aba \"" + escapeHtml(itemIndex[currentTab].sheetName) + "\" da planilha.</td></tr>";
+      body.innerHTML = "<tr><td colspan='" + (nCols + 1) + "' class='empty'><strong>Nenhum item cadastrado</strong><br>Cadastre em <em>Novo item</em> ou importe a aba \"" + escapeHtml(itemIndex[currentTab].sheetName) + "\" da planilha.</td></tr>";
     } else {
       var frag = document.createDocumentFragment();
       entries.slice(0, LIMITE_CADASTRO_TELA).forEach(function(e) {
@@ -677,6 +718,9 @@
         tr.innerHTML = celulas.map(function(c){ return "<td>" + escapeHtml(c) + "</td>"; }).join("");
         var actionsTd = document.createElement("td");
         actionsTd.className = "row-actions";
+        var edBtn = document.createElement("button"); edBtn.textContent = "Editar";
+        edBtn.addEventListener("click", function(){ abrirItemCadastro(e.id); });
+        actionsTd.appendChild(edBtn);
         var delBtn = document.createElement("button"); delBtn.textContent = "Excluir";
         delBtn.addEventListener("click", function(){
           saveEntries(currentTab, loadEntries(currentTab).filter(function(x){ return x.id !== e.id; }));
@@ -2689,6 +2733,59 @@
   // ---------- janelas (modais): botão X, Esc e clique fora fecham ----------
   // Fechar usa o botão Cancelar/Fechar da própria janela, para limpar o que ela limpa.
   // Janela marcada com data-fechar-so-botao (ex.: senha provisória) só fecha pelo botão: não se perde por engano.
+  // ---------- cadastro à mão (sem planilha): novo item e editar ----------
+  var MAX_CAMPOS_CADASTRO = 12;
+  function colunasDoCadastro(id){
+    var cab = cabecalhoCadastro(id).map(function(c){ return String(c === undefined || c === null ? "" : c).trim(); });
+    var ultima = cab.length; while (ultima > 0 && !cab[ultima - 1]) ultima--;
+    cab = cab.slice(0, ultima);
+    return cab.length ? cab.slice(0, MAX_CAMPOS_CADASTRO) : (itemIndex[id].colunas || ["Nome"]).slice();
+  }
+  var editandoCadastro = null;   // id do item em edição; null = novo
+  function abrirItemCadastro(itemId){
+    var id = currentTab, cad = itemIndex[id];
+    if (!cad || cad.type !== "cadastro") return;
+    editandoCadastro = itemId || null;
+    var atual = itemId ? loadEntries(id).filter(function(x){ return x.id === itemId; })[0] : null;
+    var cols = colunasDoCadastro(id);
+    $("modal-cadastro-titulo").textContent = (atual ? "Editar: " : "Novo item: ") + cad.label;
+    $("cad-campos").innerHTML = cols.map(function(c, i){
+      var v = atual && atual.linha ? atual.linha[i] : (atual && i === 0 ? atual.nome : "");
+      return '<div class="field"><label for="cad-campo-' + i + '">' + escapeHtml(c || ("Coluna " + (i + 1))) + '</label>' +
+        '<input type="text" id="cad-campo-' + i + '" data-i="' + i + '" value="' + escapeHtml(v === undefined || v === null ? "" : v) + '" autocomplete="off"></div>';
+    }).join("");
+    $("cad-erro").textContent = "";
+    $("cad-salvar").textContent = atual ? "Salvar" : "Adicionar";
+    $("modal-cadastro").style.display = "flex";
+    setTimeout(function(){ var f = $("cad-campo-0"); if (f) f.focus(); }, 30);
+  }
+  function salvarItemCadastro(){
+    var id = currentTab, cad = itemIndex[id];
+    var cols = colunasDoCadastro(id);
+    var lista = loadEntries(id), atual = editandoCadastro ? lista.filter(function(x){ return x.id === editandoCadastro; })[0] : null;
+    var linha = atual && atual.linha ? atual.linha.slice() : [];   // colunas que não aparecem no formulário ficam como estavam
+    Array.prototype.forEach.call($("cad-campos").querySelectorAll("input"), function(inp){ linha[Number(inp.dataset.i)] = inp.value.trim(); });
+    for (var k = 0; k < linha.length; k++) if (linha[k] === undefined) linha[k] = "";
+    // o nome sai igual ao da importação da planilha (coluna "Nome"/"Descrição" ou o primeiro texto)
+    var lido = Importacao.cadastroDaAba([cols, linha], "x").itens[0];
+    var nome = lido ? lido.nome : "";
+    if (!nome) { $("cad-erro").textContent = "Preencha o campo " + (cols[0] || "Nome") + "."; return; }
+    var repetido = lista.filter(function(x){ return x.id !== editandoCadastro && String(x.nome).trim().toLowerCase() === nome.toLowerCase(); })[0];
+    if (repetido) { $("cad-erro").textContent = "Já existe \"" + repetido.nome + "\" neste cadastro."; return; }
+    if (atual) { atual.nome = nome; atual.linha = linha; }
+    else lista.push({ id: id + "-m" + Date.now().toString(36), nome: nome, linha: linha });
+    if (!cabecalhoCadastro(id).length) Store.set("cabecalho:" + id, cols);
+    saveEntries(id, lista);
+    $("modal-cadastro").style.display = "none";
+    editandoCadastro = null;
+    renderCadastro();
+    toast(atual ? "Item atualizado." : "Item adicionado em " + cad.label + ".");
+  }
+  $("btn-novo-cadastro").addEventListener("click", function(){ abrirItemCadastro(null); });
+  $("cad-cancelar").addEventListener("click", function(){ $("modal-cadastro").style.display = "none"; editandoCadastro = null; });
+  $("cad-salvar").addEventListener("click", salvarItemCadastro);
+  $("cad-campos").addEventListener("keydown", function(ev){ if (ev.key === "Enter") { ev.preventDefault(); salvarItemCadastro(); } });
+
   function fecharModal(m){
     var c = m.querySelector(".modal-actions .btn-ghost");
     if (c) c.click(); else m.style.display = "none";
