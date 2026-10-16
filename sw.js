@@ -9,7 +9,7 @@
  * Versão nova: o navegador baixa este arquivo, instala em segundo plano e o sistema
  * mostra "Nova versão disponível". Ao clicar em Atualizar (ou ao reabrir o app), ela entra.
  */
-var VERSAO = "?v=0.16.3";
+var VERSAO = "?v=0.17.1";
 var CACHE = "gestao-financeira-" + VERSAO.slice(3);
 var CACHE_EXTERNO = "gestao-financeira-externo";
 
@@ -36,6 +36,7 @@ var MODULOS = [
   "modulos/painel-vencimentos/js/acoes.js", "modulos/painel-vencimentos/js/app.js",
   "modulos/painel-vencimentos/icons/icon.svg", "modulos/painel-vencimentos/icons/icon-192.png", "modulos/painel-vencimentos/icons/icon-512.png",
   "modulos/em-dia/", "modulos/em-dia/css/em-dia.css", "modulos/em-dia/js/dados.js", "modulos/em-dia/js/app.js",
+  "modulos/iss-tubarao/", "modulos/iss-tubarao/css/iss.css", "modulos/iss-tubarao/js/leitor.js", "modulos/iss-tubarao/js/dados.js", "modulos/iss-tubarao/js/app.js",
   "modulos/controle-horas/", "modulos/controle-horas/css/horas.css", "modulos/controle-horas/js/regras.js",
   "modulos/controle-horas/js/planilha.js", "modulos/controle-horas/js/dados.js", "modulos/controle-horas/js/app.js"
 ];

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISS Tubarão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/style.css">
+<link rel="stylesheet" href="css/iss.css">
+<script>
+  try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
+</head>
+<body>
+<div class="hr-app">
+  <header class="hr-topo">
+    <div class="hr-marca">
+      <h1>ISS Tubarão</h1>
+      <span class="muted small">Meu ISS (Prefeitura Moderna): importe o XML do Movimento Econômico de cada empresa e confira as retenções</span>
+    </div>
+    <div class="hr-seletores">
+      <div class="hr-mes" role="group" aria-label="Mês">
+        <button type="button" class="btn btn-ghost btn-sm" data-acao="mes-anterior" aria-label="Mês anterior">‹</button>
+        <div class="hr-mes-rotulo"><span class="muted small">Mês</span><strong id="mes-rotulo"></strong></div>
+        <button type="button" class="btn btn-ghost btn-sm" data-acao="mes-seguinte" aria-label="Mês seguinte">›</button>
+      </div>
+    </div>
+  </header>
+  <nav class="hr-abas" id="abas" aria-label="Telas"></nav>
+  <main id="tela"></main>
+</div>
+
+<div class="modal" id="modal" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal-card hr-modal" id="modal-card"></div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<input type="file" id="arquivo" accept=".xml,text/xml,application/xml" multiple hidden>
+<div class="is-solte" id="solte" hidden><div>Solte os XML aqui</div></div>
+
+<script src="js/leitor.js"></script>
+<script src="js/dados.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

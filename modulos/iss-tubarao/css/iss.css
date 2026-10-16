@@ -1,0 +1,74 @@
+/* ISS Tubarão — usa as cores e componentes do sistema (../../css/style.css). A base (hr-*) é a mesma do Controle de horas. */
+.hr-app { max-width: 1400px; margin: 0 auto; padding: 20px 24px 48px; }
+.hr-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.hr-marca h1 { font-size: 22px; font-weight: 700; }
+.hr-marca span { display: block; margin-top: 2px; }
+.hr-seletores { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.hr-seletores .field { min-width: 240px; }
+.hr-mes { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 4px 6px; }
+.hr-mes .btn { font-size: 18px; width: 32px; justify-content: center; }
+.hr-mes-rotulo { display: flex; flex-direction: column; align-items: center; min-width: 130px; line-height: 1.2; }
+.hr-mes-rotulo strong { font-size: 15px; text-transform: capitalize; }
+
+.hr-abas { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.hr-abas button { border: 0; background: transparent; padding: 10px 14px; font: inherit; font-weight: 600; font-size: 13.5px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.hr-abas button:hover { color: var(--ink); }
+.hr-abas button.ativo { color: var(--brand); border-bottom-color: var(--brand); }
+.hr-abas button:focus-visible { outline: none; box-shadow: var(--focus); }
+
+.stats.hr-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .stats.hr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.stat.alerta .value { color: var(--debit); }
+.stat.primary .sub { color: var(--on-brand); opacity: .8; }
+
+.hr-acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.hr-acoes .espaco { flex: 1; }
+.hr-aviso { margin: 0 0 16px; padding: 12px 16px; border-radius: var(--r); font-size: 13.5px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.hr-aviso.info { background: var(--info-soft); color: var(--ink-2); }
+.hr-aviso.fechado { background: var(--ok-soft); color: var(--ink-2); }
+.hr-aviso.atencao { background: var(--warn-soft); color: var(--ink-2); }
+.hr-aviso ul { margin: 6px 0 0; padding-left: 18px; }
+
+.pill.st-sem { background: var(--surface-2); color: var(--muted); }
+.pill.st-importada { background: var(--warn-soft); color: var(--warn); }
+.pill.st-revisada { background: var(--ok-soft); color: var(--credit); }
+.hr-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hr-alertas { color: var(--debit); font-weight: 600; }
+.hr-vazio { padding: 48px 20px; text-align: center; color: var(--muted); }
+.hr-vazio strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+.hr-vazio .btn { margin: 14px 4px 0; }
+
+/* ---------- ISS ---------- */
+.stats.hr-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.is-solte { position: fixed; inset: 0; z-index: 50; background: rgba(15, 23, 42, .45); display: flex; align-items: center; justify-content: center; }
+.is-solte[hidden] { display: none; }
+.is-solte div { background: var(--surface); color: var(--ink); border: 2px dashed var(--brand); border-radius: var(--r-lg); padding: 40px 56px; font-size: 18px; font-weight: 700; }
+.is-zona { margin: 20px; border: 2px dashed var(--line-strong); border-radius: var(--r-lg); padding: 36px 20px; text-align: center; color: var(--muted); cursor: pointer; }
+.is-zona:hover, .is-zona:focus-visible { border-color: var(--brand); color: var(--ink); outline: none; }
+.is-zona strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+.is-filtros { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.is-filtros button { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.is-filtros button.ativo { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.is-filtros button:focus-visible { outline: none; box-shadow: var(--focus); }
+.is-wrap { overflow-x: auto; }
+table.is-notas { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.is-notas th { background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: 12px; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; position: sticky; top: 0; }
+table.is-notas th.num, table.is-notas td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.is-notas td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.is-notas tr.alerta td { background: var(--warn-soft); }
+table.is-notas tfoot td { font-weight: 700; background: var(--surface-2); }
+.is-alerta { display: block; color: var(--debit); font-size: 12px; margin-top: 3px; }
+.is-sub { display: block; color: var(--muted); font-size: 12px; }
+.is-passos { padding: 8px 20px 20px 40px; line-height: 1.7; }
+.is-passos li { margin-bottom: 6px; }
+.is-topo-folha { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.is-topo-folha h2 { font-size: 18px; }
+@media (max-width: 1000px) { .stats.hr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@media print {
+  .hr-topo .hr-seletores, .hr-abas, .hr-acoes, .is-filtros, .no-print, .toast { display: none !important; }
+  body { background: #fff; }
+  .panel { border: 0; box-shadow: none; }
+}
+.hr-folha-nav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }

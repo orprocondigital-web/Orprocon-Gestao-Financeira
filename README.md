@@ -6,7 +6,7 @@ Sistema da Orprocon que reúne, num só lugar:
   `Setembro_v19-CORRETA.xlsm` usada para levar a movimentação bancária ao **SCI Único**);
 - o **Controle de horas** do DP: folhas de presença dos funcionários dos clientes que não
   têm cartão ponto (gera a planilha para o cliente, importa, confere e fecha o mês);
-- os **módulos** Apuração de ICMS, Auditor IBS/CBS, Painel de vencimentos e Em Dia
+- os **módulos** Apuração de ICMS, Auditor IBS/CBS, ISS Tubarão, Painel de vencimentos e Em Dia
   (veja *Módulos*, abaixo).
 
 Pode ser **instalado como aplicativo** no computador (veja *App instalável*).
@@ -241,6 +241,7 @@ Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**
 | Auditor IBS/CBS | `modulos/auditor-ibs-cbs/` | Conferência de CST, base e alíquotas de IBS/CBS (LC 214/2025). |
 | Painel de vencimentos | `modulos/painel-vencimentos/` | Certificados, certidões, alvarás, procurações e licenças dos clientes. |
 | Em Dia | `modulos/em-dia/` | Fechamento do mês por cliente, diário de cada setor (Contábil, Fiscal, Pessoal/DP) e passagem de bastão quando alguém falta. |
+| ISS Tubarão | `modulos/iss-tubarao/` | XML do Movimento Econômico do Meu ISS (Prefeitura Moderna): ISS retido, retenções federais e alertas por empresa, no mês; exporta Excel. |
 | Controle de horas | `modulos/controle-horas/` | Folhas de presença dos clientes sem cartão ponto: cadastro de empresas e funcionários, planilha para o cliente (uma aba por funcionário), importação, conferência com horas extras, atrasos, noturno e alertas, fechamento do mês e resumo em Excel. Regras de cálculo ajustáveis por empresa. |
 
 Cada módulo continua sendo um site próprio (tem o seu `README.md`) e abre num
@@ -252,7 +253,7 @@ O sistema principal cuida de:
 - **tema claro/escuro** de todos (o botão de tema de cada módulo fica escondido);
 - **número no menu** do Painel de vencimentos: documentos vencidos ou que vencem em até 7 dias;
 - **backup**: o *Baixar backup* do Master leva também os dados dos módulos (chaves
-  `icms.*`, `painelVencimentos:*`, `emDia:*` e `horas:*`); *Restaurar* devolve. Backups antigos, sem os
+  `icms.*`, `painelVencimentos:*`, `emDia:*`, `horas:*` e `iss:*`); *Restaurar* devolve. Backups antigos, sem os
   módulos, não mexem nos dados deles;
 - **app instalável e sem internet** para os módulos também.
 
