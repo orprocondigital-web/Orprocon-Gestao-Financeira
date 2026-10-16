@@ -31,6 +31,35 @@ macros VBA (versão de referência: v30). O sistema faz o mesmo fluxo:
    *Distribuir por unidade*, *Gerar TXTs (formato atual)* e *Gerar TXTs (SCI Único)*.
 4. **Conciliação** do extrato do banco (`.xlsx`, `.csv` ou `.txt` do Sicoob).
 
+### Início
+
+É a primeira tela depois do login. Junta o que precisa de atenção em todos os
+módulos, das pendências mais urgentes para as outras, e cada linha tem o botão
+que leva direto ao lugar certo (o módulo abre no mês, na empresa ou na aba certa):
+
+- **Em Dia**: etapas do fechamento atrasadas, travadas ou vencendo; quem está
+  ausente com tarefas abertas; tarefas sem responsável; o que veio para você na
+  passagem de bastão.
+- **Painel de vencimentos**: documentos vencidos ou vencendo em até 7 dias.
+- **ISS Tubarão**: empresas importadas e ainda não conferidas.
+- **Controle de horas**: folhas de presença que faltam chegar ou revisar (meses abertos).
+- **Contábil**: contas bancárias sem nenhum lançamento na competência.
+
+No topo ficam os números do dia, e embaixo o andamento do fechamento por setor e
+os próximos vencimentos. O filtro **Minhas** mostra só as tarefas do Em Dia com
+você de responsável e os documentos com o seu nome. A tela não guarda nada: lê
+os dados dos módulos com as mesmas regras deles (`js/inicio.js`). Cada pessoa só
+vê o que vem dos módulos a que tem acesso. No modo de teste, o botão *Carregar
+dados de exemplo* preenche os módulos que ainda estão vazios.
+
+### Suporte
+
+O botão **Suporte**, no canto da tela (e também na tela de login), abre um
+painel para escolher o assunto (dúvida, problema ou sugestão), descrever o que
+aconteceu e chamar no WhatsApp. A mensagem já leva a tela em que a pessoa
+estava, o usuário e a versão do sistema. Quem atende e o número ficam em
+`js/config.js` (`CONFIG.suporte`); sem número, o botão some.
+
 ### Importar extratos do banco
 
 No Master (ou na tela de uma conta), *Importar extratos do banco* aceita vários
@@ -305,6 +334,8 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/config.js` | Liga/desliga o modo de teste. |
 | `login.html`, `js/login.js` | Tela de login, primeiro acesso, importar acessos e troca da senha provisória. |
 | `js/modulos.js` | Módulos: menu, quadro, tema, número no menu e backup. |
+| `js/inicio.js` | Tela Início: pendências de todos os módulos, números do dia e exemplos. |
+| `js/suporte.js` | Botão flutuante de suporte (WhatsApp com a tela, o usuário e a versão). |
 | `js/pwa.js` e `sw.js` | App instalável, modo sem internet e aviso de versão nova. |
 | `manifest.webmanifest`, `icons/` | Nome, cores e ícones do app; logo da Orprocon (claro, escuro e símbolo). |
 | `modulos/` | Os módulos, cada um na sua pasta. |

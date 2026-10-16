@@ -9,17 +9,17 @@
  * Versão nova: o navegador baixa este arquivo, instala em segundo plano e o sistema
  * mostra "Nova versão disponível". Ao clicar em Atualizar (ou ao reabrir o app), ela entra.
  */
-var VERSAO = "?v=0.18.3";
+var VERSAO = "?v=0.19.1";
 var CACHE = "gestao-financeira-" + VERSAO.slice(3);
 var CACHE_EXTERNO = "gestao-financeira-externo";
 
 var ARQUIVOS = [
-  "./", "login.html", "js/config.js" + VERSAO, "js/api.js" + VERSAO, "js/auth.js" + VERSAO, "js/login.js" + VERSAO,
+  "./", "login.html", "js/config.js" + VERSAO, "js/api.js" + VERSAO, "js/auth.js" + VERSAO, "js/login.js" + VERSAO, "js/suporte.js" + VERSAO,
   "icons/orprocon-logo.png", "icons/orprocon-logo-escuro.png", "icons/orprocon-simbolo.png",
   "css/style.css" + VERSAO,
   "js/storage.js" + VERSAO, "js/core.js" + VERSAO, "js/integracao.js" + VERSAO, "js/importacao.js" + VERSAO,
   "js/extratos.js" + VERSAO, "js/pdfextrato.js" + VERSAO, "js/conciliacao.js" + VERSAO, "js/nfe.js" + VERSAO,
-  "js/modulos.js" + VERSAO, "js/app.js" + VERSAO, "js/pwa.js" + VERSAO,
+  "js/modulos.js" + VERSAO, "js/inicio.js" + VERSAO, "js/app.js" + VERSAO, "js/pwa.js" + VERSAO,
   "manifest.webmanifest", "icons/icon-192-v2.png", "icons/icon-512-v2.png", "icons/favicon-32-v2.png", "icons/apple-touch-icon-v2.png"
 ];
 

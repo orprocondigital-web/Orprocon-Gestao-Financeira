@@ -10,6 +10,8 @@
  *          "https://..." → o login e os usuários passam a ser do servidor (API Java). O modo de teste
  *                    deixa de existir nesse caso.
  *
+ * suporte: quem atende os chamados do sistema (botão flutuante "Suporte" e link na tela de login).
+ *
  * Para TESTAR com a API rodando no seu computador, sem mudar o site publicado, abra uma vez:
  *     login.html?api=http://localhost:8080
  * O navegador lembra. Para voltar ao modo sem servidor: login.html?api=sair
@@ -18,7 +20,10 @@
  */
 var CONFIG = {
   modoTeste: true,
-  apiUrl: ""
+  apiUrl: "",
+  // Botão "Suporte" (canto da tela e tela de login): quem atende e o WhatsApp com DDI e DDD, só números.
+  // Deixe whatsapp vazio para esconder o botão.
+  suporte: { nome: "Mauricio", papel: "TI · desenvolvimento do sistema", whatsapp: "5548991781362" }
 };
 
 (function () {

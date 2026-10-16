@@ -53,6 +53,7 @@
   }
   function montarMenu(){
     MENU_SECTIONS = [
+      { title: "", items: [{ id: "inicio", label: "Início", type: "inicio" }] },
       { title: "Contábil", items: [
         { id: "master", label: "Master", type: "master" },
         { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
@@ -185,6 +186,7 @@
 
   // ---------- menu lateral ----------
   var ICONS = {
+    inicio: '<path d="M3 11l9-8 9 8M5 10v10h14V10M10 20v-6h4v6"/>',
     master: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z"/>',
     usuarios: '<path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1.5a4 4 0 0 0-3-3.87M15.5 4.13a3.5 3.5 0 0 1 0 6.75"/>',
     conciliacao: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
@@ -199,6 +201,7 @@
   var EMPTY_SECTION = { "Bancos": "Nenhuma conta cadastrada", "Unidades": "Criadas ao distribuir por unidade" };
 
   function iconFor(item){
+    if (item.type === "inicio") return ICONS.inicio;
     if (item.type === "master") return ICONS.master;
     if (item.type === "conciliacao") return ICONS.conciliacao;
     if (item.type === "modulo") return Modulos.porId(item.id).icone;
@@ -221,12 +224,30 @@
     if (item && f[item.section]) { delete f[item.section]; guardarFechadas(f); var el = document.querySelector('.nav-section[data-secao="' + item.section + '"]'); if (el) el.classList.remove("fechada"); }
   }
 
+  function botaoDoMenu(item, sec){
+    var btn = document.createElement("button");
+    btn.className = "acct-btn";
+    btn.id = "btn-" + item.id;
+    btn.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + iconFor(item) + '</svg>' +
+      '<span class="acct-label">' + escapeHtml(item.label) + '</span>' +
+      '<span class="acct-count" id="count-' + item.id + '"></span>';
+    btn.title = sec.title === "Bancos" ? nomeDaFonte(item) : item.label;
+    btn.addEventListener("click", function(){ selectTab(item.id); });
+    return btn;
+  }
+
   function buildSidebar(){
     var wrap = $("sidebar-menu");
     wrap.innerHTML = "";
     var fechadas = secoesFechadas();
     MENU_SECTIONS.forEach(function(sec){
       var secEl = document.createElement("div");
+      if (!sec.title) {   // "Início": fica no topo, sem título nem botão de recolher
+        secEl.className = "nav-section nav-section-topo";
+        sec.items.forEach(function(item){ secEl.appendChild(botaoDoMenu(item, sec)); });
+        wrap.appendChild(secEl);
+        return;
+      }
       secEl.className = "nav-section" + (fechadas[sec.title] ? " fechada" : "");
       secEl.setAttribute("data-secao", sec.title);
       var secTitle = document.createElement("div");
@@ -294,14 +315,7 @@
           group.appendChild(title);
         }
         subGroups[key].forEach(function(item){
-          var btn = document.createElement("button");
-          btn.className = "acct-btn";
-          btn.id = "btn-" + item.id;
-          btn.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + iconFor(item) + '</svg>' +
-            '<span class="acct-label">' + escapeHtml(item.label) + '</span>' +
-            '<span class="acct-count" id="count-' + item.id + '"></span>';
-          btn.title = sec.title === "Bancos" ? nomeDaFonte(item) : item.label;
-          btn.addEventListener("click", function(){ selectTab(item.id); });
+          var btn = botaoDoMenu(item, sec);
           if (sec.title === "Unidades") {
             var linha = document.createElement("div");
             linha.className = "nav-item";
@@ -330,6 +344,13 @@
     Object.keys(itemIndex).forEach(function(id){
       var el = $("count-" + id);
       if (!el) return;
+      if (itemIndex[id].type === "inicio") {
+        var urg = resumoInicio(false).pendencias.filter(function(p){ return p.nivel === "alta"; }).length;
+        el.textContent = urg || "";
+        el.classList.add("alerta");
+        el.title = urg ? urg + " pendência(s) atrasada(s) ou vencida(s)" : "";
+        return;
+      }
       if (itemIndex[id].type === "modulo") {
         el.textContent = Modulos.contador(id);
         el.classList.add("alerta");
@@ -341,8 +362,8 @@
   }
 
   // ---------- navegação ----------
-  function selectTab(id){
-    if (!itemIndex[id]) id = itemIndex.master ? "master" : Object.keys(itemIndex)[0];
+  function selectTab(id, prefs){
+    if (!itemIndex[id]) id = itemIndex.inicio ? "inicio" : itemIndex.master ? "master" : Object.keys(itemIndex)[0];
     if (!id) return;
     currentTab = id;
     editingId = null;
@@ -356,13 +377,18 @@
     $("view-title").textContent = item.section === "Bancos" ? nomeDaFonte(item) : item.label;
     $("view-sub").textContent = item.section + (item.section === "Bancos" && item.bank ? " / " + item.bank : "");
 
-    ["view-ledger","view-cadastro","view-master","view-conciliacao","view-modulo","view-usuarios"].forEach(function(v){ $(v).style.display = "none"; });
+    ["view-inicio","view-ledger","view-cadastro","view-master","view-conciliacao","view-modulo","view-usuarios"].forEach(function(v){ $(v).style.display = "none"; });
     var ehModulo = item.type === "modulo";
     $("content").classList.toggle("modo-modulo", ehModulo);
     document.querySelector(".comp-select").hidden = ehModulo || item.type === "usuarios";
     if (btn) btn.title = ehModulo ? item.descricao : btn.title;
 
-    if (item.type === "ledger") {
+    if (item.type === "inicio") {
+      $("view-sub").textContent = "Visão geral";
+      $("view-inicio").style.display = "block";
+      renderInicio();
+    }
+    else if (item.type === "ledger") {
       $("view-ledger").style.display = "block";
       var derivada = ehUnidade(item);
       $("ledger-note").hidden = !derivada;
@@ -400,7 +426,7 @@
     }
     else if (ehModulo) {
       $("view-modulo").style.display = "block";
-      Modulos.abrir(id, $("modulo-area"));
+      Modulos.abrir(id, $("modulo-area"), prefs);
     }
     else if (item.type === "usuarios") {
       $("view-usuarios").style.display = "block";
@@ -2572,10 +2598,96 @@
     Auth.usuarioAtual().then(function(u){ if (!u || u.trocarSenha) irParaLogin("expirou"); });
   });
 
+  // ---------- tela Início (js/inicio.js): pendências de todos os módulos ----------
+  var inicioMinhas = false, inicioTudo = false;   // filtro e "mostrar mais" ficam como a pessoa deixou
+  function lerJsonLocal(k){ try { return JSON.parse(localStorage.getItem(k) || "null"); } catch(e) { return null; } }
+  function ehModoTeste(){ return !!usuarioLogado && (usuarioLogado.teste || usuarioLogado.email === AuthCore.TESTE_EMAIL); }
+  function ctxInicio(){
+    return { hoje: Inicio.hojeIso(), agora: new Date(), competencia: competencia,
+      usuario: usuarioLogado ? { id: usuarioLogado.usuarioId || usuarioLogado.id, nome: usuarioLogado.nome, email: usuarioLogado.email } : null,
+      pode: function(area){ return area === "integracao" ? pode("integracao") || pode("conciliacao") : pode(area); } };
+  }
+  function resumoInicio(minhas){
+    if (!window.Inicio) return { pendencias: [] };
+    var C = Inicio.CHAVES;
+    var fontes = {
+      emDia: lerJsonLocal(C.emDia), emDiaMes: localStorage.getItem(C.emDiaMes) || "",
+      iss: lerJsonLocal(C.iss), issMes: localStorage.getItem(C.issMes) || "",
+      horas: lerJsonLocal(C.horas), horasMes: localStorage.getItem(C.horasMes) || "",
+      venc: lerJsonLocal(C.venc),
+      contas: bancos.map(function(b){ return { id: b.id, nome: nomeDaFonte(b), lancamentos: lancamentosDoMes(competencia, b.id).length }; })
+    };
+    try { return Inicio.resumir(fontes, ctxInicio(), { minhas: !!minhas }); }
+    catch (e) { console.error("Início:", e); return { pendencias: [], numeros: [], setores: [], vencimentos: [], erro: true }; }
+  }
+  function renderInicio(){
+    var alvo = $("inicio-conteudo");
+    var r = resumoInicio(inicioMinhas);
+    if (r.erro || !r.numeros) { alvo.innerHTML = '<p class="muted">Não consegui montar o resumo. Abra os módulos normalmente pelo menu.</p>'; return; }
+    var C = Inicio.CHAVES;
+    var algumVazio = [C.emDia, C.iss, C.horas, C.venc].some(function(k){ return !localStorage.getItem(k); }) || !r.temEmDia;
+    alvo.innerHTML = Inicio.html(r, { minhas: inicioMinhas, podeExtrato: pode("integracao") || pode("conciliacao"),
+      podeEmDia: pode("mod-em-dia"), podeVencimentos: pode("mod-vencimentos"), mostrarExemplo: ehModoTeste() && algumVazio });
+    if (inicioTudo) mostrarTudoInicio(true);
+  }
+  function mostrarTudoInicio(sim){
+    var lista = $("inicio-conteudo").querySelector(".in-lista"), b = $("inicio-conteudo").querySelector(".in-mais");
+    if (!lista || !b) return;
+    lista.classList.toggle("aberta", sim);
+    b.setAttribute("aria-expanded", sim ? "true" : "false");
+    b.textContent = sim ? "Mostrar menos" : "Mostrar mais " + lista.querySelectorAll(".in-extra").length;
+  }
+  function exemplosNoInicio(){
+    var feitos = Inicio.carregarExemplos(lerJsonLocal, function(k, v){ localStorage.setItem(k, JSON.stringify(v)); },
+      ctxInicio().usuario, Inicio.hojeIso(), function(a){ return pode(a); });
+    refreshCounts();
+    renderInicio();
+    toast(feitos.length ? "Exemplos carregados em: " + feitos.join(", ") + "." : "Os módulos já tinham dados; nada foi alterado.");
+  }
+  $("inicio-conteudo").addEventListener("click", function(ev){
+    var b = ev.target.closest("button");
+    if (!b) return;
+    if (b.dataset.filtro) {
+      inicioMinhas = b.dataset.filtro === "minhas";
+      renderInicio();
+      return;
+    }
+    if (b.dataset.ir) {
+      var prefs = null;
+      try { prefs = b.dataset.prefs ? JSON.parse(b.dataset.prefs) : null; } catch(e) {}
+      if (!itemIndex[b.dataset.ir]) { toast("Você não tem acesso a esse módulo."); return; }
+      selectTab(b.dataset.ir, prefs);
+      return;
+    }
+    var a = b.dataset.acaoApp;
+    if (a === "extratos") abrirExtratos();
+    else if (a === "exemplos") exemplosNoInicio();
+    else if (a === "mais") { inicioTudo = b.getAttribute("aria-expanded") !== "true"; mostrarTudoInicio(inicioTudo); }
+  });
+
   // ---------- módulos ----------
   window.addEventListener("resize", function(){ if (itemIndex[currentTab] && itemIndex[currentTab].type === "modulo") Modulos.ajustarAltura($("modulo-area")); });
   // o Painel de vencimentos grava os dados dele; o número no menu acompanha
-  window.addEventListener("storage", function(ev){ if (ev.key && Modulos.ehDadoDeModulo(ev.key)) refreshCounts(); });
+  window.addEventListener("storage", function(ev){
+    if (!ev.key || !Modulos.ehDadoDeModulo(ev.key)) return;
+    clearTimeout(window.__inicioT);
+    window.__inicioT = setTimeout(function(){
+      refreshCounts();
+      if (currentTab === "inicio") renderInicio();
+    }, 150);
+  });
+
+  // ---------- suporte (botão flutuante, js/suporte.js) ----------
+  function versaoDoSistema(){
+    var s = document.querySelector('script[src*="js/app.js"]');
+    var m = s && /\?v=([\d.]+)/.exec(s.getAttribute("src"));
+    return m ? m[1] : "";
+  }
+  if (window.Suporte && window.CONFIG) Suporte.iniciar({ config: CONFIG.suporte, toast: toast, contexto: function(){
+    var sub = $("view-sub").textContent, tit = $("view-title").textContent;
+    return { tela: (sub && sub !== tit ? sub + " › " : "") + tit, versao: versaoDoSistema(),
+      usuario: usuarioLogado ? { nome: usuarioLogado.nome, email: usuarioLogado.email } : null };
+  } });
 
   // ---------- início ----------
   mostrarUsuario();
@@ -2603,7 +2715,7 @@
     buildSidebar();
     populateConcSelect();
     var pedido = decodeURIComponent((location.hash || "").slice(1));
-    selectTab(itemIndex[pedido] ? pedido : (bancos.length && itemIndex[bancos[0].id] ? bancos[0].id : "master"));
+    selectTab(itemIndex[pedido] ? pedido : "inicio");
     $("content").setAttribute("aria-busy", "false");
     clearTimeout(dicaCarregando);
     // deixa o leitor de planilhas pronto em segundo plano, sem atrasar a abertura

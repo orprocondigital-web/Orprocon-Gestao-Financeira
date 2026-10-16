@@ -89,10 +89,22 @@
     aplicarTemaNoQuadro(m, f);
   }
 
-  /** Mostra o módulo dentro de `area` (cria o quadro na primeira vez). */
-  function abrir(id, area) {
+  /**
+   * Mostra o módulo dentro de `area` (cria o quadro na primeira vez).
+   * `prefs` (opcional, vindo da tela Início): chaves que o módulo lê ao abrir, como o mês ou a empresa
+   * ({"iss:mes": "2026-09"}). Se o módulo já estava aberto, recarrega para ele ler as chaves novas.
+   */
+  function abrir(id, area, prefs) {
     var m = porId(id);
     if (!m) return;
+    var temPrefs = prefs && typeof prefs === "object" && Object.keys(prefs).length;
+    if (temPrefs) {
+      Object.keys(prefs).forEach(function (k) {
+        if (!ehDadoDeModulo(k)) return;   // só chaves dos módulos
+        try { localStorage.setItem(k, String(prefs[k])); } catch (e) {}
+      });
+      if (quadros[id]) { try { quadros[id].contentWindow.location.reload(); } catch (e) { quadros[id].src = m.pasta; } }
+    }
     Object.keys(quadros).forEach(function (k) { quadros[k].hidden = k !== id; });
     if (!quadros[id]) {
       var f = document.createElement("iframe");

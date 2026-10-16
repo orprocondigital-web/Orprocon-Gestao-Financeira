@@ -169,4 +169,11 @@
     $("carregando").hidden = true;
     var eg = $("erro-geral"); eg.hidden = false; eg.textContent = e.message;
   });
+
+  // suporte: quem não consegue entrar é quem mais precisa chamar
+  if (window.Suporte && window.CONFIG) Suporte.iniciar({ config: CONFIG.suporte, toast: toast, contexto: function () {
+    var email = ($("entrar-email") && $("entrar-email").value) || "";
+    var s = document.querySelector('script[src*="js/login.js"]'), m = s && /\?v=([\d.]+)/.exec(s.getAttribute("src"));
+    return { tela: "Tela de login", usuario: email ? { email: email } : null, versao: m ? m[1] : "" };
+  } });
 })();
