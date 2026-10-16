@@ -21,7 +21,7 @@
 @media (max-width: 1000px) { .stats.hr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .stat .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
 .stat.alerta .value { color: var(--debit); }
-.stat.primary .sub { color: var(--on-brand); opacity: .8; }
+.stat.primary .sub { color: var(--on-grafite); opacity: .8; }
 
 .hr-acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
 .hr-acoes .espaco { flex: 1; }
@@ -85,3 +85,8 @@ table.hr-faixas input { width: 90px; min-height: 0; padding: 5px 8px; }
   body { background: #fff; }
   .panel { border: 0; box-shadow: none; }
 }
+
+/* dentro do sistema o título já aparece na barra de cima: não repete aqui */
+.embutido .hr-marca { display: none; }
+.embutido .hr-topo { justify-content: flex-end; margin-bottom: 8px; }
+.embutido .hr-app { padding-top: 12px; }

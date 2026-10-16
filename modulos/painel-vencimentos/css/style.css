@@ -6,15 +6,15 @@
 
 /* ---------- Variáveis: tema claro ---------- */
 :root {
-  --bg: #f1f5f9;
+  --bg: #F7F5F1;
   --superficie: #ffffff;
-  --superficie-2: #f8fafc;
-  --borda: #e2e8f0;
-  --texto: #0f172a;
-  --suave: #64748b;
-  --primaria: #2563eb;
-  --primaria-2: #4f46e5;
-  --botao-1: #2563eb; --botao-2: #4f46e5;
+  --superficie-2: #FBF9F6;
+  --borda: #E9E3D9;
+  --texto: #2B2620;
+  --suave: #6E665B;
+  --primaria: #9A6212;
+  --primaria-2: #7A4E0C;
+  --botao-1: #9A6212; --botao-2: #7A4E0C;
   --sombra: 0 1px 2px rgba(15, 23, 42, .05), 0 4px 12px rgba(15, 23, 42, .04);
   --sombra-hover: 0 10px 25px rgba(15, 23, 42, .10);
 
@@ -38,15 +38,15 @@
 /* ---------- Variáveis: tema escuro ---------- */
 .dark {
   color-scheme: dark; /* calendário e campos nativos no tema escuro */
-  --bg: #0b1120;
-  --superficie: #131c2e;
-  --superficie-2: #0f172a;
-  --borda: #1e293b;
-  --texto: #e2e8f0;
-  --suave: #94a3b8;
-  --primaria: #60a5fa;
-  --primaria-2: #818cf8;
-  --botao-1: #2563eb; --botao-2: #4f46e5;
+  --bg: #14120F;
+  --superficie: #1D1A16;
+  --superficie-2: #24201B;
+  --borda: #322C25;
+  --texto: #ECE4D8;
+  --suave: #A1988A;
+  --primaria: #F2C177;
+  --primaria-2: #E9A940;
+  --botao-1: #9A6212; --botao-2: #7A4E0C;
   --sombra: 0 1px 2px rgba(0, 0, 0, .4);
   --sombra-hover: 0 10px 25px rgba(0, 0, 0, .5);
 

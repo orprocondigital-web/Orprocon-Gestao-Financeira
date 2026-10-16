@@ -46,17 +46,20 @@
   function ehAdmin(){ return !!usuarioLogado && usuarioLogado.perfil === "admin"; }
   var SECOES_INTEGRACAO = { "Bancos": 1, "Unidades": 1, "Outras movimentações": 1, "Cadastros": 1 };
 
-  /** Módulos de uma seção do menu (secao vazia = seção "Módulos"). */
+  /** Módulos de uma seção do menu (secao = setor: Fiscal, Pessoal, Escritório; vazia = seção "Módulos"). */
   function itensModulo(secao){
     return Modulos.LISTA.filter(function(m){ return (m.secao || null) === secao; })
       .map(function(m){ return { id: m.id, label: m.label, type: "modulo", descricao: m.descricao }; });
   }
   function montarMenu(){
     MENU_SECTIONS = [
-      { title: "Visão geral", items: [
+      { title: "Contábil", items: [
         { id: "master", label: "Master", type: "master" },
         { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
-      ].concat(itensModulo("Visão geral")) },
+      ].concat(itensModulo("Contábil")) },
+      { title: "Fiscal", items: itensModulo("Fiscal") },
+      { title: "Pessoal", items: itensModulo("Pessoal") },
+      { title: "Escritório", items: itensModulo("Escritório") },
       { title: "Módulos", items: itensModulo(null) },
       { title: "Bancos", items: bancos },
       { title: "Unidades", items: unidades },
@@ -206,15 +209,41 @@
     return ICONS.mov;
   }
 
+  // seções do menu que a pessoa fechou (lembra entre as visitas); as listas longas começam fechadas
+  var SECOES_FECHADAS_PADRAO = { "Outras movimentações": 1, "Cadastros": 1 };
+  function secoesFechadas(){
+    try { var v = JSON.parse(localStorage.getItem("menu:fechadas")); if (v && typeof v === "object") return v; } catch(e) {}
+    return Object.assign({}, SECOES_FECHADAS_PADRAO);
+  }
+  function guardarFechadas(v){ try { localStorage.setItem("menu:fechadas", JSON.stringify(v)); } catch(e) {} }
+  function abrirSecaoDe(id){
+    var item = itemIndex[id], f = secoesFechadas();
+    if (item && f[item.section]) { delete f[item.section]; guardarFechadas(f); var el = document.querySelector('.nav-section[data-secao="' + item.section + '"]'); if (el) el.classList.remove("fechada"); }
+  }
+
   function buildSidebar(){
     var wrap = $("sidebar-menu");
     wrap.innerHTML = "";
+    var fechadas = secoesFechadas();
     MENU_SECTIONS.forEach(function(sec){
       var secEl = document.createElement("div");
-      secEl.className = "nav-section";
+      secEl.className = "nav-section" + (fechadas[sec.title] ? " fechada" : "");
+      secEl.setAttribute("data-secao", sec.title);
       var secTitle = document.createElement("div");
       secTitle.className = "nav-title";
-      secTitle.innerHTML = "<span>" + escapeHtml(sec.title) + "</span>";
+      var abre = document.createElement("button");
+      abre.type = "button";
+      abre.className = "nav-abre";
+      abre.setAttribute("aria-expanded", fechadas[sec.title] ? "false" : "true");
+      abre.innerHTML = "<span>" + escapeHtml(sec.title) + '</span><svg class="ico nav-seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+      abre.addEventListener("click", function(){
+        var f = secoesFechadas(), fechar = !secEl.classList.contains("fechada");
+        secEl.classList.toggle("fechada", fechar);
+        abre.setAttribute("aria-expanded", fechar ? "false" : "true");
+        if (fechar) f[sec.title] = 1; else delete f[sec.title];
+        guardarFechadas(f);
+      });
+      secTitle.appendChild(abre);
       var acao = sec.title === "Bancos" ? abrirModalConta : (sec.title === "Unidades" ? abrirModalUnidade : null);
       if (acao) {
         var add = document.createElement("button");
@@ -320,6 +349,7 @@
     var item = itemIndex[id];
 
     document.querySelectorAll(".acct-btn").forEach(function(b){ b.classList.remove("active"); });
+    abrirSecaoDe(id);
     var btn = $("btn-" + id);
     if (btn) btn.classList.add("active");
 
@@ -2328,6 +2358,21 @@
   });
   if (mqEscuro.addEventListener) mqEscuro.addEventListener("change", atualizarBotaoTema);
   atualizarBotaoTema();
+
+  // ---------- menu recolhido (só os ícones) ----------
+  function aplicarMenuRecolhido(sim){
+    document.querySelector(".app").classList.toggle("menu-recolhido", sim);
+    var b = $("btn-recolher");
+    b.setAttribute("aria-label", sim ? "Abrir o menu" : "Recolher o menu");
+    b.title = sim ? "Abrir o menu" : "Recolher o menu (deixa só os ícones)";
+    b.setAttribute("aria-expanded", sim ? "false" : "true");
+  }
+  aplicarMenuRecolhido((function(){ try { return localStorage.getItem("menu:recolhido") === "1"; } catch(e) { return false; } })());
+  $("btn-recolher").addEventListener("click", function(){
+    var sim = !document.querySelector(".app").classList.contains("menu-recolhido");
+    try { localStorage.setItem("menu:recolhido", sim ? "1" : "0"); } catch(e) {}
+    aplicarMenuRecolhido(sim);
+  });
 
   // ---------- usuário logado: caixa no menu, sair, trocar senha ----------
   function iniciais(nome){

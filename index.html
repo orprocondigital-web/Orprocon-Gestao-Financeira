@@ -6,14 +6,14 @@
 <title>Gestão Financeira</title>
 <link rel="icon" href="icons/favicon-32.png" type="image/png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0E6E55">
+<meta name="theme-color" content="#49433A">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Gestão Financeira">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- Ao publicar mudanças, aumente o ?v= abaixo: força o navegador a baixar os arquivos novos. -->
-<link rel="stylesheet" href="css/style.css?v=0.17.1">
+<link rel="stylesheet" href="css/style.css?v=0.18.1">
 <script>
   // aplica o tema salvo antes de desenhar a página (evita piscar claro→escuro)
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
@@ -34,6 +34,9 @@
         <strong>Gestão Financeira</strong>
         <span>Orprocon</span>
       </span>
+      <button type="button" class="btn-recolher" id="btn-recolher" aria-label="Recolher o menu">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM9 4v16M16 10l-2 2 2 2"/></svg>
+      </button>
     </div>
     <div class="nav" id="sidebar-menu"></div>
     <div class="usuario-box" id="usuario-box">
@@ -669,20 +672,20 @@
   </div>
 </div>
 
-<script src="js/config.js?v=0.17.1"></script>
-<script src="js/storage.js?v=0.17.1"></script>
-<script src="js/core.js?v=0.17.1"></script>
-<script src="js/integracao.js?v=0.17.1"></script>
-<script src="js/importacao.js?v=0.17.1"></script>
-<script src="js/extratos.js?v=0.17.1"></script>
-<script src="js/pdfextrato.js?v=0.17.1"></script>
-<script src="js/conciliacao.js?v=0.17.1"></script>
-<script src="js/nfe.js?v=0.17.1"></script>
-<script src="js/api.js?v=0.17.1"></script>
-<script src="js/auth.js?v=0.17.1"></script>
-<script src="js/modulos.js?v=0.17.1"></script>
-<script src="js/app.js?v=0.17.1"></script>
-<script src="js/pwa.js?v=0.17.1"></script>
+<script src="js/config.js?v=0.18.1"></script>
+<script src="js/storage.js?v=0.18.1"></script>
+<script src="js/core.js?v=0.18.1"></script>
+<script src="js/integracao.js?v=0.18.1"></script>
+<script src="js/importacao.js?v=0.18.1"></script>
+<script src="js/extratos.js?v=0.18.1"></script>
+<script src="js/pdfextrato.js?v=0.18.1"></script>
+<script src="js/conciliacao.js?v=0.18.1"></script>
+<script src="js/nfe.js?v=0.18.1"></script>
+<script src="js/api.js?v=0.18.1"></script>
+<script src="js/auth.js?v=0.18.1"></script>
+<script src="js/modulos.js?v=0.18.1"></script>
+<script src="js/app.js?v=0.18.1"></script>
+<script src="js/pwa.js?v=0.18.1"></script>
 <div class="aviso-atualizacao" id="aviso-atualizacao" role="status" hidden>
   <span>Nova versão do sistema disponível.</span>
   <button type="button" class="btn btn-primary btn-sm" id="btn-atualizar">Atualizar</button>

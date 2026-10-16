@@ -1,35 +1,43 @@
 /* =========================================================================
-   Gestão Financeira — tema
-   Verde "conciliado" como cor da marca; números sempre em colunas alinhadas.
+   Gestão Financeira — tema com a identidade da Orprocon (cores tiradas da logo):
+   dourado #E19A2A, grafite quente #49433A e creme #ECE4D8 (versão escura da logo).
+   --brand é o dourado escuro, que dá para ler como texto e leva texto branco por cima;
+   --brand-fill é o dourado da logo, para botões e destaques, sempre com texto escuro (--on-fill).
+   Números sempre em colunas alinhadas.
    ========================================================================= */
 :root {
-  --canvas: #F4F6F5;
+  --canvas: #F7F5F1;
   --surface: #FFFFFF;
-  --surface-2: #F8FAF9;
-  --line: #E2E7E5;
-  --line-strong: #CFD7D4;
-  --ink: #14201B;
-  --ink-2: #3A4843;
-  --muted: #66746F;
+  --surface-2: #FBF9F6;
+  --line: #E9E3D9;
+  --line-strong: #D8D0C3;
+  --ink: #2B2620;
+  --ink-2: #49433A;
+  --muted: #6E665B;
 
-  --brand: #0E6E55;
-  --brand-hover: #0B5C47;
-  --brand-soft: #E3F1EC;
+  --brand: #9A6212;
+  --brand-hover: #7A4E0C;
+  --brand-soft: #FBEFD9;
+  --brand-fill: #E19A2A;
+  --brand-fill-hover: #CF8A1E;
+  --on-fill: #241F19;
+  --grafite: #3A342C;
+  --on-grafite: #F4EFE6;
 
-  --credit: #0E7C5A;
-  --debit: #C23B2A;
+  --credit: #2F7D4F;
+  --debit: #B42318;
   --debit-soft: #FBEAE7;
-  --warn: #A86A12;
-  --warn-soft: #FBF1DF;
-  --info: #4650C2;
-  --info-soft: #ECEDFB;
-  --ok-soft: #E3F1EC;
+  --warn: #9A4A07;
+  --warn-soft: #FFF1E0;
+  --info: #3B5BA9;
+  --info-soft: #E9EEF9;
+  --ok-soft: #E5F2EA;
 
   --r-sm: 6px;
   --r: 8px;
   --r-lg: 12px;
-  --shadow-pop: 0 12px 32px rgba(20, 32, 27, .14), 0 2px 6px rgba(20, 32, 27, .06);
-  --focus: 0 0 0 3px rgba(14, 110, 85, .25);
+  --shadow-pop: 0 12px 32px rgba(43, 38, 32, .14), 0 2px 6px rgba(43, 38, 32, .06);
+  --focus: 0 0 0 3px rgba(225, 154, 42, .35);
   --on-brand: #FFFFFF;
   --sidebar-w: 256px;
 }
@@ -37,25 +45,27 @@
 /* Tema escuro: segue o sistema, a menos que a pessoa escolha no botão (data-theme). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas: #0F1513; --surface: #161E1B; --surface-2: #1B2521; --line: #26322D; --line-strong: #33423C;
-    --ink: #E7EEEB; --ink-2: #C3CEC9; --muted: #8C9A95;
-    --brand: #3DB38D; --brand-hover: #56C4A0; --brand-soft: #173229;
-    --credit: #4CC39A; --debit: #F07D6C; --debit-soft: #3A1E1A;
-    --warn: #E0A64A; --warn-soft: #36291A; --info: #8E96F0; --info-soft: #23264A; --ok-soft: #173229;
-    --on-brand: #06140F;
-    --shadow-pop: 0 12px 32px rgba(0,0,0,.45);
-  
+    --canvas: #14120F; --surface: #1D1A16; --surface-2: #24201B; --line: #322C25; --line-strong: #3E372E;
+    --ink: #ECE4D8; --ink-2: #CFC6B8; --muted: #A1988A;
+    --brand: #F2C177; --brand-hover: #F6D29A; --brand-soft: #3A2C17;
+    --brand-fill: #E9A940; --brand-fill-hover: #F2B85A; --on-fill: #1A160F; --grafite: #3A2C17; --on-grafite: #F2C177;
+    --credit: #79CF9C; --debit: #F4907F; --debit-soft: #3A1E1A;
+    --warn: #F3A86A; --warn-soft: #3A2717; --info: #A9BCF0; --info-soft: #222A40; --ok-soft: #1C2E22;
+    --on-brand: #1A160F;
+    --focus: 0 0 0 3px rgba(233, 169, 64, .4);
+    --shadow-pop: 0 12px 32px rgba(0,0,0,.5);
   }
 }
 :root[data-theme="dark"] {
-    --canvas: #0F1513; --surface: #161E1B; --surface-2: #1B2521; --line: #26322D; --line-strong: #33423C;
-    --ink: #E7EEEB; --ink-2: #C3CEC9; --muted: #8C9A95;
-    --brand: #3DB38D; --brand-hover: #56C4A0; --brand-soft: #173229;
-    --credit: #4CC39A; --debit: #F07D6C; --debit-soft: #3A1E1A;
-    --warn: #E0A64A; --warn-soft: #36291A; --info: #8E96F0; --info-soft: #23264A; --ok-soft: #173229;
-    --on-brand: #06140F;
-    --shadow-pop: 0 12px 32px rgba(0,0,0,.45);
-  
+    --canvas: #14120F; --surface: #1D1A16; --surface-2: #24201B; --line: #322C25; --line-strong: #3E372E;
+    --ink: #ECE4D8; --ink-2: #CFC6B8; --muted: #A1988A;
+    --brand: #F2C177; --brand-hover: #F6D29A; --brand-soft: #3A2C17;
+    --brand-fill: #E9A940; --brand-fill-hover: #F2B85A; --on-fill: #1A160F; --grafite: #3A2C17; --on-grafite: #F2C177;
+    --credit: #79CF9C; --debit: #F4907F; --debit-soft: #3A1E1A;
+    --warn: #F3A86A; --warn-soft: #3A2717; --info: #A9BCF0; --info-soft: #222A40; --ok-soft: #1C2E22;
+    --on-brand: #1A160F;
+    --focus: 0 0 0 3px rgba(233, 169, 64, .4);
+    --shadow-pop: 0 12px 32px rgba(0,0,0,.5);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -157,8 +167,8 @@ main { min-width: 0; }
 .btn:focus-visible { outline: none; box-shadow: var(--focus); }
 .btn-sm { height: 30px; padding: 0 10px; font-size: 13px; }
 .btn-block { width: 100%; justify-content: flex-start; }
-.btn-primary { background: var(--brand); color: var(--on-brand); }
-.btn-primary:hover { background: var(--brand-hover); }
+.btn-primary { background: var(--brand-fill); color: var(--on-fill); font-weight: 650; }
+.btn-primary:hover { background: var(--brand-fill-hover); }
 .btn-outline { background: var(--surface); border-color: var(--line-strong); color: var(--ink); }
 .btn-outline:hover { border-color: var(--muted); }
 .btn-soft { background: var(--surface-2); border-color: var(--line); color: var(--ink-2); }
@@ -304,12 +314,12 @@ td.empty { display: table-cell; }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px 20px; }
 .stat .label { font-size: 13px; color: var(--muted); }
 .stat .value { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; margin-top: 6px; }
-.stat.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
-.stat.primary .label { color: var(--on-brand); opacity: .8; }
-.stat.primary .value { color: var(--on-brand); }
+.stat.primary { background: var(--grafite); border-color: var(--grafite); color: var(--on-grafite); }
+.stat.primary .label { color: var(--on-grafite); opacity: .8; }
+.stat.primary .value { color: var(--brand-fill); }
 
 /* ------------------------------------------------------------- modal & toast */
-.modal { position: fixed; inset: 0; z-index: 50; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 21, 19, .45); }
+.modal { position: fixed; inset: 0; z-index: 50; align-items: center; justify-content: center; padding: 20px; background: rgba(30, 26, 21, .5); }
 .modal-card { width: 440px; max-width: 100%; background: var(--surface); border-radius: var(--r-lg); padding: 22px; box-shadow: var(--shadow-pop); display: grid; gap: 14px; }
 .modal-card h3 { font-size: 17px; font-weight: 650; }
 .modal-card p { margin: -8px 0 0; }
@@ -629,3 +639,42 @@ body:not(.eh-admin) .so-admin { display: none !important; }
   padding: 3px 10px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); }
 .selo-teste[hidden] { display: none; }
 .teste-card + .login-form h1 { font-size: 18px; }
+
+/* ------------------------------------------------------------- menu por setor (v0.18) */
+.nav-abre { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 6px; border: 0; background: transparent;
+  padding: 0; font: inherit; font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: pointer; text-align: left; }
+.nav-abre:hover { color: var(--ink); }
+.nav-abre:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+.nav-seta { width: 14px; height: 14px; transition: transform .15s; }
+.nav-section.fechada .nav-seta { transform: rotate(-90deg); }
+.nav-section.fechada > :not(.nav-title) { display: none; }
+.nav-title-acoes { margin-left: 6px; }
+.acct-btn.active { box-shadow: inset 3px 0 0 var(--brand-fill); }
+.acct-count.alerta:not(:empty) { background: var(--debit-soft); color: var(--debit); border-color: transparent; font-weight: 600; }
+.btn-recolher { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--muted); cursor: pointer; }
+.btn-recolher:hover { color: var(--ink); border-color: var(--line-strong); }
+.btn-recolher:focus-visible { outline: none; box-shadow: var(--focus); }
+.btn-recolher .ico { width: 16px; height: 16px; }
+
+/* menu recolhido: só os ícones (no computador) */
+@media (min-width: 901px) {
+  .app.menu-recolhido { grid-template-columns: 72px 1fr; }
+  .menu-recolhido .brand { flex-direction: column; padding: 16px 8px 10px; gap: 10px; }
+  .menu-recolhido .brand-text, .menu-recolhido .acct-label, .menu-recolhido .acct-count, .menu-recolhido .nav-abre span,
+  .menu-recolhido .nav-title-acoes, .menu-recolhido .nav-empty, .menu-recolhido .nav-subtitle, .menu-recolhido .usuario-info,
+  .menu-recolhido #btn-trocar-senha, .menu-recolhido .nav-remove { display: none !important; }
+  .menu-recolhido .btn-recolher { margin: 0; transform: scaleX(-1); }
+  .menu-recolhido .nav { padding: 4px 8px 12px; }
+  .menu-recolhido .nav-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .menu-recolhido .nav-section:first-child { border-top: 0; }
+  .menu-recolhido .nav-title { display: none; }
+  .menu-recolhido .nav-section.fechada > :not(.nav-title) { display: block; }
+  .menu-recolhido .acct-btn { justify-content: center; padding: 10px 0; }
+  .menu-recolhido .acct-btn .ico { width: 20px; height: 20px; }
+  .menu-recolhido .usuario-box { flex-direction: column; padding: 12px 8px; }
+}
+
+/* login: o modo de teste é a segunda opção (contorno), o Entrar é o botão principal */
+#btn-entrar-teste { background: var(--surface); border: 1.5px solid var(--brand-fill); color: var(--brand); }
+#btn-entrar-teste:hover { background: var(--brand-soft); }

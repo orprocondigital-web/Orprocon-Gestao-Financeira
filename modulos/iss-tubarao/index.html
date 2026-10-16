@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="css/iss.css">
 <script>
   try { var t = localStorage.getItem("tema"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+  try { if (window.self !== window.top) document.documentElement.classList.add("embutido"); } catch (e) { document.documentElement.classList.add("embutido"); }
 </script>
 </head>
 <body>

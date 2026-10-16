@@ -9,14 +9,14 @@
 
 /* 1. Tokens ---------------------------------------------------------------- */
 :root{
-  --bg:#F1F4F9; --surface:#FFFFFF; --soft:#F6F8FB; --ink:#16233F; --muted:#5F6B82; --line:#E1E6EE;
-  --band:#17284A; --band-2:#1F3866; --band-ink:#FFFFFF; --band-muted:#AEBBD6;
+  --bg:#F7F5F1; --surface:#FFFFFF; --soft:#FBF9F6; --ink:#2B2620; --muted:#6E665B; --line:#E9E3D9;
+  --band:#3A342C; --band-2:#49433A; --band-ink:#F4EFE6; --band-muted:#CFC6B8;
   --debito:#C0352F; --debito-soft:#FBE7E5; --credito:#15845F; --credito-soft:#DDF3EA;
-  --accent:#2F5BD3; --accent-soft:#E7EDFC; --accent-ink:#FFFFFF;
+  --accent:#9A6212; --accent-soft:#FBEFD9; --accent-ink:#FFFFFF;
   --warn:#8A5A00; --warn-soft:#FDF3DC;
-  --shadow-sm:0 1px 2px rgba(22,35,63,.06);
-  --shadow:0 1px 2px rgba(22,35,63,.06),0 4px 16px rgba(22,35,63,.06);
-  --shadow-lg:0 8px 28px rgba(22,35,63,.14);
+  --shadow-sm:0 1px 2px rgba(43,38,32,.06);
+  --shadow:0 1px 2px rgba(43,38,32,.06),0 4px 16px rgba(43,38,32,.06);
+  --shadow-lg:0 8px 28px rgba(43,38,32,.14);
   --r-sm:8px; --r-md:10px; --r-lg:14px; --r-pill:999px;
   --font:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --aside-w:320px;
@@ -26,10 +26,10 @@
 }
 /* O tema escuro é aplicado pelo js/tema.js (preferência salva ou do sistema) */
 :root[data-theme="dark"]{
-  --bg:#0D1320; --surface:#151E30; --soft:#1A2439; --ink:#E6EBF3; --muted:#9CA7BB; --line:#26314A;
-  --band:#0B1527; --band-2:#13213D; --band-ink:#E6EBF3; --band-muted:#8D9AB5;
+  --bg:#14120F; --surface:#1D1A16; --soft:#24201B; --ink:#ECE4D8; --muted:#A1988A; --line:#322C25;
+  --band:#1D1A16; --band-2:#2A251F; --band-ink:#ECE4D8; --band-muted:#A1988A;
   --debito:#F2817B; --debito-soft:#3A1F22; --credito:#56C99F; --credito-soft:#15352B;
-  --accent:#8AA6F2; --accent-soft:#1E2A48; --accent-ink:#0D1320;
+  --accent:#F2C177; --accent-soft:#3A2C17; --accent-ink:#1A160F;
   --warn:#E8B85A; --warn-soft:#3A2F17;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
@@ -54,7 +54,7 @@ h3{font-size:.98rem;margin:0 0 10px}
 .band{background:linear-gradient(120deg,var(--band) 0%,var(--band) 55%,var(--band-2) 100%);color:var(--band-ink);padding-top:env(safe-area-inset-top,0px)}
 .band-in{max-width:1280px;margin:0 auto;padding:22px 20px 64px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
 .brand{display:flex;align-items:center;gap:14px;min-width:0}
-.logo{width:42px;height:42px;border-radius:var(--r-md);background:linear-gradient(145deg,#3E6BE0,#2446A8);display:grid;place-items:center;flex:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.logo{width:42px;height:42px;border-radius:var(--r-md);background:linear-gradient(145deg,#E9A940,#C9861C);display:grid;place-items:center;flex:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .logo svg{width:22px;height:22px}
 .band h1{margin:0;font-size:1.4rem;font-weight:800;letter-spacing:-.01em;line-height:1.2}
 .band .sub{margin:2px 0 0;color:var(--band-muted);font-size:.88rem}
@@ -101,7 +101,7 @@ aside .panel+.panel{margin-top:16px}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-sm);padding:8px 14px;cursor:pointer;font-weight:600;font-size:.9rem;transition:background .15s,border-color .15s,filter .15s,transform .05s}
 .btn:hover{background:var(--soft);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
 .btn:active{transform:translateY(1px)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 1px 2px rgba(47,91,211,.25)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 1px 2px rgba(154,98,18,.25)}
 .btn.primary:hover{filter:brightness(1.08);background:var(--accent)}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .btn.link{border:0;background:none;padding:0;color:var(--accent);font-weight:600}

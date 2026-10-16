@@ -233,7 +233,7 @@ que servem de especificação. *Exportar/Importar acessos* deixam de existir com
 ## Módulos
 
 Ferramentas independentes que abrem dentro do sistema, pelo menu **Módulos**
-(o Controle de horas fica em **Visão geral**, logo abaixo de Conciliação):
+(o menu é organizado por setor: **Contábil**, **Fiscal**, **Pessoal** e **Escritório**; cada módulo diz o seu em `secao`):
 
 | Módulo | Pasta | O que faz |
 |---|---|---|
@@ -260,7 +260,7 @@ O sistema principal cuida de:
 *Apagar tudo* apaga só os dados da Gestão Financeira; cada módulo tem a sua opção de limpar.
 
 **Incluir um módulo novo:** copie a pasta para `modulos/`, acrescente-o em
-`js/modulos.js` (lista `LISTA` e, se guardar dados, `PREFIXOS_DADOS`; com `secao: "Visão geral"` ele aparece nessa seção do menu em vez de *Módulos*) e os arquivos
+`js/modulos.js` (lista `LISTA` e, se guardar dados, `PREFIXOS_DADOS`; com `secao: "Fiscal"` (ou Contábil, Pessoal, Escritório) ele aparece nesse setor do menu; sem `secao`, em *Módulos*) e os arquivos
 dele em `sw.js` (lista `MODULOS`). O `npm test` avisa se faltar algum arquivo no `sw.js`.
 
 ## App instalável
