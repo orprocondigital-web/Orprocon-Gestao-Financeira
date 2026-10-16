@@ -18,7 +18,7 @@ classificada (categoria, unidade/filial, natureza do gasto, fornecedor ou
 cliente) e virar lançamento contábil no SCI Único. Na planilha isso é feito com
 macros VBA (versão de referência: v30). O sistema faz o mesmo fluxo:
 
-1. **Importar a planilha do mês** (Master → *Importar planilha do mês*): lê a
+1. **Importar a planilha do mês** (Integração contábil → *Importar planilha do mês*): lê a
    pasta de trabalho inteira e reconhece sozinho as contas bancárias (abas
    terminadas em "Conta <número>", que vira a conta contábil), Pagamento em
    dinheiro, Juros recebidos e os cadastros (clientes, fornecedores, plano de
@@ -27,30 +27,26 @@ macros VBA (versão de referência: v30). O sistema faz o mesmo fluxo:
    e os problemas encontrados (ex.: unidade repetida na Tabela de unidades).
 2. **Conferir e ajustar** os lançamentos nas contas. O que falta classificar
    aparece como *Pendente*.
-3. **Master**: classificados e pendentes por unidade e por banco, e os botões
+3. **Integração contábil** (antigo Master): classificados e pendentes por unidade e por banco, e os botões
    *Distribuir por unidade*, *Gerar TXTs (formato atual)* e *Gerar TXTs (SCI Único)*.
 4. **Conciliação** do extrato do banco (`.xlsx`, `.csv` ou `.txt` do Sicoob).
 
 ### Início
 
-É a primeira tela depois do login. Junta o que precisa de atenção em todos os
-módulos, das pendências mais urgentes para as outras, e cada linha tem o botão
-que leva direto ao lugar certo (o módulo abre no mês, na empresa ou na aba certa):
+É a primeira tela depois do login, em forma de **capa**: a saudação, as ferramentas que a
+pessoa pode abrir, organizadas por setor (Contábil, Fiscal, Departamento Pessoal e
+Escritório), com o que cada uma faz e o botão para abrir.
 
-- **Em Dia**: etapas do fechamento atrasadas, travadas ou vencendo; quem está
-  ausente com tarefas abertas; tarefas sem responsável; o que veio para você na
-  passagem de bastão.
-- **Painel de vencimentos**: documentos vencidos ou vencendo em até 7 dias.
-- **ISS Tubarão**: empresas importadas e ainda não conferidas.
-- **Controle de horas**: folhas de presença que faltam chegar ou revisar (meses abertos).
-- **Contábil**: contas bancárias sem nenhum lançamento na competência.
+Logo abaixo da saudação ficam **quatro mini cards** com o resumo do dia, que só aparecem
+quando já há dados nos módulos. Cada um abre o módulo certo:
+*Para fazer hoje* e *Fechamento* (Em Dia), *A conferir* (ISS, folhas de presença ou
+extratos que faltam) e *Vence em 7 dias* (Painel de vencimentos). Os números vêm dos
+próprios módulos, com as mesmas regras deles (`js/inicio.js`).
 
-No topo ficam os números do dia, e embaixo o andamento do fechamento por setor e
-os próximos vencimentos. O filtro **Minhas** mostra só as tarefas do Em Dia com
-você de responsável e os documentos com o seu nome. A tela não guarda nada: lê
-os dados dos módulos com as mesmas regras deles (`js/inicio.js`). Cada pessoa só
-vê o que vem dos módulos a que tem acesso. No modo de teste, o botão *Carregar
-dados de exemplo* preenche os módulos que ainda estão vazios.
+A lista completa de pendências de todos os módulos continua pronta: com
+`inicioPendencias: true` em `js/config.js`, a Início volta a mostrá-la no lugar da capa.
+No modo de teste, o botão *Carregar dados de exemplo* preenche os módulos vazios, para
+apresentar o sistema com tudo preenchido.
 
 ### Suporte
 
@@ -62,7 +58,7 @@ estava, o usuário e a versão do sistema. Quem atende e o número ficam em
 
 ### Importar extratos do banco
 
-No Master (ou na tela de uma conta), *Importar extratos do banco* aceita vários
+Na Integração contábil (ou na tela de uma conta), *Importar extratos do banco* aceita vários
 arquivos de uma vez: **PDF**, **OFX**, **TXT do Sicoob**, CSV ou planilha.
 
 - A conta é reconhecida pelo número que vem no extrato. Se nenhuma ou mais de
@@ -121,7 +117,7 @@ Cada um tem *Desfazer*. No modo por conta ficam salvos junto com a conta.
 - a conciliação em andamento é gravada sozinha a cada mudança: se a página fechar, ela volta;
 - *Salvar conciliação* guarda com nome (ex.: "Fan Metal – Julho de 2026"); a lista
   *Conciliações salvas* reabre ou exclui;
-- tudo entra no backup do Master. *Limpar* avisa se houver trabalho à mão não salvo.
+- tudo entra no backup do sistema. *Limpar* avisa se houver trabalho à mão não salvo.
 
 ### Competência (mês)
 
@@ -131,7 +127,7 @@ planilha, o mês é sugerido pelas datas dos lançamentos.
 
 ### Backup
 
-Os dados ficam no navegador. *Baixar backup* (no Master) gera um arquivo `.json`
+Os dados ficam no navegador. *Baixar backup* (na Integração contábil) gera um arquivo `.json`
 com tudo — todos os meses, cadastros, configurações e os dados dos módulos. Guarde numa pasta da rede
 ou no Drive. *Restaurar backup* substitui os dados do navegador pelos do arquivo
 (serve também para levar os dados para outro computador).
@@ -281,7 +277,7 @@ O sistema principal cuida de:
 
 - **tema claro/escuro** de todos (o botão de tema de cada módulo fica escondido);
 - **número no menu** do Painel de vencimentos: documentos vencidos ou que vencem em até 7 dias;
-- **backup**: o *Baixar backup* do Master leva também os dados dos módulos (chaves
+- **backup**: o *Baixar backup* da Integração contábil leva também os dados dos módulos (chaves
   `icms.*`, `painelVencimentos:*`, `emDia:*`, `horas:*` e `iss:*`); *Restaurar* devolve. Backups antigos, sem os
   módulos, não mexem nos dados deles;
 - **app instalável e sem internet** para os módulos também.
@@ -334,7 +330,7 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `js/config.js` | Liga/desliga o modo de teste. |
 | `login.html`, `js/login.js` | Tela de login, primeiro acesso, importar acessos e troca da senha provisória. |
 | `js/modulos.js` | Módulos: menu, quadro, tema, número no menu e backup. |
-| `js/inicio.js` | Tela Início: pendências de todos os módulos, números do dia e exemplos. |
+| `js/inicio.js` | Tela Início: capa com as ferramentas, mini cards do dia, pendências e exemplos. |
 | `js/suporte.js` | Botão flutuante de suporte (WhatsApp com a tela, o usuário e a versão). |
 | `js/pwa.js` e `sw.js` | App instalável, modo sem internet e aviso de versão nova. |
 | `manifest.webmanifest`, `icons/` | Nome, cores e ícones do app; logo da Orprocon (claro, escuro e símbolo). |

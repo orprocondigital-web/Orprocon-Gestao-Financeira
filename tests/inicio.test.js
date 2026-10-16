@@ -144,6 +144,31 @@ describe("Início", () => {
     assert.ok(!I.ehMeuNome("", EU));
   });
 
+  test("capa: só as ferramentas que a pessoa pode abrir, por setor", () => {
+    const r = I.resumir({}, ctx());
+    const tudo = I.capa(r);
+    assert.equal((tudo.match(/class="capa-card"/g) || []).length, 8);
+    assert.match(tudo, /Departamento Pessoal/);
+    assert.match(tudo, /Integração contábil/);
+    assert.ok(!/capa-minis/.test(tudo), "sem dados, sem mini cards");
+    const fiscal = I.capa(r, { pode: (a) => ["mod-icms", "mod-iss"].includes(a) });
+    assert.equal((fiscal.match(/class="capa-card"/g) || []).length, 2);
+    assert.ok(!/Contábil<\/h3>/.test(fiscal) && /Fiscal<\/h3>/.test(fiscal));
+    assert.match(fiscal, /<strong>2<\/strong><span>ferramentas/);
+  });
+
+  test("capa: mini cards levam ao módulo certo", () => {
+    const { fontes } = exemplos();
+    const r = I.resumir(fontes, ctx());
+    const h = I.capa(r);
+    assert.equal((h.match(/class="capa-mini[ "]/g) || []).length, 4);
+    assert.match(h, /data-ir="mod-em-dia" data-prefs='[^']*emDia:aba&quot;:&quot;hoje/);
+    assert.match(h, /data-ir="mod-em-dia" data-prefs='[^']*fechamento/);
+    assert.match(h, /data-ir="mod-iss"/);
+    assert.match(h, /data-ir="mod-vencimentos"/);
+    for (const s of I.SETORES_CAPA) for (const f of s.ferramentas) assert.equal(f.itens.length, 3, f.nome);
+  });
+
   test("data por extenso", () => {
     assert.equal(I.dataPorExtenso("2026-10-16"), "Sexta-feira, 16 de outubro");
   });

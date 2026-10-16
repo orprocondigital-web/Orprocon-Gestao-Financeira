@@ -295,15 +295,23 @@
     if (horas.aRevisar + horas.faltam) conferir.push(plural(horas.aRevisar + horas.faltam, "folha", "folhas"));
     if (contas.semExtrato) conferir.push(plural(contas.semExtrato, "extrato", "extratos"));
 
+    var prefsMes = {}; prefsMes[CHAVES.emDiaMes] = emDia.mes || mesPadrao;
+    var irEmDia = function (aba) { var p = { "emDia:aba": aba }; p[CHAVES.emDiaMes] = prefsMes[CHAVES.emDiaMes]; return { tab: "mod-em-dia", prefs: p }; };
+    var issPrefs = {}; if (iss.mes) issPrefs[CHAVES.issMes] = iss.mes;
+    var irConferir = iss.aConferir ? { tab: "mod-iss", prefs: issPrefs } : horas.aRevisar + horas.faltam ? { tab: "mod-horas", prefs: {} } :
+      contas.semExtrato ? { acaoApp: "extratos" } : pode("mod-iss") ? { tab: "mod-iss", prefs: {} } : null;
     var numeros = [
       { id: "hoje", rotulo: "Para fazer hoje", valor: String(atrasadas + venceHoje + venc.vencidos),
-        sub: atrasadas + venc.vencidos ? plural(atrasadas + venc.vencidos, "atrasada", "atrasadas") : "Nada atrasado", tom: atrasadas + venc.vencidos ? "alerta" : "" },
+        sub: atrasadas + venc.vencidos ? plural(atrasadas + venc.vencidos, "atrasada", "atrasadas") : "Nada atrasado", tom: atrasadas + venc.vencidos ? "alerta" : "",
+        ir: emDia.temDados ? irEmDia("hoje") : pode("mod-vencimentos") ? { tab: "mod-vencimentos", prefs: {} } : null, icone: "emdia" },
       { id: "fechamento", rotulo: "Fechamento de " + nomeMes(emDia.mes || mesPadrao), valor: geral && geral.total ? geral.pct + "%" : "—",
-        sub: geral && geral.total ? geral.feitas + " de " + geral.total + " etapas feitas" : "Cadastre os clientes no Em Dia", tom: "marca", pct: geral && geral.total ? geral.pct : 0 },
+        sub: geral && geral.total ? geral.feitas + " de " + geral.total + " etapas feitas" : "Cadastre os clientes no Em Dia", tom: "marca", pct: geral && geral.total ? geral.pct : 0,
+        ir: pode("mod-em-dia") ? irEmDia(emDia.temDados ? "fechamento" : "hoje") : null, icone: "emdia" },
       { id: "conferir", rotulo: "A conferir", valor: String(iss.aConferir + horas.aRevisar + horas.faltam + contas.semExtrato),
-        sub: conferir.length ? conferir.join(", ") : "Tudo conferido", tom: "" },
+        sub: conferir.length ? conferir.join(", ") : "Tudo conferido", tom: "", ir: irConferir, icone: "iss" },
       { id: "vencer", rotulo: "Vence em 7 dias", valor: String(venc.em7),
-        sub: venc.vencidos ? plural(venc.vencidos, "já vencido", "já vencidos") : "Nenhum vencido", tom: venc.vencidos ? "perigo" : "" }
+        sub: venc.vencidos ? plural(venc.vencidos, "já vencido", "já vencidos") : "Nenhum vencido", tom: venc.vencidos ? "perigo" : "",
+        ir: pode("mod-vencimentos") ? { tab: "mod-vencimentos", prefs: {} } : null, icone: "venc" }
     ];
 
     var setores = emDia.resumo ? emDia.resumo.porArea.filter(function (a) { return a.area.id !== "geral"; }).map(function (a) {
@@ -410,6 +418,92 @@
       "</div></div>";
   }
 
+  // ---------------------------------------------------------------- capa: o que o sistema entrega
+
+  var ICONES_FERRAMENTA = {
+    master: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z"/>',
+    conciliacao: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
+    icms: '<path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/>',
+    ibs: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6zM9 12l2 2 4-4"/>',
+    iss: '<path d="M4 4h16v16H4zM8 9h8M8 13h8M8 17h5"/>',
+    horas: '<path d="M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/>',
+    venc: '<path d="M7 3v3M17 3v3M4 8h16M5 5h14v15H5zM12 12v3l2 1"/>',
+    emdia: '<path d="M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M9 13l2 2 4-4"/>'
+  };
+
+  /** As ferramentas, por setor, com o que cada uma faz (o texto da capa). */
+  var SETORES_CAPA = [
+    { id: "contabil", nome: "Contábil", texto: "Do extrato do banco ao lançamento no Único.", ferramentas: [
+      { tab: "master", area: "integracao", icone: "master", nome: "Integração contábil", resumo: "Os lançamentos do mês classificados e prontos para o SCI Único.",
+        itens: ["Importa a planilha do mês e os extratos (PDF, OFX, TXT, CSV)", "Classifica por categoria, unidade e natureza, com sugestões", "Distribui por unidade e gera os TXTs do Único"] },
+      { tab: "conciliacao", area: "conciliacao", icone: "conciliacao", nome: "Conciliação", resumo: "Confere o extrato do banco com o que foi lançado.",
+        itens: ["Cruza cada movimento por valor, sinal e data", "Extrato × planilha de clientes e fornecedores ou XML de NF-e", "Concilia à mão, marca conferido e exporta o resultado"] }
+    ] },
+    { id: "fiscal", nome: "Fiscal", texto: "Prévia da apuração e conferência das notas antes do fechamento.", ferramentas: [
+      { tab: "mod-icms", area: "mod-icms", icone: "icms", nome: "Apuração de ICMS", resumo: "Acompanha o ICMS do cliente durante o mês.",
+        itens: ["Lê os XMLs de NF-e e NFC-e de entrada e saída", "Débitos, créditos e saldo por CFOP até a data escolhida", "Planilha Excel pronta para conferência"] },
+      { tab: "mod-ibs-cbs", area: "mod-ibs-cbs", icone: "ibs", nome: "Auditor IBS/CBS", resumo: "Confere os novos tributos da reforma nas notas.",
+        itens: ["CST, cClassTrib, base e alíquotas da LC 214/2025", "Aponta reduções e valores divergentes item a item", "NF-e e NFS-e, calculadora manual e exportação"] },
+      { tab: "mod-iss", area: "mod-iss", icone: "iss", nome: "ISS Tubarão", resumo: "Conferência do Meu ISS sem precisar de robô.",
+        itens: ["Importa o XML do Movimento Econômico de cada empresa", "ISS retido e retenções federais (IR, PIS, COFINS, CSLL, INSS)", "Alertas de alíquota e valores, e Excel por empresa"] }
+    ] },
+    { id: "pessoal", nome: "Departamento Pessoal", texto: "Folha de ponto dos clientes sem cartão, conferida e calculada.", ferramentas: [
+      { tab: "mod-horas", area: "mod-horas", icone: "horas", nome: "Controle de horas", resumo: "Folhas de presença dos clientes que anotam o ponto à mão.",
+        itens: ["Gera a planilha para o cliente preencher (uma aba por funcionário)", "Importa e calcula extras, noturno, atrasos e faltas", "Alertas de intervalo e interjornada, e fechamento do mês"] }
+    ] },
+    { id: "escritorio", nome: "Escritório", texto: "Prazos dos clientes e o andamento da equipe.", ferramentas: [
+      { tab: "mod-vencimentos", area: "mod-vencimentos", icone: "venc", nome: "Painel de vencimentos", resumo: "Tudo o que vence nos clientes, numa tela.",
+        itens: ["Certificado A1, CNDs, CRF FGTS, alvarás, procurações e licenças", "O que vence em 7, 15 e 30 dias e o que já venceu", "Registra a renovação e prepara o aviso ao cliente"] },
+      { tab: "mod-em-dia", area: "mod-em-dia", icone: "emdia", nome: "Em Dia", resumo: "O fechamento de cada cliente e o diário de cada setor.",
+        itens: ["Etapas do mês por cliente, com responsável e prazo", "Diário do Contábil, Fiscal e DP: o que fiz e onde parei", "Passagem de bastão quando alguém falta"] }
+    ] }
+  ];
+
+  /** Mini cards de pendências (só quando já há dados nos módulos). */
+  function htmlMiniCards(r) {
+    if (!r || r.vazio || !r.numeros) return "";
+    return '<div class="capa-minis">' + r.numeros.map(function (x) {
+      var conteudo = '<span class="capa-mini-rotulo">' + esc(x.rotulo) + "</span>" +
+        '<span class="capa-mini-linha"><strong>' + esc(x.valor) + "</strong><span>" + esc(x.sub) + "</span></span>";
+      var cls = "capa-mini" + (x.tom ? " tom-" + x.tom : "");
+      if (!x.ir) return '<div class="' + cls + '">' + conteudo + "</div>";
+      return '<button type="button" class="' + cls + '"' + atributosAcao(x.ir) + ' title="Abrir">' + conteudo + "</button>";
+    }).join("") + "</div>";
+  }
+
+  /**
+   * Página de capa: saudação, mini cards de pendências e as ferramentas de cada setor.
+   * opcoes: { pode: function(area), versao }
+   */
+  function capa(r, opcoes) {
+    opcoes = opcoes || {};
+    var pode = opcoes.pode || function () { return true; };
+    var setores = SETORES_CAPA.map(function (s) {
+      var fs = s.ferramentas.filter(function (f) { return pode(f.area); });
+      if (!fs.length) return "";
+      return '<section class="capa-setor setor-' + s.id + '"><div class="capa-setor-cab"><h3>' + esc(s.nome) + "</h3><p>" + esc(s.texto) + "</p></div>" +
+        '<div class="capa-grade">' + fs.map(function (f) {
+          return '<article class="capa-card"><div class="capa-card-topo"><span class="capa-card-ico">' +
+            '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + ICONES_FERRAMENTA[f.icone] + "</svg></span>" +
+            "<div><h4>" + esc(f.nome) + "</h4><p>" + esc(f.resumo) + "</p></div></div>" +
+            '<ul class="capa-itens">' + f.itens.map(function (i) { return "<li>" + esc(i) + "</li>"; }).join("") + "</ul>" +
+            '<button type="button" class="btn btn-outline btn-sm capa-abrir" data-ir="' + esc(f.tab) + '">Abrir ' + esc(f.nome) + "</button></article>";
+        }).join("") + "</div></section>";
+    }).join("");
+    var qtd = SETORES_CAPA.reduce(function (n, s) { return n + s.ferramentas.filter(function (f) { return pode(f.area); }).length; }, 0);
+    return '<div class="capa">' +
+      '<header class="capa-hero"><div class="capa-hero-texto"><span class="capa-data">' + esc(r.data) + "</span>" +
+      "<h2>" + esc(r.saudacao) + (r.nome ? ", " + esc(r.nome) : "") + "</h2>" +
+      "<p>As ferramentas da Orprocon num lugar só: contábil, fiscal, departamento pessoal e escritório. " +
+      "Escolha abaixo por onde começar.</p></div>" +
+      '<div class="capa-hero-num"><strong>' + qtd + "</strong><span>ferramentas<br>disponíveis para você</span></div></header>" +
+      htmlMiniCards(r) +
+      (opcoes.mostrarExemplo ? '<div class="in-exemplo"><div><strong>Vai apresentar o sistema?</strong>' +
+        "<span>Carrega clientes, empresas e documentos fictícios nos módulos que ainda estão vazios, para tudo aparecer preenchido.</span></div>" +
+        '<button type="button" class="btn btn-outline btn-sm" data-acao-app="exemplos">Carregar dados de exemplo</button></div>' : "") +
+      setores + "</div>";
+  }
+
   // ---------------------------------------------------------------- dados de exemplo
 
   /** Documentos fictícios para o Painel de vencimentos (mesma estrutura do módulo; ids "ex-"). */
@@ -451,7 +545,7 @@
   }
 
   return {
-    CHAVES: CHAVES, resumir: resumir, html: html, htmlPendencias: htmlPendencias, carregarExemplos: carregarExemplos,
+    CHAVES: CHAVES, SETORES_CAPA: SETORES_CAPA, capa: capa, htmlMiniCards: htmlMiniCards, resumir: resumir, html: html, htmlPendencias: htmlPendencias, carregarExemplos: carregarExemplos,
     vencimentosExemplo: vencimentosExemplo, hojeIso: hojeIso, somarMes: somarMes, rotuloMes: rotuloMes, dataPorExtenso: dataPorExtenso, ehMeuNome: ehMeuNome
   };
 });

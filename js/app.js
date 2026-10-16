@@ -55,11 +55,11 @@
     MENU_SECTIONS = [
       { title: "", items: [{ id: "inicio", label: "Início", type: "inicio" }] },
       { title: "Contábil", items: [
-        { id: "master", label: "Master", type: "master" },
+        { id: "master", label: "Integração contábil", type: "master" },
         { id: "conciliacao", label: "Conciliação", type: "conciliacao" }
       ].concat(itensModulo("Contábil")) },
       { title: "Fiscal", items: itensModulo("Fiscal") },
-      { title: "Pessoal", items: itensModulo("Pessoal") },
+      { title: "Departamento Pessoal", items: itensModulo("Departamento Pessoal") },
       { title: "Escritório", items: itensModulo("Escritório") },
       { title: "Módulos", items: itensModulo(null) },
       { title: "Bancos", items: bancos },
@@ -345,6 +345,7 @@
       var el = $("count-" + id);
       if (!el) return;
       if (itemIndex[id].type === "inicio") {
+        if (!(window.CONFIG && CONFIG.inicioPendencias)) { el.textContent = ""; return; }
         var urg = resumoInicio(false).pendencias.filter(function(p){ return p.nivel === "alta"; }).length;
         el.textContent = urg || "";
         el.classList.add("alerta");
@@ -502,7 +503,7 @@
     body.innerHTML = "";
     $("ledger-empty").style.display = entries.length ? "none" : "flex";
     $("ledger-empty").innerHTML = derivada
-      ? "<strong>Nada distribuído para esta unidade</strong><span>Classifique os lançamentos nas contas bancárias e use Distribuir por unidade no Master.</span>"
+      ? "<strong>Nada distribuído para esta unidade</strong><span>Classifique os lançamentos nas contas bancárias e use Distribuir por unidade na Integração contábil.</span>"
       : "<strong>Nenhum lançamento nesta conta</strong><span>Adicione pelo formulário acima ou importe a aba da planilha.</span>";
 
     var lista = derivada ? entries : entries.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); });
@@ -1746,7 +1747,7 @@
     var e = estadoAvulsa(); e.salvoEm = new Date().toISOString();
     Store.set(PREFIXO_AV_SALVA + id, e);
     autosaveAvulsa(); preencherSalvas(); atualizarBotaoSalvar(); statusAvulsa();
-    toast("Conciliação salva: " + nome + ". Ela entra no backup do Master.");
+    toast("Conciliação salva: " + nome + ". Ela entra no backup do sistema.");
   }
 
   function abrirSalva(){
@@ -2624,6 +2625,14 @@
     var alvo = $("inicio-conteudo");
     var r = resumoInicio(inicioMinhas);
     if (r.erro || !r.numeros) { alvo.innerHTML = '<p class="muted">Não consegui montar o resumo. Abra os módulos normalmente pelo menu.</p>'; return; }
+    // Capa (padrão): saudação, mini cards de pendências e as ferramentas por setor.
+    // Com CONFIG.inicioPendencias = true, volta a lista completa de pendências.
+    if (!(window.CONFIG && CONFIG.inicioPendencias)) {
+      var Cc = Inicio.CHAVES;
+      var vazioAlgum = [Cc.emDia, Cc.iss, Cc.horas, Cc.venc].some(function(k){ return !localStorage.getItem(k); }) || !r.temEmDia;
+      alvo.innerHTML = Inicio.capa(r, { pode: function(a){ return pode(a); }, mostrarExemplo: ehModoTeste() && vazioAlgum });
+      return;
+    }
     var C = Inicio.CHAVES;
     var algumVazio = [C.emDia, C.iss, C.horas, C.venc].some(function(k){ return !localStorage.getItem(k); }) || !r.temEmDia;
     alvo.innerHTML = Inicio.html(r, { minhas: inicioMinhas, podeExtrato: pode("integracao") || pode("conciliacao"),

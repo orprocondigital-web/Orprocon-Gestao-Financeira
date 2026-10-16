@@ -36,7 +36,7 @@
       descricao: "Fechamento do mês, diário de cada setor (Contábil, Fiscal, Pessoal) e passagem de bastão",
       icone: '<path d="M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M9 13l2 2 4-4"/>',
       botaoTema: "#ed-sem-botao-tema", tema: "data-theme" },
-    { id: "mod-horas", label: "Controle de horas", pasta: "modulos/controle-horas/", secao: "Pessoal",
+    { id: "mod-horas", label: "Controle de horas", pasta: "modulos/controle-horas/", secao: "Departamento Pessoal",
       descricao: "Folhas de presença dos clientes: gerar planilha, importar, conferir horas extras e fechar o mês",
       icone: '<path d="M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/>',
       botaoTema: "#hr-sem-botao-tema", tema: "data-theme" }

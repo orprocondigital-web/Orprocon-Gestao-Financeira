@@ -826,3 +826,62 @@ body:not(.eh-admin) .so-admin { display: none !important; }
 .app:has(.content.modo-modulo) ~ .suporte-botao { width: 46px; padding: 0; justify-content: center; }
 .app:has(.content.modo-modulo) ~ .suporte-botao .suporte-botao-texto { display: none; }
 #view-inicio, #view-master, #view-ledger, #view-cadastro, #view-conciliacao, #view-usuarios { padding-bottom: 64px; }
+
+/* ---------- Início em forma de capa (Inicio.capa) ---------- */
+.capa { display: flex; flex-direction: column; gap: 22px; max-width: 1180px; }
+.capa-hero { display: flex; align-items: stretch; justify-content: space-between; gap: 20px; padding: 26px 28px; border-radius: 16px;
+  background: var(--grafite); color: var(--on-grafite); position: relative; overflow: hidden; }
+.capa-hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(225, 154, 42, .28), rgba(225, 154, 42, 0) 70%); pointer-events: none; }
+.capa-hero-texto { display: flex; flex-direction: column; gap: 6px; max-width: 640px; position: relative; z-index: 1; }
+.capa-data { font-size: 13px; color: var(--brand-fill); font-weight: 600; letter-spacing: .02em; }
+.capa-hero h2 { font-size: 26px; font-weight: 650; letter-spacing: -.015em; color: #F7F1E6; }
+.capa-hero p { margin: 0; font-size: 14.5px; line-height: 1.55; color: rgba(244, 239, 230, .78); }
+.capa-hero-num { display: flex; align-items: center; gap: 12px; padding-left: 22px; border-left: 1px solid rgba(244, 239, 230, .16); position: relative; z-index: 1; }
+.capa-hero-num strong { font-size: 44px; font-weight: 650; color: var(--brand-fill); line-height: 1; }
+.capa-hero-num span { font-size: 13px; line-height: 1.35; color: rgba(244, 239, 230, .78); }
+:root[data-theme="dark"] .capa-hero { background: #221D17; border: 1px solid var(--line); }
+
+.capa-minis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.capa-mini { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; text-align: left; font: inherit; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+button.capa-mini { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+button.capa-mini:hover { border-color: var(--brand-fill); box-shadow: 0 2px 8px rgba(43, 38, 32, .08); }
+button.capa-mini:focus-visible { outline: none; box-shadow: var(--focus); }
+.capa-mini-rotulo { font-size: 12px; color: var(--muted); }
+.capa-mini-linha { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.capa-mini-linha strong { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.capa-mini-linha span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capa-mini.tom-marca strong { color: var(--brand); }
+.capa-mini.tom-alerta .capa-mini-linha span { color: var(--warn); font-weight: 600; }
+.capa-mini.tom-perigo strong, .capa-mini.tom-perigo .capa-mini-linha span { color: var(--debit); }
+
+.capa-setor { display: flex; flex-direction: column; gap: 12px; }
+.capa-setor-cab { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding-left: 12px; border-left: 3px solid var(--brand-fill); }
+.capa-setor-cab h3 { font-size: 17px; font-weight: 650; }
+.capa-setor-cab p { margin: 0; font-size: 13px; color: var(--muted); }
+.capa-setor.setor-fiscal .capa-setor-cab { border-left-color: var(--ink-2); }
+.capa-setor.setor-pessoal .capa-setor-cab { border-left-color: var(--credit); }
+.capa-setor.setor-escritorio .capa-setor-cab { border-left-color: var(--info); }
+.capa-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.capa-card { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.capa-card-topo { display: flex; gap: 12px; align-items: flex-start; }
+.capa-card-ico { width: 40px; height: 40px; flex: none; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: var(--brand-soft); color: var(--brand); }
+.capa-card-ico .ico { width: 20px; height: 20px; }
+.setor-fiscal .capa-card-ico { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.setor-pessoal .capa-card-ico { background: var(--ok-soft); color: var(--credit); }
+.setor-escritorio .capa-card-ico { background: var(--info-soft); color: var(--info); }
+.capa-card h4 { font-size: 15px; font-weight: 650; margin: 0 0 2px; }
+.capa-card-topo p { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.capa-itens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.capa-itens li { position: relative; padding-left: 20px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.capa-itens li::before { content: ""; position: absolute; left: 2px; top: 5px; width: 10px; height: 6px; border-left: 2px solid var(--brand-fill); border-bottom: 2px solid var(--brand-fill); transform: rotate(-45deg); }
+.capa-abrir { align-self: flex-start; }
+
+@media (max-width: 1100px) { .capa-minis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .capa-hero { flex-direction: column; padding: 20px; }
+  .capa-hero-num { padding-left: 0; border-left: 0; border-top: 1px solid rgba(244, 239, 230, .16); padding-top: 14px; }
+  .capa-hero h2 { font-size: 21px; }
+  .capa-grade { grid-template-columns: minmax(0, 1fr); }
+}

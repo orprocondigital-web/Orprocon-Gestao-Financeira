@@ -23,6 +23,8 @@ var CONFIG = {
   apiUrl: "",
   // Botão "Suporte" (canto da tela e tela de login): quem atende e o WhatsApp com DDI e DDD, só números.
   // Deixe whatsapp vazio para esconder o botão.
+  // Tela Início: false = capa com as ferramentas e mini cards de pendências; true = lista completa de pendências.
+  inicioPendencias: false,
   suporte: { nome: "Mauricio", papel: "TI · desenvolvimento do sistema", whatsapp: "5548991781362" }
 };
 
