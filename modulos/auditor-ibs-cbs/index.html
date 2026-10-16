@@ -7,7 +7,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <script>
   // Aplica o tema antes de desenhar a página (evita "piscar" no claro)
@@ -22,8 +22,16 @@
     darkMode: 'class',
     theme: {
       extend: {
+        // Identidade da Orprocon (as mesmas cores da Gestão Financeira). As classes "teal-*" e "slate-*"
+        // do arquivo passam a usar o dourado/grafite da logo e os neutros quentes, sem mexer no resto.
+        colors: {
+          teal: { 50:'#FBF6EC', 100:'#F6EAD2', 200:'#ECD7AE', 300:'#F2C177', 400:'#E9A940', 500:'#E19A2A',
+                  600:'#C9861C', 700:'#9A6212', 800:'#7A4E0C', 900:'#3A342C', 950:'#2B2620' },
+          slate: { 50:'#FBF9F6', 100:'#F3EFE8', 200:'#E9E3D9', 300:'#D8D0C3', 400:'#A1988A', 500:'#6E665B',
+                   600:'#5A5248', 700:'#3E372E', 800:'#2E2822', 900:'#1D1A16', 950:'#14120F' },
+        },
         fontFamily: {
-          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
           mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
         },
       },
@@ -105,7 +113,7 @@
 <body class="transition-colors min-h-screen bg-slate-100 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-100 antialiased">
 
   <!-- ============ HEADER ============ -->
-  <header class="bg-gradient-to-r from-teal-950 via-teal-900 to-teal-800 text-white">
+  <header class="bg-gradient-to-r from-teal-950 via-teal-900 to-teal-900 text-white">
     <div class="mx-auto flex max-w-[1800px] flex-wrap items-end justify-between gap-4 px-5 py-6">
       <div class="flex items-center gap-4">
         <div class="grid h-12 w-12 place-items-center rounded-xl bg-white/10 ring-1 ring-white/20">
@@ -152,6 +160,10 @@
       <div class="filelist mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-900 font-mono text-xs text-slate-600 dark:text-slate-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 empty:hidden" id="filelist"></div>
 
       <div class="my-4">
+        <button class="btn ghost" id="btnExemplo" type="button" title="Carrega duas notas fictícias (NF-e e NFS-e) para ver a conferência funcionando">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23-.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+          Usar dados de exemplo
+        </button>
         <button class="btn ghost" id="btnToggleManual">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
           Inserir produto manualmente
@@ -596,6 +608,44 @@ function addFiles(fileList){
   });
 }
 
+// ---------------- Dados de exemplo (notas fictícias, alíquotas de teste de 2026) ----------------
+function processarTexto(nome, texto){
+  document.getElementById('toolbar').style.display='flex';
+  let statusEl = logFile(nome, 'processando…', null);
+  const doc = new DOMParser().parseFromString(texto, 'text/xml');
+  const res = parseXmlDoc(doc, nome);
+  if(res.error && res.items.length===0){ updateFileLog(statusEl, res.error, false); return; }
+  allRows = allRows.concat(res.items);
+  updateFileLog(statusEl, res.items.length + ' item(ns) encontrados', true);
+  render();
+}
+function xmlItem(n, prod, ib){
+  const red = (p, e) => p ? `<gRed><pRedAliq>${p}</pRedAliq><pAliqEfet>${e}</pAliqEfet></gRed>` : '';
+  return `<det nItem="${n}"><prod><cProd>${prod.cod}</cProd><xProd>${prod.desc}</xProd><NCM>${prod.ncm}</NCM><CFOP>5102</CFOP>` +
+    `<qCom>${prod.q}</qCom><vUnCom>${prod.vu}</vUnCom><vProd>${ib.bc}</vProd></prod><imposto><IBSCBS><CST>${ib.cst}</CST>` +
+    (ib.cClass ? `<cClassTrib>${ib.cClass}</cClassTrib>` : '') +
+    `<gIBSCBS><vBC>${ib.bc}</vBC><gIBSUF><pIBSUF>${ib.pUf}</pIBSUF>${red(ib.red, ib.efUf)}<vIBSUF>${ib.vUf}</vIBSUF></gIBSUF>` +
+    `<gIBSMun><pIBSMun>0.00</pIBSMun><vIBSMun>0.00</vIBSMun></gIBSMun><vIBS>${ib.vUf}</vIBS>` +
+    `<gCBS><pCBS>${ib.pCbs}</pCBS>${red(ib.red, ib.efCbs)}<vCBS>${ib.vCbs}</vCBS></gCBS></gIBSCBS></IBSCBS></imposto></det>`;
+}
+function carregarExemplo(){
+  const nfe = '<?xml version="1.0" encoding="UTF-8"?><nfeProc><NFe><infNFe><ide><nNF>9001</nNF></ide>' +
+    xmlItem(1, {cod:'EX-01', desc:'Produto exemplo tributação normal', ncm:'84713012', q:'2.0000', vu:'500.00'},
+      {cst:'000', cClass:'000001', bc:'1000.00', pUf:'0.10', vUf:'1.00', pCbs:'0.90', vCbs:'9.00'}) +
+    xmlItem(2, {cod:'EX-02', desc:'Produto exemplo com redução de 60%', ncm:'30049099', q:'10.0000', vu:'50.00'},
+      {cst:'200', cClass:'200001', bc:'500.00', pUf:'0.10', red:'60.00', efUf:'0.04', vUf:'0.20', pCbs:'0.90', efCbs:'0.36', vCbs:'1.80'}) +
+    xmlItem(3, {cod:'EX-03', desc:'Produto exemplo com CBS divergente', ncm:'94036000', q:'1.0000', vu:'2000.00'},
+      {cst:'000', bc:'2000.00', pUf:'0.10', vUf:'2.00', pCbs:'0.90', vCbs:'20.00'}) +
+    '</infNFe></NFe></nfeProc>';
+  const nfse = '<?xml version="1.0" encoding="UTF-8"?><NFSe><infNFSe><nNFSe>3021</nNFSe><DPS><infDPS><serv><cServ>' +
+    '<xDescServ>Serviço exemplo de consultoria</xDescServ></cServ></serv><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>' +
+    '<gIBSCBS><vBC>3000.00</vBC><gIBSUF><pIBSUF>0.10</pIBSUF><vIBSUF>3.00</vIBSUF></gIBSUF><gIBSMun><pIBSMun>0.00</pIBSMun>' +
+    '<vIBSMun>0.00</vIBSMun></gIBSMun><vIBS>3.00</vIBS><gCBS><pCBS>0.90</pCBS><vCBS>27.00</vCBS></gCBS></gIBSCBS></IBSCBS>' +
+    '</infDPS></DPS></infNFSe></NFSe>';
+  processarTexto('exemplo_nfe_ficticia.xml', nfe);
+  processarTexto('exemplo_nfse_ficticia.xml', nfse);
+}
+
 function logFile(name, status){
   const wrap = document.getElementById('filelist');
   const div = document.createElement('div');
@@ -736,6 +786,7 @@ window.addEventListener('resize', updateStickyScrollbar);
 
 // ---------------- Manual product entry ----------------
 const manualForm = document.getElementById('manualForm');
+document.getElementById('btnExemplo').addEventListener('click', carregarExemplo);
 document.getElementById('btnToggleManual').addEventListener('click', ()=>{
   manualForm.style.display = manualForm.style.display==='none' ? 'block' : 'none';
   if(manualForm.style.display==='block') document.getElementById('m_desc').focus();
