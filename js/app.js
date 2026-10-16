@@ -2686,6 +2686,35 @@
     }, 150);
   });
 
+  // ---------- janelas (modais): botão X, Esc e clique fora fecham ----------
+  // Fechar usa o botão Cancelar/Fechar da própria janela, para limpar o que ela limpa.
+  // Janela marcada com data-fechar-so-botao (ex.: senha provisória) só fecha pelo botão: não se perde por engano.
+  function fecharModal(m){
+    var c = m.querySelector(".modal-actions .btn-ghost");
+    if (c) c.click(); else m.style.display = "none";
+  }
+  function modalAberto(){
+    return Array.prototype.filter.call(document.querySelectorAll(".modal"), function(m){ return m.style.display && m.style.display !== "none"; }).pop() || null;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".modal"), function(m){
+    var card = m.querySelector(".modal-card");
+    if (!card || card.querySelector(".modal-x")) return;
+    var x = document.createElement("button");
+    x.type = "button"; x.className = "modal-x"; x.setAttribute("aria-label", "Fechar"); x.title = "Fechar (Esc)";
+    x.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    x.addEventListener("click", function(){ fecharModal(m); });
+    card.insertBefore(x, card.firstChild);
+    m.addEventListener("mousedown", function(ev){ m._fora = ev.target === m; });
+    m.addEventListener("click", function(ev){
+      if (ev.target === m && m._fora && !m.hasAttribute("data-fechar-so-botao")) fecharModal(m);
+    });
+  });
+  document.addEventListener("keydown", function(ev){
+    if (ev.key !== "Escape") return;
+    var m = modalAberto();
+    if (m && !m.hasAttribute("data-fechar-so-botao")) { ev.preventDefault(); fecharModal(m); }
+  });
+
   // ---------- suporte (botão flutuante, js/suporte.js) ----------
   function versaoDoSistema(){
     var s = document.querySelector('script[src*="js/app.js"]');

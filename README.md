@@ -337,6 +337,12 @@ apaga tudo. Para uso compartilhado entre contadores será preciso um servidor.
 | `modulos/` | Os módulos, cada um na sua pasta. |
 | `tests/` | Testes automatizados e um extrato Sicoob fictício. |
 
+## Fluxo do Git
+
+`main` é produção (publica sozinha), `develop` é homologação, e cada mudança vem numa
+branch `feat/...` por Pull Request. Os testes rodam sozinhos em cada PR
+(`.github/workflows/testes.yml`). Passo a passo em [`docs/GIT.md`](docs/GIT.md).
+
 ## Testes
 
 Requer Node.js 18 ou mais novo, sem dependências:

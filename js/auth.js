@@ -28,7 +28,7 @@
 
   /** Áreas do sistema que um usuário pode acessar (o admin acessa todas). */
   var AREAS = [
-    { id: "integracao", nome: "Integração contábil", detalhe: "Master, bancos, unidades, movimentos e cadastros" },
+    { id: "integracao", nome: "Integração contábil", detalhe: "Bancos, unidades, movimentos, cadastros e TXTs do Único" },
     { id: "conciliacao", nome: "Conciliação", detalhe: "Extrato × sistema e extrato × planilha" },
     { id: "mod-icms", nome: "Apuração de ICMS", detalhe: "" },
     { id: "mod-ibs-cbs", nome: "Auditor IBS/CBS", detalhe: "" },

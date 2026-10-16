@@ -1,0 +1,25 @@
+# Roda os testes automáticos em todo Pull Request e em todo push na main e na develop.
+# Se algum teste falhar, o GitHub mostra um X vermelho no PR antes do merge.
+name: Testes
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # bibliotecas de planilha usadas só nos testes do Controle de horas (no site elas vêm do CDN)
+      - name: Bibliotecas dos testes
+        run: npm install --no-save --no-package-lock exceljs@4.4.0 xlsx@0.18.5
+
+      - name: Testes
+        run: npm test

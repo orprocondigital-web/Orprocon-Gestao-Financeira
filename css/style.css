@@ -885,3 +885,21 @@ button.capa-mini:focus-visible { outline: none; box-shadow: var(--focus); }
   .capa-hero h2 { font-size: 21px; }
   .capa-grade { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---------- janelas (modais): cabem na tela, botões sempre visíveis, X para fechar ---------- */
+.modal { overflow-y: auto; }
+.modal-card { position: relative; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; }
+.modal-card > h3 { padding-right: 40px; }
+.modal-x { position: absolute; top: 14px; right: 14px; z-index: 2; width: 34px; height: 34px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.modal-x:hover { background: var(--surface-2); color: var(--ink); }
+.modal-x:focus-visible { outline: none; box-shadow: var(--focus); }
+.modal-x .ico { width: 18px; height: 18px; }
+/* a linha de botões fica presa embaixo quando a janela rola */
+.modal-card > .modal-actions { position: sticky; bottom: -22px; z-index: 1; background: var(--surface);
+  margin: 2px -22px -22px; padding: 12px 22px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+/* novo usuário: mais largo e com as áreas em duas colunas, para caber sem rolar */
+.modal-usuario-card { width: 680px; }
+.modal-usuario-card .areas-field { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.modal-usuario-card .areas-field > legend { grid-column: 1 / -1; }
+@media (max-width: 640px) { .modal-usuario-card .areas-field { grid-template-columns: minmax(0, 1fr); } }
